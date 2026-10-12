@@ -32,7 +32,6 @@ const RARITY_COLORS = {
 
 /* ===== 108 AURAS ===== */
 const AURAS = [
-    // COMMON (15)
     {
         id: "a01",
         name: "Cendre",
@@ -139,7 +138,6 @@ const AURAS = [
         desc: "Le vent qui passe.",
     },
 
-    // UNCOMMON (15)
     {
         id: "a16",
         name: "Feuille",
@@ -246,7 +244,6 @@ const AURAS = [
         desc: "Une plume légère.",
     },
 
-    // RARE (15)
     {
         id: "a31",
         name: "Lame",
@@ -353,7 +350,6 @@ const AURAS = [
         desc: "Un morceau de ciel.",
     },
 
-    // EPIC (15)
     {
         id: "a46",
         name: "Nébuleuse",
@@ -460,7 +456,6 @@ const AURAS = [
         desc: "Runes anciennes.",
     },
 
-    // LEGENDARY (15)
     {
         id: "a61",
         name: "Éclipse",
@@ -567,7 +562,6 @@ const AURAS = [
         desc: "Le jardin d'Éden.",
     },
 
-    // MYTHIC (10)
     {
         id: "a76",
         name: "Chronos",
@@ -639,7 +633,6 @@ const AURAS = [
         desc: "Étoile morte.",
     },
 
-    // DIVINE (8)
     {
         id: "a86",
         name: "Création",
@@ -697,7 +690,6 @@ const AURAS = [
         desc: "Élévation ultime.",
     },
 
-    // CELESTIAL (5)
     {
         id: "a94",
         name: "Voie lactée",
@@ -734,7 +726,6 @@ const AURAS = [
         desc: "Phare cosmique.",
     },
 
-    // COSMIC (5)
     {
         id: "a99",
         name: "Big Bang",
@@ -771,7 +762,6 @@ const AURAS = [
         desc: "Une réalité parallèle.",
     },
 
-    // SECRET (5)
     {
         id: "a104",
         name: "Genesis",
@@ -1023,11 +1013,8 @@ const COIN_REWARDS = {
     secret: 50000,
 };
 
-// Raretés qui déclenchent l'animation de révélation
 const REVEAL_RARITIES = ["divine", "celestial", "cosmic", "secret"];
-// Raretés qui secouent l'écran
 const SHAKE_RARITIES = ["secret"];
-// Raretés avec particules
 const PARTICLE_RARITIES = ["cosmic", "secret"];
 
 const AUTOROLL_PRICE_COINS = 1500;
@@ -1036,6 +1023,9 @@ const AUTOROLL_SECRET_UNLOCK_AT = 10;
 const SAVE_KEY = "auraRng_save_v1";
 const SAVE_VERSION = 1;
 const FB_EMAIL_DOMAIN = "@aurarng.local";
+
+// ✅ Dernière aura rollée (mémorisée pour l'affichage)
+let lastRolledAura = null;
 
 /* ---------- 2. ÉTAT + SAUVEGARDE ---------- */
 
@@ -1308,7 +1298,6 @@ function showToast(msg) {
     toastTimer = setTimeout(() => el.classList.add("hidden"), 2200);
 }
 
-// Animation de révélation
 function showReveal(aura) {
     const overlay = $("#reveal-overlay");
     const text = $("#reveal-text");
@@ -1345,7 +1334,6 @@ function showReveal(aura) {
     }
 
     playSound("reveal-" + aura.rarity);
-
     overlay.classList.remove("hidden");
 
     setTimeout(() => {
@@ -1393,7 +1381,9 @@ function spawnParticles(container, count, rarity) {
     }
 }
 
+// ✅ Affiche une aura ET la mémorise
 function displayAura(aura) {
+    lastRolledAura = aura;
     $("#aura-name").textContent = aura.name;
     $("#aura-rarity").textContent = aura.rarity.toUpperCase();
     $("#aura-chance").textContent = formatChance(aura);
@@ -1430,7 +1420,10 @@ function renderUI() {
         : "Aucune";
     $("#stat-username").textContent = state.username || "—";
 
-    if (state.equipped && AURA_BY_ID[state.equipped]) {
+    // ✅ Priorité : dernière aura rollée > aura équipée > écran par défaut
+    if (lastRolledAura) {
+        displayAura(lastRolledAura);
+    } else if (state.equipped && AURA_BY_ID[state.equipped]) {
         displayAura(AURA_BY_ID[state.equipped]);
     } else {
         $("#aura-name").textContent = "Aucune aura";
@@ -1517,9 +1510,11 @@ function equipAura(id) {
     if (state.equipped === id) {
         state.equipped = null;
         showToast("Aura déséquipée");
+        lastRolledAura = null; // ✅ Reset pour revenir à l'écran par défaut
     } else {
         state.equipped = id;
         showToast("Aura équipée : " + AURA_BY_ID[id].name);
+        lastRolledAura = AURA_BY_ID[id]; // ✅ Affiche l'aura équipée
     }
     saveGame();
     renderUI();
@@ -1981,6 +1976,7 @@ function initAuth() {
 
             state = createDefaultState();
             state.uid = user.uid;
+            lastRolledAura = null; // ✅ Reset au login
 
             const username = await resolveUsername(user);
             state.username = username;
@@ -2010,6 +2006,7 @@ function initAuth() {
             localStorage.removeItem(LS_PENDING_PSEUDO);
         } else {
             state = createDefaultState();
+            lastRolledAura = null; // ✅ Reset au logout
             document.getElementById("stat-username").textContent = "—";
             showAuthLoading(false);
             showAuthModal(true);
@@ -2156,7 +2153,6 @@ function renderLeaderboard(type, silent = false) {
     });
 }
 
-// ✅ Init du classement : push toutes les 15s + refresh de l'affichage toutes les 15s
 function initLeaderboard() {
     if (getPlayerName()) pushToLeaderboard();
 
@@ -2215,6 +2211,7 @@ function handleAuraReveal(aura) {
     }
 }
 
+// ✅ Ordre corrigé : renderUI() PUIS displayAura() pour garantir l'affichage
 $("#roll-btn").addEventListener("click", () => {
     if (rollInProgress) return;
     rollInProgress = true;
@@ -2223,11 +2220,11 @@ $("#roll-btn").addEventListener("click", () => {
     const delay = state.settings.reduceAnim ? 0 : 300;
     setTimeout(() => {
         const aura = performRoll();
-        displayAura(aura);
         handleAuraReveal(aura);
         playSound("roll");
         if (REVEAL_RARITIES.includes(aura.rarity)) playSound("rare");
-        renderUI();
+        renderUI(); // Met à jour stats, coins...
+        displayAura(aura); // ✅ RÉ-AFFICHE l'aura APRÈS renderUI
         saveGame();
         rollInProgress = false;
         $("#roll-btn").disabled = false;
@@ -2266,10 +2263,10 @@ function runAutoRollLoop() {
     rollInProgress = true;
 
     const aura = performRoll();
-    displayAura(aura);
     handleAuraReveal(aura);
     playSound("roll");
-    renderUI();
+    renderUI(); // Met à jour stats
+    displayAura(aura); // ✅ RÉ-AFFICHE l'aura APRÈS renderUI
     saveGame();
     rollInProgress = false;
 
@@ -2476,7 +2473,6 @@ document
 });
 document.getElementById("logout-btn").addEventListener("click", handleLogout);
 
-// Ouverture du classement : push immédiat + affichage
 $("#leaderboard-btn").addEventListener("click", () => {
     if (!getPlayerName()) {
         showToast("❌ Connecte-toi pour voir le classement.");
@@ -2550,6 +2546,7 @@ $("#reset-save-btn").addEventListener("click", () => {
     state = createDefaultState();
     state.uid = uid;
     state.username = username;
+    lastRolledAura = null;
     saveGame(true);
     location.reload();
 });
