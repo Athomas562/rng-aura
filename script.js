@@ -30,7 +30,9 @@ const RARITY_COLORS = {
     secret: "#ff00ff",
 };
 
+/* ===== 105 AURAS ===== */
 const AURAS = [
+    // ===== COMMON (15) =====
     {
         id: "a01",
         name: "Cendre",
@@ -42,365 +44,768 @@ const AURAS = [
         id: "a02",
         name: "Brise",
         rarity: "common",
-        weight: 9000,
+        weight: 9500,
         desc: "Un souffle léger.",
     },
     {
         id: "a03",
         name: "Rosée",
         rarity: "common",
-        weight: 8500,
+        weight: 9000,
         desc: "Une goutte matinale.",
     },
     {
         id: "a04",
         name: "Sable",
         rarity: "common",
-        weight: 8000,
+        weight: 8800,
         desc: "Grains emportés par le vent.",
     },
     {
         id: "a05",
         name: "Éclat terne",
         rarity: "common",
-        weight: 7500,
+        weight: 8600,
         desc: "Une lueur sans éclat.",
     },
     {
         id: "a06",
-        name: "Feuille",
-        rarity: "uncommon",
-        weight: 2000,
-        desc: "Une feuille animée.",
+        name: "Brumé",
+        rarity: "common",
+        weight: 8400,
+        desc: "Brume épaisse.",
     },
     {
         id: "a07",
-        name: "Ondine",
-        rarity: "uncommon",
-        weight: 1800,
-        desc: "Une onde douce.",
+        name: "Goutte",
+        rarity: "common",
+        weight: 8200,
+        desc: "Une simple goutte d'eau.",
     },
     {
         id: "a08",
-        name: "Braise",
-        rarity: "uncommon",
-        weight: 1500,
-        desc: "Une petite flamme.",
+        name: "Poussière",
+        rarity: "common",
+        weight: 8000,
+        desc: "Poussière dorée.",
     },
     {
         id: "a09",
-        name: "Cristal",
-        rarity: "uncommon",
-        weight: 1300,
-        desc: "Un cristal pur.",
+        name: "Écho lointain",
+        rarity: "common",
+        weight: 7800,
+        desc: "Un son à peine perceptible.",
     },
     {
         id: "a10",
-        name: "Zéphyr",
-        rarity: "uncommon",
-        weight: 1100,
-        desc: "Vent rapide et léger.",
+        name: "Brindille",
+        rarity: "common",
+        weight: 7600,
+        desc: "Un bout de bois sec.",
     },
     {
         id: "a11",
-        name: "Lame",
-        rarity: "rare",
-        weight: 400,
-        desc: "Une lame tranchante.",
+        name: "Silence",
+        rarity: "common",
+        weight: 7400,
+        desc: "Le calme absolu.",
     },
     {
         id: "a12",
-        name: "Prisme",
-        rarity: "rare",
-        weight: 350,
-        desc: "Un prisme de lumière.",
+        name: "Souffle",
+        rarity: "common",
+        weight: 7200,
+        desc: "Un souffle doux.",
     },
     {
         id: "a13",
-        name: "Écho",
-        rarity: "rare",
-        weight: 300,
-        desc: "Un écho profond.",
+        name: "Nuage",
+        rarity: "common",
+        weight: 7000,
+        desc: "Un nuage léger.",
     },
     {
         id: "a14",
-        name: "Givre",
-        rarity: "rare",
-        weight: 250,
-        desc: "Glace éternelle.",
+        name: "Étincelle",
+        rarity: "common",
+        weight: 6800,
+        desc: "Une petite étincelle.",
     },
     {
         id: "a15",
-        name: "Foudre",
-        rarity: "rare",
-        weight: 200,
-        desc: "Un éclair fulgurant.",
+        name: "Vent",
+        rarity: "common",
+        weight: 6600,
+        desc: "Le vent qui passe.",
     },
+
+    // ===== UNCOMMON (15) =====
     {
         id: "a16",
-        name: "Nébuleuse",
-        rarity: "epic",
-        weight: 80,
-        desc: "Une nébuleuse colorée.",
+        name: "Feuille",
+        rarity: "uncommon",
+        weight: 3000,
+        desc: "Une feuille animée.",
     },
     {
         id: "a17",
-        name: "Phénix",
-        rarity: "epic",
-        weight: 60,
-        desc: "Renaît de ses cendres.",
+        name: "Ondine",
+        rarity: "uncommon",
+        weight: 2900,
+        desc: "Une onde douce.",
     },
     {
         id: "a18",
-        name: "Abysse",
-        rarity: "epic",
-        weight: 50,
-        desc: "Les profondeurs obscures.",
+        name: "Braise",
+        rarity: "uncommon",
+        weight: 2800,
+        desc: "Une petite flamme.",
     },
     {
         id: "a19",
-        name: "Tempête",
-        rarity: "epic",
-        weight: 40,
-        desc: "Une tempête déchaînée.",
+        name: "Cristal",
+        rarity: "uncommon",
+        weight: 2700,
+        desc: "Un cristal pur.",
     },
     {
         id: "a20",
-        name: "Séraphin",
-        rarity: "epic",
-        weight: 30,
-        desc: "Une aura céleste.",
+        name: "Zéphyr",
+        rarity: "uncommon",
+        weight: 2600,
+        desc: "Vent rapide et léger.",
     },
     {
         id: "a21",
-        name: "Éclipse",
-        rarity: "legendary",
-        weight: 15,
-        desc: "Soleil noir.",
+        name: "Épine",
+        rarity: "uncommon",
+        weight: 2500,
+        desc: "Rose acérée.",
     },
     {
         id: "a22",
-        name: "Draconique",
-        rarity: "legendary",
-        weight: 12,
-        desc: "Souffle du dragon.",
+        name: "Champignon",
+        rarity: "uncommon",
+        weight: 2400,
+        desc: "Un champignon lumineux.",
     },
     {
         id: "a23",
-        name: "Vortex",
-        rarity: "legendary",
-        weight: 10,
-        desc: "Tourbillon cosmique.",
+        name: "Lierre",
+        rarity: "uncommon",
+        weight: 2300,
+        desc: "Une plante grimpante.",
     },
     {
         id: "a24",
-        name: "Aurore",
-        rarity: "legendary",
-        weight: 8,
-        desc: "Lueur polaire.",
+        name: "Ambre",
+        rarity: "uncommon",
+        weight: 2200,
+        desc: "Résine dorée.",
     },
     {
         id: "a25",
-        name: "Ragnarök",
-        rarity: "legendary",
-        weight: 6,
-        desc: "Fin des mondes.",
+        name: "Soleil",
+        rarity: "uncommon",
+        weight: 2100,
+        desc: "Une lumière chaude.",
     },
     {
         id: "a26",
-        name: "Chronos",
-        rarity: "mythic",
-        weight: 3,
-        desc: "Maître du temps.",
+        name: "Pluie",
+        rarity: "uncommon",
+        weight: 2000,
+        desc: "Gouttes qui tombent.",
     },
     {
         id: "a27",
-        name: "Hadès",
-        rarity: "mythic",
-        weight: 2,
-        desc: "Roi des enfers.",
+        name: "Neige",
+        rarity: "uncommon",
+        weight: 1900,
+        desc: "Flocons légers.",
     },
     {
         id: "a28",
-        name: "Nyx",
-        rarity: "mythic",
-        weight: 2,
-        desc: "Déesse de la nuit.",
+        name: "Roseau",
+        rarity: "uncommon",
+        weight: 1800,
+        desc: "Au bord de l'eau.",
     },
     {
         id: "a29",
-        name: "Anubis",
-        rarity: "mythic",
-        weight: 2,
-        desc: "Gardien des âmes.",
+        name: "Coquillage",
+        rarity: "uncommon",
+        weight: 1700,
+        desc: "Un souvenir marin.",
     },
     {
         id: "a30",
+        name: "Plume",
+        rarity: "uncommon",
+        weight: 1600,
+        desc: "Une plume légère.",
+    },
+
+    // ===== RARE (15) =====
+    {
+        id: "a31",
+        name: "Lame",
+        rarity: "rare",
+        weight: 700,
+        desc: "Une lame tranchante.",
+    },
+    {
+        id: "a32",
+        name: "Prisme",
+        rarity: "rare",
+        weight: 650,
+        desc: "Un prisme de lumière.",
+    },
+    {
+        id: "a33",
+        name: "Écho",
+        rarity: "rare",
+        weight: 620,
+        desc: "Un écho profond.",
+    },
+    {
+        id: "a34",
+        name: "Givre",
+        rarity: "rare",
+        weight: 600,
+        desc: "Glace éternelle.",
+    },
+    {
+        id: "a35",
+        name: "Foudre",
+        rarity: "rare",
+        weight: 580,
+        desc: "Un éclair fulgurant.",
+    },
+    {
+        id: "a36",
+        name: "Mirage",
+        rarity: "rare",
+        weight: 550,
+        desc: "Illusion du désert.",
+    },
+    {
+        id: "a37",
+        name: "Cristallin",
+        rarity: "rare",
+        weight: 530,
+        desc: "Une aura cristalline.",
+    },
+    {
+        id: "a38",
+        name: "Automne",
+        rarity: "rare",
+        weight: 510,
+        desc: "L'esprit de l'automne.",
+    },
+    {
+        id: "a39",
+        name: "Mousson",
+        rarity: "rare",
+        weight: 490,
+        desc: "La pluie tropicale.",
+    },
+    {
+        id: "a40",
+        name: "Marée",
+        rarity: "rare",
+        weight: 470,
+        desc: "Le mouvement des vagues.",
+    },
+    {
+        id: "a41",
+        name: "Éclat lunaire",
+        rarity: "rare",
+        weight: 450,
+        desc: "Lumière de la lune.",
+    },
+    {
+        id: "a42",
+        name: "Verdure",
+        rarity: "rare",
+        weight: 430,
+        desc: "La puissance du végétal.",
+    },
+    {
+        id: "a43",
+        name: "Brumelame",
+        rarity: "rare",
+        weight: 410,
+        desc: "Lame de brouillard.",
+    },
+    {
+        id: "a44",
+        name: "Vent glacial",
+        rarity: "rare",
+        weight: 390,
+        desc: "Un souffle polaire.",
+    },
+    {
+        id: "a45",
+        name: "Éclat d'étoile",
+        rarity: "rare",
+        weight: 370,
+        desc: "Un morceau de ciel.",
+    },
+
+    // ===== EPIC (15) =====
+    {
+        id: "a46",
+        name: "Nébuleuse",
+        rarity: "epic",
+        weight: 150,
+        desc: "Une nébuleuse colorée.",
+    },
+    {
+        id: "a47",
+        name: "Phénix",
+        rarity: "epic",
+        weight: 140,
+        desc: "Renaît de ses cendres.",
+    },
+    {
+        id: "a48",
+        name: "Abysse",
+        rarity: "epic",
+        weight: 130,
+        desc: "Les profondeurs obscures.",
+    },
+    {
+        id: "a49",
+        name: "Tempête",
+        rarity: "epic",
+        weight: 125,
+        desc: "Une tempête déchaînée.",
+    },
+    {
+        id: "a50",
+        name: "Séraphin",
+        rarity: "epic",
+        weight: 120,
+        desc: "Une aura céleste.",
+    },
+    {
+        id: "a51",
+        name: "Oracle",
+        rarity: "epic",
+        weight: 115,
+        desc: "Voit l'avenir.",
+    },
+    {
+        id: "a52",
+        name: "Vampirique",
+        rarity: "epic",
+        weight: 110,
+        desc: "Soif de sang.",
+    },
+    {
+        id: "a53",
+        name: "Glaciaire",
+        rarity: "epic",
+        weight: 105,
+        desc: "Froid absolu.",
+    },
+    {
+        id: "a54",
+        name: "Sismique",
+        rarity: "epic",
+        weight: 100,
+        desc: "Tremblement de terre.",
+    },
+    {
+        id: "a55",
+        name: "Volcanique",
+        rarity: "epic",
+        weight: 95,
+        desc: "Lave en fusion.",
+    },
+    {
+        id: "a56",
+        name: "Miroir",
+        rarity: "epic",
+        weight: 90,
+        desc: "Reflète l'âme.",
+    },
+    {
+        id: "a57",
+        name: "Spectre",
+        rarity: "epic",
+        weight: 85,
+        desc: "Un esprit errant.",
+    },
+    {
+        id: "a58",
+        name: "Nécro",
+        rarity: "epic",
+        weight: 80,
+        desc: "Maître des morts.",
+    },
+    {
+        id: "a59",
+        name: "Lumière noire",
+        rarity: "epic",
+        weight: 75,
+        desc: "Obscurité lumineuse.",
+    },
+    {
+        id: "a60",
+        name: "Runique",
+        rarity: "epic",
+        weight: 70,
+        desc: "Runes anciennes.",
+    },
+
+    // ===== LEGENDARY (15) =====
+    {
+        id: "a61",
+        name: "Éclipse",
+        rarity: "legendary",
+        weight: 40,
+        desc: "Soleil noir.",
+    },
+    {
+        id: "a62",
+        name: "Draconique",
+        rarity: "legendary",
+        weight: 38,
+        desc: "Souffle du dragon.",
+    },
+    {
+        id: "a63",
+        name: "Vortex",
+        rarity: "legendary",
+        weight: 36,
+        desc: "Tourbillon cosmique.",
+    },
+    {
+        id: "a64",
+        name: "Aurore",
+        rarity: "legendary",
+        weight: 34,
+        desc: "Lueur polaire.",
+    },
+    {
+        id: "a65",
+        name: "Ragnarök",
+        rarity: "legendary",
+        weight: 32,
+        desc: "Fin des mondes.",
+    },
+    {
+        id: "a66",
+        name: "Titan",
+        rarity: "legendary",
+        weight: 30,
+        desc: "Force colossale.",
+    },
+    {
+        id: "a67",
+        name: "Féérique",
+        rarity: "legendary",
+        weight: 28,
+        desc: "Magie des fées.",
+    },
+    {
+        id: "a68",
+        name: "Amazone",
+        rarity: "legendary",
+        weight: 26,
+        desc: "Guerrière légendaire.",
+    },
+    {
+        id: "a69",
+        name: "Griffon",
+        rarity: "legendary",
+        weight: 24,
+        desc: "Créature mythique.",
+    },
+    {
+        id: "a70",
+        name: "Liche",
+        rarity: "legendary",
+        weight: 22,
+        desc: "Mort-vivant puissant.",
+    },
+    {
+        id: "a71",
+        name: "Sacré",
+        rarity: "legendary",
+        weight: 20,
+        desc: "Bénédiction divine.",
+    },
+    {
+        id: "a72",
+        name: "Maudit",
+        rarity: "legendary",
+        weight: 18,
+        desc: "Malédiction ancienne.",
+    },
+    {
+        id: "a73",
+        name: "Céleste",
+        rarity: "legendary",
+        weight: 16,
+        desc: "Au-dessus des cieux.",
+    },
+    {
+        id: "a74",
+        name: "Enfer",
+        rarity: "legendary",
+        weight: 14,
+        desc: "Feux de l'enfer.",
+    },
+    {
+        id: "a75",
+        name: "Paradis",
+        rarity: "legendary",
+        weight: 12,
+        desc: "Le jardin d'Éden.",
+    },
+
+    // ===== MYTHIC (10) =====
+    {
+        id: "a76",
+        name: "Chronos",
+        rarity: "mythic",
+        weight: 8,
+        desc: "Maître du temps.",
+    },
+    {
+        id: "a77",
+        name: "Hadès",
+        rarity: "mythic",
+        weight: 7,
+        desc: "Roi des enfers.",
+    },
+    {
+        id: "a78",
+        name: "Nyx",
+        rarity: "mythic",
+        weight: 6,
+        desc: "Déesse de la nuit.",
+    },
+    {
+        id: "a79",
+        name: "Anubis",
+        rarity: "mythic",
+        weight: 5,
+        desc: "Gardien des âmes.",
+    },
+    {
+        id: "a80",
         name: "Léviathan",
         rarity: "mythic",
-        weight: 1,
+        weight: 4,
         desc: "Monstre des abysses.",
     },
     {
-        id: "a31",
+        id: "a81",
+        name: "Odin",
+        rarity: "mythic",
+        weight: 3.5,
+        desc: "Père de tout.",
+    },
+    {
+        id: "a82",
+        name: "Zeus",
+        rarity: "mythic",
+        weight: 3,
+        desc: "Roi de l'Olympe.",
+    },
+    {
+        id: "a83",
+        name: "Loki",
+        rarity: "mythic",
+        weight: 2.5,
+        desc: "Dieu de la ruse.",
+    },
+    {
+        id: "a84",
+        name: "Athéna",
+        rarity: "mythic",
+        weight: 2,
+        desc: "Déesse de la sagesse.",
+    },
+    {
+        id: "a85",
+        name: "Soleil noir",
+        rarity: "mythic",
+        weight: 1.5,
+        desc: "Étoile morte.",
+    },
+
+    // ===== DIVINE (8) =====
+    {
+        id: "a86",
         name: "Création",
         rarity: "divine",
         weight: 1,
         desc: "L'origine du tout.",
     },
     {
-        id: "a32",
+        id: "a87",
         name: "Lumière pure",
         rarity: "divine",
-        weight: 1,
+        weight: 0.9,
         desc: "Lumière absolue.",
     },
     {
-        id: "a33",
+        id: "a88",
         name: "Éternité",
         rarity: "divine",
-        weight: 1,
+        weight: 0.8,
         desc: "Sans fin.",
     },
     {
-        id: "a34",
+        id: "a89",
         name: "Omniscience",
         rarity: "divine",
-        weight: 1,
+        weight: 0.7,
         desc: "Savoir absolu.",
     },
     {
-        id: "a35",
-        name: "Voie lactée",
-        rarity: "celestial",
-        weight: 1,
-        desc: "La galaxie entière.",
-    },
-    {
-        id: "a36",
-        name: "Andromède",
-        rarity: "celestial",
-        weight: 1,
-        desc: "Galaxie lointaine.",
-    },
-    {
-        id: "a37",
-        name: "Quasar",
-        rarity: "celestial",
-        weight: 1,
-        desc: "Cœur énergétique.",
-    },
-    {
-        id: "a38",
-        name: "Big Bang",
-        rarity: "cosmic",
-        weight: 1,
-        desc: "Naissance de l'univers.",
-    },
-    {
-        id: "a39",
-        name: "Singularité",
-        rarity: "cosmic",
-        weight: 1,
-        desc: "Trou noir originel.",
-    },
-    {
-        id: "a40",
-        name: "Multivers",
-        rarity: "cosmic",
-        weight: 1,
-        desc: "Toutes les réalités.",
-    },
-    {
-        id: "a41",
-        name: "Genesis",
-        rarity: "secret",
-        weight: 1,
-        desc: "La première étincelle.",
-    },
-    {
-        id: "a42",
-        name: "Oméga",
-        rarity: "secret",
-        weight: 1,
-        desc: "La fin de tout.",
-    },
-    {
-        id: "a43",
-        name: "Rêve",
-        rarity: "secret",
-        weight: 1,
-        desc: "Illusion parfaite.",
-    },
-    {
-        id: "a44",
-        name: "Néant",
-        rarity: "secret",
-        weight: 1,
-        desc: "Le vide absolu.",
-    },
-    {
-        id: "a45",
-        name: "Aura ultime",
-        rarity: "secret",
-        weight: 1,
-        desc: "L'aura des légendes.",
-    },
-    {
-        id: "a46",
-        name: "Brumé",
-        rarity: "common",
-        weight: 7000,
-        desc: "Brume épaisse.",
-    },
-    {
-        id: "a47",
-        name: "Épine",
-        rarity: "uncommon",
-        weight: 1400,
-        desc: "Rose acérée.",
-    },
-    {
-        id: "a48",
-        name: "Mirage",
-        rarity: "rare",
-        weight: 220,
-        desc: "Illusion du désert.",
-    },
-    {
-        id: "a49",
-        name: "Oracle",
-        rarity: "epic",
-        weight: 35,
-        desc: "Voit l'avenir.",
-    },
-    {
-        id: "a50",
-        name: "Titan",
-        rarity: "legendary",
-        weight: 7,
-        desc: "Force colossale.",
-    },
-    {
-        id: "a51",
-        name: "Soleil noir",
-        rarity: "mythic",
-        weight: 2,
-        desc: "Étoile morte.",
-    },
-    {
-        id: "a52",
+        id: "a90",
         name: "Infini",
         rarity: "divine",
-        weight: 1,
+        weight: 0.6,
         desc: "Concept absolu.",
     },
     {
-        id: "a53",
+        id: "a91",
+        name: "Genèse",
+        rarity: "divine",
+        weight: 0.5,
+        desc: "Le commencement.",
+    },
+    {
+        id: "a92",
+        name: "Apocalypse",
+        rarity: "divine",
+        weight: 0.4,
+        desc: "La fin des temps.",
+    },
+    {
+        id: "a93",
+        name: "Ascension",
+        rarity: "divine",
+        weight: 0.3,
+        desc: "Élévation ultime.",
+    },
+
+    // ===== CELESTIAL (5) =====
+    {
+        id: "a94",
+        name: "Voie lactée",
+        rarity: "celestial",
+        weight: 0.2,
+        desc: "La galaxie entière.",
+    },
+    {
+        id: "a95",
+        name: "Andromède",
+        rarity: "celestial",
+        weight: 0.18,
+        desc: "Galaxie lointaine.",
+    },
+    {
+        id: "a96",
+        name: "Quasar",
+        rarity: "celestial",
+        weight: 0.15,
+        desc: "Cœur énergétique.",
+    },
+    {
+        id: "a97",
+        name: "Nova",
+        rarity: "celestial",
+        weight: 0.12,
+        desc: "Étoile nouvelle.",
+    },
+    {
+        id: "a98",
+        name: "Pulsar",
+        rarity: "celestial",
+        weight: 0.1,
+        desc: "Phare cosmique.",
+    },
+
+    // ===== COSMIC (5) =====
+    {
+        id: "a99",
+        name: "Big Bang",
+        rarity: "cosmic",
+        weight: 0.08,
+        desc: "Naissance de l'univers.",
+    },
+    {
+        id: "a100",
+        name: "Singularité",
+        rarity: "cosmic",
+        weight: 0.06,
+        desc: "Trou noir originel.",
+    },
+    {
+        id: "a101",
+        name: "Multivers",
+        rarity: "cosmic",
+        weight: 0.05,
+        desc: "Toutes les réalités.",
+    },
+    {
+        id: "a102",
         name: "Supernova",
         rarity: "cosmic",
-        weight: 1,
+        weight: 0.04,
         desc: "Explosion stellaire.",
+    },
+    {
+        id: "a103",
+        name: "Dimension X",
+        rarity: "cosmic",
+        weight: 0.03,
+        desc: "Une réalité parallèle.",
+    },
+
+    // ===== SECRET (5) =====
+    {
+        id: "a104",
+        name: "Genesis",
+        rarity: "secret",
+        weight: 0.02,
+        desc: "La première étincelle.",
+    },
+    {
+        id: "a105",
+        name: "Oméga",
+        rarity: "secret",
+        weight: 0.015,
+        desc: "La fin de tout.",
+    },
+    {
+        id: "a106",
+        name: "Rêve",
+        rarity: "secret",
+        weight: 0.01,
+        desc: "Illusion parfaite.",
+    },
+    {
+        id: "a107",
+        name: "Néant",
+        rarity: "secret",
+        weight: 0.008,
+        desc: "Le vide absolu.",
+    },
+    {
+        id: "a108",
+        name: "Aura ultime",
+        rarity: "secret",
+        weight: 0.005,
+        desc: "L'aura des légendes.",
     },
 ];
 
@@ -618,7 +1023,13 @@ const COIN_REWARDS = {
     secret: 50000,
 };
 
-const RARE_REVEAL_THRESHOLD = ["divine", "celestial", "cosmic", "secret"];
+// ✅ Raretés qui déclenchent une animation de révélation
+const REVEAL_RARITIES = ["divine", "celestial", "cosmic", "secret"];
+// ✅ Raretés qui secouent l'écran
+const SHAKE_RARITIES = ["secret"];
+// ✅ Raretés avec particules
+const PARTICLE_RARITIES = ["cosmic", "secret"];
+
 const AUTOROLL_PRICE_COINS = 1500;
 const AUTOROLL_SECRET_UNLOCK_AT = 10;
 
@@ -631,7 +1042,7 @@ const FB_EMAIL_DOMAIN = "@aurarng.local";
 function createDefaultState() {
     return {
         version: SAVE_VERSION,
-        _uid: null, // ← propriétaire de la save (anti-contamination)
+        _uid: null,
         coins: 0,
         totalRolls: 0,
         rollsSinceRare: 0,
@@ -666,20 +1077,13 @@ function getSaveKey() {
     return state.uid ? `auraRng_save_v1_${state.uid}` : SAVE_KEY;
 }
 
-// Charge la save locale, mais refuse celle d'un autre compte
 function loadGame() {
     try {
         const raw = localStorage.getItem(getSaveKey());
         if (!raw) return;
         const parsed = JSON.parse(raw);
         if (!parsed || parsed.version !== SAVE_VERSION) return;
-
-        // ✅ Anti-contamination : si la save appartient à un autre uid, on ignore
-        if (parsed._uid && parsed._uid !== state.uid) {
-            console.warn("Save locale ignorée (uid différent)");
-            return;
-        }
-
+        if (parsed._uid && parsed._uid !== state.uid) return;
         const currentUid = state.uid;
         const currentUsername = state.username;
         state = Object.assign(createDefaultState(), parsed);
@@ -700,16 +1104,9 @@ async function loadGameFromCloud() {
         const { db, ref, get } = window.FB;
         const snap = await get(ref(db, "saves/" + state.uid));
         if (!snap.exists()) return false;
-
         const parsed = snap.val();
         if (!parsed || parsed.version !== SAVE_VERSION) return false;
-
-        // ✅ Anti-contamination : la save cloud doit nous appartenir
-        if (parsed._uid && parsed._uid !== state.uid) {
-            console.warn("Save cloud ignorée (uid différent)");
-            return false;
-        }
-
+        if (parsed._uid && parsed._uid !== state.uid) return false;
         const currentUid = state.uid;
         const currentUsername = state.username;
         state = Object.assign(createDefaultState(), parsed);
@@ -731,9 +1128,7 @@ let fbSaveTimer = null;
 let fbSavePending = false;
 
 function saveGame(skipCloud = false) {
-    // Stampe le propriétaire avant de sérialiser
     state._uid = state.uid;
-
     try {
         localStorage.setItem(getSaveKey(), JSON.stringify(state));
     } catch (e) {
@@ -742,7 +1137,6 @@ function saveGame(skipCloud = false) {
 
     if (skipCloud) return;
     if (!state.uid || !window.FB) return;
-
     fbSavePending = true;
     clearTimeout(fbSaveTimer);
     fbSaveTimer = setTimeout(pushSaveToCloud, 3000);
@@ -752,12 +1146,10 @@ function pushSaveToCloud() {
     if (!state.uid || !window.FB) return;
     fbSavePending = false;
     const { db, ref, set } = window.FB;
-
     state._uid = state.uid;
     const payload = { ...state };
     delete payload.uid;
     delete payload.username;
-
     set(ref(db, "saves/" + state.uid), payload)
         .then(() => console.log("☁️ Save cloud OK"))
         .catch((e) => console.warn("Erreur save cloud :", e));
@@ -917,13 +1309,99 @@ function showToast(msg) {
     toastTimer = setTimeout(() => el.classList.add("hidden"), 2200);
 }
 
+/* ✅ NOUVELLE fonction showReveal avec animation spectaculaire */
 function showReveal(aura) {
     const overlay = $("#reveal-overlay");
+    const content = $("#reveal-content");
     const text = $("#reveal-text");
+    const rarityTag = $("#reveal-rarity-tag");
+    const chanceEl = $("#reveal-chance");
+    const particlesBox = $("#reveal-particles");
+
+    // Reset
+    overlay.className = "";
+    particlesBox.innerHTML = "";
+    document.body.classList.remove("screen-shake");
+
+    // Set contenu
     text.textContent = aura.name;
-    text.style.color = RARITY_COLORS[aura.rarity];
+    rarityTag.textContent = aura.rarity;
+    rarityTag.style.color = RARITY_COLORS[aura.rarity];
+    chanceEl.textContent = formatChance(aura);
+    chanceEl.style.color = RARITY_COLORS[aura.rarity];
+
+    // Ajoute la classe de rareté
+    overlay.classList.add("rarity-" + aura.rarity);
+
+    // Durée selon rareté
+    let duration = 2500;
+    if (aura.rarity === "secret") duration = 4500;
+    else if (aura.rarity === "cosmic") duration = 3800;
+    else if (aura.rarity === "celestial") duration = 3500;
+    else if (aura.rarity === "divine") duration = 3200;
+
+    // Screen shake pour secret
+    if (SHAKE_RARITIES.includes(aura.rarity)) {
+        document.body.classList.add("screen-shake");
+        setTimeout(() => document.body.classList.remove("screen-shake"), 600);
+    }
+
+    // Particules pour cosmic + secret
+    if (PARTICLE_RARITIES.includes(aura.rarity)) {
+        const count = aura.rarity === "secret" ? 60 : 35;
+        spawnParticles(particlesBox, count, aura.rarity);
+    }
+
+    // Sons spéciaux
+    playSound("reveal-" + aura.rarity);
+
+    // Affiche
     overlay.classList.remove("hidden");
-    setTimeout(() => overlay.classList.add("hidden"), 2500);
+
+    // Cache après la durée
+    setTimeout(() => {
+        overlay.classList.add("hidden");
+        overlay.className = "hidden";
+    }, duration);
+}
+
+function spawnParticles(container, count, rarity) {
+    const colors = {
+        cosmic: ["#c084fc", "#67e8f9", "#a855f7", "#818cf8"],
+        secret: [
+            "#ff0000",
+            "#ff7700",
+            "#ffff00",
+            "#00ff00",
+            "#00ffff",
+            "#0088ff",
+            "#aa00ff",
+            "#ff00ff",
+        ],
+    };
+    const palette = colors[rarity] || ["#ffffff"];
+
+    for (let i = 0; i < count; i++) {
+        const p = document.createElement("div");
+        p.className = "reveal-particle";
+        const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+        const distance = 300 + Math.random() * 500;
+        const tx = Math.cos(angle) * distance;
+        const ty = Math.sin(angle) * distance;
+
+        p.style.setProperty("--tx", tx + "px");
+        p.style.setProperty("--ty", ty + "px");
+        p.style.left = "50%";
+        p.style.top = "50%";
+        p.style.background =
+            palette[Math.floor(Math.random() * palette.length)];
+        p.style.boxShadow = `0 0 20px ${p.style.background}, 0 0 40px ${p.style.background}`;
+        p.style.animationDelay = Math.random() * 0.4 + "s";
+        p.style.width = 6 + Math.random() * 12 + "px";
+        p.style.height = p.style.width;
+
+        container.appendChild(p);
+    }
 }
 
 function displayAura(aura) {
@@ -966,7 +1444,6 @@ function renderUI() {
     if (state.equipped && AURA_BY_ID[state.equipped]) {
         displayAura(AURA_BY_ID[state.equipped]);
     } else {
-        // Affichage par défaut
         $("#aura-name").textContent = "Aucune aura";
         $("#aura-rarity").textContent = "—";
         $("#aura-chance").textContent = "—";
@@ -1311,9 +1788,8 @@ let authMode = "login";
 let authInitialized = false;
 let leaderboardInterval = null;
 
-// Clés localStorage
-const LS_PENDING_PSEUDO = "auraRng_pendingPseudo"; // pseudo en cours d'inscription
-const pseudoKeyFor = (uid) => "auraRng_pseudo_" + uid; // pseudo par uid
+const LS_PENDING_PSEUDO = "auraRng_pendingPseudo";
+const pseudoKeyFor = (uid) => "auraRng_pseudo_" + uid;
 
 function usernameToEmail(username) {
     return username.toLowerCase().replace(/[^a-z0-9_]/g, "") + FB_EMAIL_DOMAIN;
@@ -1336,9 +1812,7 @@ function showAuthLoading(show, text) {
         document.getElementById("auth-loading-text").textContent =
             text || "Chargement...";
         loading.classList.remove("hidden");
-    } else {
-        loading.classList.add("hidden");
-    }
+    } else loading.classList.add("hidden");
 }
 
 function setAuthMode(mode) {
@@ -1366,11 +1840,10 @@ async function handleAuthSubmit() {
     const password = document.getElementById("auth-password").value;
     const errorEl = document.getElementById("auth-error");
     const submitBtn = document.getElementById("auth-submit");
-
     errorEl.textContent = "";
 
     if (!username || username.length < 3) {
-        errorEl.textContent = "❌ Pseudo trop court (3 min).";
+        errorEl.textContent = "❌ Pseudo trop court.";
         return;
     }
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
@@ -1387,9 +1860,7 @@ async function handleAuthSubmit() {
 
     try {
         const email = usernameToEmail(username);
-
         if (authMode === "register") {
-            // Vérifie que le pseudo n'existe pas
             const usernameRef = FB.ref(
                 FB.db,
                 "usernames/" + username.toLowerCase(),
@@ -1400,8 +1871,6 @@ async function handleAuthSubmit() {
                 return;
             }
 
-            // ✅ CRITIQUE : cache le pseudo AVANT de créer le user
-            //    comme ça onAuthStateChanged peut le lire même si la DB n'a pas encore reçu l'écriture
             localStorage.setItem(LS_PENDING_PSEUDO, username);
 
             let user;
@@ -1417,20 +1886,17 @@ async function handleAuthSubmit() {
                 throw e;
             }
 
-            // Cache définitif par uid
             localStorage.setItem(pseudoKeyFor(user.uid), username);
 
-            // Écriture DB (peut échouer sans casser le login)
             try {
                 await FB.set(usernameRef, {
                     uid: user.uid,
                     createdAt: Date.now(),
                 });
             } catch (e) {
-                console.warn("Écriture usernames échouée :", e);
+                console.warn("usernames échoué :", e);
             }
 
-            // displayName (peut échouer sans casser le login)
             try {
                 await FB.updateProfile(user, { displayName: username });
             } catch (e) {
@@ -1478,21 +1944,13 @@ async function handleLogout() {
     }
 }
 
-// ✅ Récupère le pseudo avec plusieurs fallbacks + retry DB
 async function resolveUsername(user) {
-    // 1) Cache localStorage par uid (le plus fiable)
     let username = localStorage.getItem(pseudoKeyFor(user.uid));
-
-    // 2) Pseudo en cours d'inscription (race condition du register)
     if (!username) {
         const pending = localStorage.getItem(LS_PENDING_PSEUDO);
         if (pending) username = pending;
     }
-
-    // 3) displayName Firebase
     if (!username && user.displayName) username = user.displayName;
-
-    // 4) Lookup DB avec retry
     if (!username) {
         for (let attempt = 0; attempt < 3; attempt++) {
             try {
@@ -1506,17 +1964,12 @@ async function resolveUsername(user) {
                 }
                 if (username) break;
             } catch (e) {
-                console.warn(
-                    "Lookup pseudo échoué (tentative " + (attempt + 1) + ") :",
-                    e,
-                );
+                console.warn("Lookup pseudo échoué :", e);
             }
             await new Promise((r) => setTimeout(r, 400));
         }
     }
-
     if (!username) username = "Joueur";
-    // Cache définitif
     localStorage.setItem(pseudoKeyFor(user.uid), username);
     return username;
 }
@@ -1524,7 +1977,6 @@ async function resolveUsername(user) {
 function initAuth() {
     const FB = window.FB;
     if (!FB) {
-        console.warn("Firebase indisponible.");
         showAuthModal(false);
         return;
     }
@@ -1536,20 +1988,15 @@ function initAuth() {
         if (user) {
             showAuthLoading(true, "Chargement de ta progression...");
 
-            // ✅ 1) On RESET complètement l'état avant de charger quoi que ce soit
-            //    → empêche toute contamination par une save précédente
             state = createDefaultState();
             state.uid = user.uid;
 
-            // 2) Résolution du pseudo (multi-fallback)
             const username = await resolveUsername(user);
             state.username = username;
 
-            // 3) Chargement : cloud prioritaire, sinon local
             const loadedFromCloud = await loadGameFromCloud();
             if (!loadedFromCloud) {
-                loadGame(); // refusera si _uid ne correspond pas
-                // Si on a une progression locale valide, on pousse au cloud
+                loadGame();
                 if (
                     (state.totalRolls > 0 || state.coins > 0) &&
                     state._uid === user.uid
@@ -1557,40 +2004,25 @@ function initAuth() {
                     pushSaveToCloud();
                 }
             }
-
-            // 4) Sécurisation finale
             state.uid = user.uid;
             state.username = username;
             state._uid = user.uid;
 
-            // 5) UI
             document.getElementById("stat-username").textContent =
                 state.username;
             showAuthLoading(false);
             showAuthModal(false);
             renderUI();
 
-            // 6) Sync
             pushToLeaderboard();
             initLeaderboard();
-
-            // 7) Clean du pending pseudo
             localStorage.removeItem(LS_PENDING_PSEUDO);
-
-            console.log(
-                "✅ Connecté :",
-                username,
-                "|",
-                state.totalRolls,
-                "rolls",
-            );
         } else {
             state = createDefaultState();
             document.getElementById("stat-username").textContent = "—";
             showAuthLoading(false);
             showAuthModal(true);
             setAuthMode("login");
-
             if (leaderboardInterval) {
                 clearInterval(leaderboardInterval);
                 leaderboardInterval = null;
@@ -1607,12 +2039,10 @@ function pushToLeaderboard() {
     const name = getPlayerName();
     const uid = state.uid;
     if (!name || !uid || !window.FB) return;
-
     const { db, ref, update } = window.FB;
     const playerRef = ref(db, "players/" + uid);
     const bestAura = state.bestAura ? AURA_BY_ID[state.bestAura] : null;
     const bestRarityIndex = bestAura ? RARITIES.indexOf(bestAura.rarity) : -1;
-
     update(playerRef, {
         name,
         bestAuraName: bestAura ? bestAura.name : "Aucune",
@@ -1639,7 +2069,6 @@ function fetchLeaderboard(type, callback) {
         callback([]);
         return;
     }
-
     const q = query(
         ref(db, "players"),
         orderByChild(orderField),
@@ -1663,15 +2092,13 @@ function renderLeaderboard(type) {
     const status = $("#lb-status");
     status.textContent = "Chargement...";
     container.innerHTML = "";
-
     fetchLeaderboard(type, (players) => {
         if (players.length === 0) {
-            status.textContent = "Aucun joueur pour le moment.";
+            status.textContent = "Aucun joueur.";
             return;
         }
         status.textContent = `Top ${players.length} joueurs`;
         const myName = getPlayerName();
-
         players.forEach((p, index) => {
             const rank = index + 1;
             const isMe = myName && p.name === myName;
@@ -1687,7 +2114,6 @@ function renderLeaderboard(type) {
                 displayValue =
                     Math.floor((p.playTime || 0) / 60).toLocaleString("fr-FR") +
                     " min";
-
             const row = document.createElement("div");
             row.className = "lb-row" + (isMe ? " me" : "");
             const rankClass =
@@ -1719,11 +2145,47 @@ function initLeaderboard() {
     }, 60000);
 }
 
+async function cleanGhostPlayers() {
+    if (!window.FB || !state.uid) return { removed: 0 };
+    try {
+        const { db, ref, get, remove } = window.FB;
+        const snap = await get(ref(db, "players"));
+        if (!snap.exists()) return { removed: 0 };
+        const deletions = [];
+        snap.forEach((child) => {
+            const val = child.val();
+            const uid = child.key;
+            if (uid === state.uid) return;
+            if (
+                !val ||
+                !val.name ||
+                val.name === "Joueur" ||
+                (val.totalRolls === 0 && val.bestAuraName === "Aucune")
+            ) {
+                deletions.push(remove(ref(db, "players/" + uid)));
+            }
+        });
+        if (deletions.length > 0) await Promise.all(deletions);
+        return { removed: deletions.length };
+    } catch (e) {
+        return { removed: 0, error: e.message };
+    }
+}
+
 /* ---------- 7. ÉVÉNEMENTS ---------- */
 
 let rollInProgress = false;
 let autoRollActive = false;
 let autoRollTimer = null;
+
+// ✅ Helper : affiche la révélation (animation OU toast)
+function handleAuraReveal(aura) {
+    if (REVEAL_RARITIES.includes(aura.rarity) && !state.settings.reduceAnim) {
+        showReveal(aura);
+    } else if (!state.settings.hideCommon || aura.rarity !== "common") {
+        showToast(`✨ ${aura.name} (${aura.rarity})`);
+    }
+}
 
 $("#roll-btn").addEventListener("click", () => {
     if (rollInProgress) return;
@@ -1734,15 +2196,9 @@ $("#roll-btn").addEventListener("click", () => {
     setTimeout(() => {
         const aura = performRoll();
         displayAura(aura);
-        if (
-            RARE_REVEAL_THRESHOLD.includes(aura.rarity) &&
-            !state.settings.reduceAnim
-        )
-            showReveal(aura);
-        else if (!state.settings.hideCommon || aura.rarity !== "common")
-            showToast(`✨ ${aura.name} (${aura.rarity})`);
+        handleAuraReveal(aura);
         playSound("roll");
-        if (RARE_REVEAL_THRESHOLD.includes(aura.rarity)) playSound("rare");
+        if (REVEAL_RARITIES.includes(aura.rarity)) playSound("rare");
         renderUI();
         saveGame();
         rollInProgress = false;
@@ -1783,11 +2239,7 @@ function runAutoRollLoop() {
 
     const aura = performRoll();
     displayAura(aura);
-    if (
-        RARE_REVEAL_THRESHOLD.includes(aura.rarity) &&
-        !state.settings.reduceAnim
-    )
-        showReveal(aura);
+    handleAuraReveal(aura);
     playSound("roll");
     renderUI();
     saveGame();
@@ -1798,7 +2250,6 @@ function runAutoRollLoop() {
     if (speedEffect) interval *= 1 - speedEffect.speed;
     interval *= 1 - getUpgradeEffect("speed");
     interval = Math.max(60, interval);
-
     autoRollTimer = setTimeout(runAutoRollLoop, interval);
 }
 
@@ -1872,7 +2323,6 @@ function startFakePaymentProcess(method) {
         .querySelectorAll("#fake-payment .payment-screen")
         .forEach((el) => el.classList.add("hidden"));
     document.getElementById("payment-loading").classList.remove("hidden");
-
     const loadingText = document.getElementById("payment-loading-text");
     const steps = [
         "Connexion sécurisée...",
@@ -1887,7 +2337,6 @@ function startFakePaymentProcess(method) {
         i++;
         if (i < steps.length) loadingText.textContent = steps[i];
     }, 500);
-
     setTimeout(() => {
         clearInterval(stepInterval);
         const trolls = [
@@ -2042,6 +2491,20 @@ $("#opt-hide-common").addEventListener("change", (e) => {
     saveGame();
 });
 
+document.getElementById("clean-lb-btn").addEventListener("click", async () => {
+    if (!confirm("Supprimer toutes les entrées 'Joueur' du classement ?"))
+        return;
+    const btn = document.getElementById("clean-lb-btn");
+    btn.disabled = true;
+    btn.textContent = "🧹 Nettoyage...";
+    const result = await cleanGhostPlayers();
+    btn.disabled = false;
+    btn.textContent = "🧹 Nettoyer le classement (fantômes)";
+    if (result.error) showToast("❌ Erreur : " + result.error);
+    else if (result.removed === 0) showToast("✅ Aucun fantôme trouvé");
+    else showToast(`✅ ${result.removed} entrée(s) supprimée(s)`);
+});
+
 $("#reset-save-btn").addEventListener("click", () => {
     if (!confirm("⚠️ Effacer toute la progression ? Irréversible.")) return;
     localStorage.removeItem(getSaveKey());
@@ -2077,7 +2540,9 @@ function playSound(type) {
     gain.connect(audioCtx.destination);
 
     let freq = 440,
-        dur = 0.1;
+        dur = 0.1,
+        waveType = "sine";
+
     if (type === "roll") {
         freq = 300;
         dur = 0.08;
@@ -2095,12 +2560,51 @@ function playSound(type) {
         dur = 0.2;
     }
 
+    // ✅ Sons spéciaux pour les révélations
+    if (type === "reveal-divine") {
+        freq = 1200;
+        dur = 1.2;
+        waveType = "triangle";
+    }
+    if (type === "reveal-celestial") {
+        freq = 1400;
+        dur = 1.5;
+        waveType = "sine";
+    }
+    if (type === "reveal-cosmic") {
+        freq = 1600;
+        dur = 1.8;
+        waveType = "sawtooth";
+    }
+    if (type === "reveal-secret") {
+        freq = 2000;
+        dur = 2.5;
+        waveType = "square";
+    }
+
     osc.frequency.value = freq;
-    osc.type = "sine";
+    osc.type = waveType;
     gain.gain.value = state.settings.volume * 0.15;
     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
     osc.start();
     osc.stop(audioCtx.currentTime + dur);
+
+    // Second oscillateur pour les révélations (effet riche)
+    if (type.startsWith("reveal-")) {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.frequency.value = freq * 1.5;
+        osc2.type = "sine";
+        gain2.gain.value = state.settings.volume * 0.1;
+        gain2.gain.exponentialRampToValueAtTime(
+            0.001,
+            audioCtx.currentTime + dur,
+        );
+        osc2.start();
+        osc2.stop(audioCtx.currentTime + dur);
+    }
 }
 
 /* ---------- 9. INIT ---------- */

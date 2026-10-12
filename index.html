@@ -5,6 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Aura RNG — Jeu de tirage</title>
         <link rel="stylesheet" href="style.css" />
+        <link rel="stylesheet" href="reveal.css" />
 
         <script type="module">
             import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -123,7 +124,7 @@
             <div id="effects-bar"></div>
         </main>
 
-        <!-- Authentification -->
+        <!-- Auth -->
         <div id="auth-modal" class="modal">
             <div class="modal-content auth-content">
                 <h2 id="auth-title">🔐 Connexion</h2>
@@ -221,7 +222,7 @@
             </div>
         </div>
 
-        <!-- Crafting -->
+        <!-- Craft -->
         <div id="craft-modal" class="modal hidden">
             <div class="modal-content">
                 <button class="close-btn" data-close="craft-modal">✕</button>
@@ -239,7 +240,7 @@
             </div>
         </div>
 
-        <!-- Améliorations -->
+        <!-- Upgrades -->
         <div id="upgrades-modal" class="modal hidden">
             <div class="modal-content">
                 <button class="close-btn" data-close="upgrades-modal">✕</button>
@@ -249,7 +250,7 @@
             </div>
         </div>
 
-        <!-- Classement -->
+        <!-- Leaderboard -->
         <div id="leaderboard-modal" class="modal hidden">
             <div class="modal-content">
                 <button class="close-btn" data-close="leaderboard-modal">
@@ -283,7 +284,7 @@
             </div>
         </div>
 
-        <!-- Paramètres -->
+        <!-- Settings -->
         <div id="settings-modal" class="modal hidden">
             <div class="modal-content">
                 <button class="close-btn" data-close="settings-modal">✕</button>
@@ -311,13 +312,24 @@
                     annonces d'auras communes</label
                 >
                 <hr />
-                <button id="reset-save-btn" class="danger-btn">
+                <button
+                    id="clean-lb-btn"
+                    class="small-btn"
+                    style="margin-top: 10px; width: 100%"
+                >
+                    🧹 Nettoyer le classement (fantômes)
+                </button>
+                <button
+                    id="reset-save-btn"
+                    class="danger-btn"
+                    style="margin-top: 10px; width: 100%"
+                >
                     Réinitialiser la sauvegarde
                 </button>
                 <button
                     id="logout-btn"
                     class="danger-btn"
-                    style="background: #374151; margin-top: 8px"
+                    style="background: #374151; margin-top: 8px; width: 100%"
                 >
                     Se déconnecter
                 </button>
@@ -505,8 +517,16 @@
             </div>
         </div>
 
+        <!-- ✅ Nouveau : overlay de révélation amélioré -->
         <div id="reveal-overlay" class="hidden">
-            <div id="reveal-text"></div>
+            <div id="reveal-rays"></div>
+            <div id="reveal-particles"></div>
+            <div id="reveal-content">
+                <div id="reveal-rarity-tag"></div>
+                <div id="reveal-text"></div>
+                <div id="reveal-chance"></div>
+                <div id="reveal-flash"></div>
+            </div>
         </div>
 
         <div id="toast" class="hidden"></div>
