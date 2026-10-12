@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Aura RNG — Jeu de tirage</title>
+        <link rel="stylesheet" href="style.css" />
+
+        <!-- =====================================================
+       SDK FIREBASE (Auth Email/MDP + Realtime DB)
+       ===================================================== -->
+        <script type="module">
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+            import {
+                getAuth,
+                createUserWithEmailAndPassword,
+                signInWithEmailAndPassword,
+                signOut,
+                onAuthStateChanged,
+                updateProfile,
+            } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+            import {
+                getDatabase,
+                ref,
+                set,
+                get,
+                update,
+                query,
+                orderByChild,
+                limitToLast,
+            } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+            const firebaseConfig = {
+                apiKey: "AIzaSyBypIoHBDNZ657Uw1eTJ9mLU53Hr_jK1kc",
+                authDomain: "rng-aura.firebaseapp.com",
+                databaseURL:
+                    "https://rng-aura-default-rtdb.europe-west1.firebasedatabase.app",
+                projectId: "rng-aura",
+                storageBucket: "rng-aura.firebasestorage.app",
+                messagingSenderId: "137067422327",
+                appId: "1:137067422327:web:929f14f1842fe990b8dc72",
+                measurementId: "G-K76ELWDFSV",
+            };
+
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getDatabase(app);
+
+            window.FB = {
+                auth,
+                db,
+                createUserWithEmailAndPassword,
+                signInWithEmailAndPassword,
+                signOut,
+                onAuthStateChanged,
+                updateProfile,
+                ref,
+                set,
+                get,
+                update,
+                query,
+                orderByChild,
+                limitToLast,
+            };
+
+            window.dispatchEvent(new Event("fb-ready"));
+        </script>
+    </head>
+    <body class="not-logged">
+        <!-- ============ ARRIÈRE-PLAN ANIMÉ ============ -->
+        <div id="background-layer" class="bg-plains">
+            <div class="bg-particles"></div>
+        </div>
+
+        <!-- ============ ÉCRAN PRINCIPAL ============ -->
+        <header id="top-bar">
+            <div class="stat-box" title="Nombre total de rolls effectués">
+                🎲 <span id="stat-rolls">0</span>
+            </div>
+            <div class="stat-box" title="Chance actuelle">
+                🍀 <span id="stat-luck">x1.00</span>
+            </div>
+            <div class="stat-box" title="Meilleure aura découverte">
+                ⭐ <span id="stat-best">Aucune</span>
+            </div>
+            <div class="stat-box" title="Monnaie">
+                💰 <span id="stat-coins">0</span>
+            </div>
+            <div class="stat-box" id="stat-user" title="Joueur connecté">
+                👤 <span id="stat-username">—</span>
+            </div>
+        </header>
+
+        <main id="main-screen">
+            <div id="aura-display">
+                <div id="aura-visual" class="rarity-common">
+                    <div class="aura-halo"></div>
+                    <div class="aura-core"></div>
+                </div>
+                <h1 id="aura-name">Aucune aura</h1>
+                <p id="aura-rarity" class="rarity-label">—</p>
+                <p id="aura-chance">—</p>
+                <p id="aura-desc">
+                    Lance un roll pour commencer ton aventure !
+                </p>
+            </div>
+
+            <button id="roll-btn" class="main-btn">ROLL</button>
+
+            <div id="quick-controls">
+                <button id="auto-roll-btn" class="small-btn">
+                    Auto Roll : OFF
+                </button>
+                <button id="inventory-btn" class="small-btn">Inventaire</button>
+                <button id="shop-btn" class="small-btn">Boutique</button>
+                <button id="craft-btn" class="small-btn">Crafting</button>
+                <button id="biomes-btn" class="small-btn">Biomes</button>
+                <button id="upgrades-btn" class="small-btn">
+                    Améliorations
+                </button>
+                <button id="leaderboard-btn" class="small-btn">
+                    🏆 Classement
+                </button>
+                <button id="stats-btn" class="small-btn">Stats</button>
+                <button id="settings-btn" class="small-btn">⚙️</button>
+            </div>
+
+            <div id="effects-bar"></div>
+        </main>
+
+        <!-- ============ MODALES ============ -->
+
+        <!-- Authentification (pseudo + mot de passe) -->
+        <div id="auth-modal" class="modal">
+            <div class="modal-content auth-content">
+                <h2 id="auth-title">🔐 Connexion</h2>
+                <p class="auth-sub" id="auth-sub">
+                    Connecte-toi ou crée un compte pour commencer l'aventure
+                </p>
+
+                <div class="auth-tabs">
+                    <button class="auth-tab active" data-auth="login">
+                        Connexion
+                    </button>
+                    <button class="auth-tab" data-auth="register">
+                        Créer un compte
+                    </button>
+                </div>
+
+                <div class="auth-form">
+                    <label>Pseudo</label>
+                    <input
+                        type="text"
+                        id="auth-username"
+                        placeholder="Ton pseudo (3-20 car.)"
+                        maxlength="20"
+                        autocomplete="username"
+                    />
+
+                    <label>Mot de passe</label>
+                    <input
+                        type="password"
+                        id="auth-password"
+                        placeholder="6 caractères minimum"
+                        autocomplete="current-password"
+                    />
+
+                    <p id="auth-error" class="auth-error"></p>
+
+                    <button id="auth-submit" class="auth-submit-btn">
+                        Se connecter
+                    </button>
+
+                    <p class="auth-hint">
+                        ℹ️ Le pseudo est unique. Ton mot de passe doit faire au
+                        moins 6 caractères.
+                    </p>
+                </div>
+
+                <div id="auth-loading" class="auth-loading hidden">
+                    <div class="auth-loading-spinner"></div>
+                    <p id="auth-loading-text">Connexion en cours...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventaire -->
+        <div id="inventory-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="inventory-modal">
+                    ✕
+                </button>
+                <h2>Inventaire</h2>
+                <p id="collection-progress">Collection : 0 / 0 (0%)</p>
+
+                <div class="filters">
+                    <input
+                        type="text"
+                        id="inv-search"
+                        placeholder="Rechercher une aura..."
+                    />
+                    <select id="inv-filter-rarity">
+                        <option value="all">Toutes raretés</option>
+                    </select>
+                    <select id="inv-sort">
+                        <option value="rarity">Trier par rareté</option>
+                        <option value="name">Trier par nom</option>
+                        <option value="quantity">Trier par quantité</option>
+                    </select>
+                    <label
+                        ><input type="checkbox" id="inv-show-locked" /> Voir les
+                        non découvertes</label
+                    >
+                </div>
+
+                <div id="inventory-grid" class="grid"></div>
+            </div>
+        </div>
+
+        <!-- Boutique -->
+        <div id="shop-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="shop-modal">✕</button>
+                <h2>Boutique</h2>
+                <p>Solde : 💰 <span id="shop-coins">0</span></p>
+                <div id="shop-grid" class="grid"></div>
+            </div>
+        </div>
+
+        <!-- Crafting -->
+        <div id="craft-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="craft-modal">✕</button>
+                <h2>Crafting</h2>
+                <div id="craft-list"></div>
+            </div>
+        </div>
+
+        <!-- Biomes -->
+        <div id="biomes-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="biomes-modal">✕</button>
+                <h2>Biomes</h2>
+                <div id="biomes-list"></div>
+            </div>
+        </div>
+
+        <!-- Améliorations permanentes -->
+        <div id="upgrades-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="upgrades-modal">✕</button>
+                <h2>Améliorations permanentes</h2>
+                <p>Solde : 💰 <span id="upgrades-coins">0</span></p>
+                <div id="upgrades-list"></div>
+            </div>
+        </div>
+
+        <!-- Classement mondial -->
+        <div id="leaderboard-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="leaderboard-modal">
+                    ✕
+                </button>
+                <h2>🏆 Classement mondial</h2>
+                <p id="lb-status" class="hint">Chargement...</p>
+
+                <div class="lb-tabs">
+                    <button class="lb-tab active" data-lb="bestAura">
+                        🌟 Meilleure aura
+                    </button>
+                    <button class="lb-tab" data-lb="totalRolls">
+                        🎲 Rolls
+                    </button>
+                    <button class="lb-tab" data-lb="playTime">
+                        ⏱️ Temps de jeu
+                    </button>
+                </div>
+
+                <div id="lb-content" class="lb-content"></div>
+            </div>
+        </div>
+
+        <!-- Statistiques -->
+        <div id="stats-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="stats-modal">✕</button>
+                <h2>Statistiques</h2>
+                <div id="stats-content"></div>
+            </div>
+        </div>
+
+        <!-- Paramètres -->
+        <div id="settings-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="settings-modal">✕</button>
+                <h2>Paramètres</h2>
+                <label
+                    ><input type="checkbox" id="opt-sound" checked /> Activer le
+                    son</label
+                >
+                <label
+                    >Volume :
+                    <input
+                        type="range"
+                        id="opt-volume"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value="0.5"
+                /></label>
+                <label
+                    ><input type="checkbox" id="opt-reduce-anim" /> Réduire les
+                    animations</label
+                >
+                <label
+                    ><input type="checkbox" id="opt-hide-common" /> Masquer les
+                    annonces d'auras communes</label
+                >
+                <hr />
+                <button id="reset-save-btn" class="danger-btn">
+                    Réinitialiser la sauvegarde
+                </button>
+                <button
+                    id="logout-btn"
+                    class="danger-btn"
+                    style="background: #374151; margin-top: 8px"
+                >
+                    Se déconnecter
+                </button>
+                <p class="hint">
+                    La sauvegarde est locale (LocalStorage). Elle n'est pas
+                    synchronisée entre appareils.
+                </p>
+            </div>
+        </div>
+
+        <!-- Paywall Auto Roll (troll) -->
+        <div id="autoroll-paywall" class="modal hidden">
+            <div class="modal-content paywall-content">
+                <button class="close-btn" data-close="autoroll-paywall">
+                    ✕
+                </button>
+                <h2>🔒 Débloquer l'Auto Roll</h2>
+                <p class="paywall-sub">
+                    Débloque les tirages automatiques illimités !
+                </p>
+
+                <div class="paywall-price">
+                    <span class="paywall-amount">5,00 €</span>
+                    <span class="paywall-once">paiement unique</span>
+                </div>
+
+                <div class="paywall-methods">
+                    <button class="pay-btn pay-paypal" data-method="PayPal">
+                        <span class="pay-icon">🅿️</span> PayPal
+                    </button>
+                    <button class="pay-btn pay-apple" data-method="Apple Pay">
+                        <span class="pay-icon"></span> Apple Pay
+                    </button>
+                    <button class="pay-btn pay-google" data-method="Google Pay">
+                        <span class="pay-icon">G</span> Google Pay
+                    </button>
+                    <button class="pay-btn pay-cb" data-method="Carte bancaire">
+                        <span class="pay-icon">💳</span> Carte bancaire
+                    </button>
+                </div>
+
+                <p id="paywall-status" class="paywall-status"></p>
+
+                <div id="paywall-secret" class="hidden">
+                    <hr class="paywall-hr" />
+                    <p class="paywall-secret-text">
+                        Payer avec de la monnaie du jeu :
+                    </p>
+                    <button id="paywall-buy-coins" class="paywall-coins-btn">
+                        💰 Acheter l'Auto Roll pour 1500 pièces
+                    </button>
+                </div>
+
+                <p class="paywall-footer">
+                    <small>Paiement sécurisé — 100% </small>
+                </p>
+            </div>
+        </div>
+
+        <!-- Fausses pages de paiement -->
+        <div id="fake-payment" class="hidden">
+            <div id="payment-loading" class="payment-screen hidden">
+                <div class="payment-spinner"></div>
+                <p id="payment-loading-text">Connexion sécurisée...</p>
+            </div>
+
+            <div id="payment-error" class="payment-screen hidden">
+                <div class="payment-error-icon">⚠️</div>
+                <h2 id="payment-error-title">Paiement refusé</h2>
+                <p id="payment-error-msg">Une erreur est survenue.</p>
+                <button id="payment-error-close" class="paywall-coins-btn">
+                    Retour
+                </button>
+            </div>
+
+            <div id="form-paypal" class="payment-screen hidden">
+                <div class="pp-header">
+                    <span class="pp-logo"
+                        ><span class="pp-p">P</span>Pay<span class="pp-p2"
+                            >Pal</span
+                        ></span
+                    >
+                </div>
+                <div class="pp-body">
+                    <h3>Connexion à votre compte</h3>
+                    <p class="pp-sub">
+                        Payer <strong>5,00 €</strong> à
+                        <strong>Aura RNG</strong>
+                    </p>
+                    <input
+                        type="email"
+                        placeholder="Adresse e-mail ou mobile"
+                        class="pp-input"
+                    />
+                    <input
+                        type="password"
+                        placeholder="Mot de passe"
+                        class="pp-input"
+                    />
+                    <button class="pp-btn">Se connecter</button>
+                    <p class="pp-link">Mot de passe oublié ?</p>
+                    <p class="pp-secure">🔒 Connexion sécurisée</p>
+                </div>
+            </div>
+
+            <div id="form-apple" class="payment-screen hidden">
+                <div class="ap-header"><span class="ap-logo"></span>Pay</div>
+                <div class="ap-body">
+                    <h3>Confirmer le paiement</h3>
+                    <div class="ap-card">
+                        <div class="ap-row">
+                            <span>Carte</span><span>•••• 4242</span>
+                        </div>
+                        <div class="ap-row">
+                            <span>Montant</span><span>5,00 €</span>
+                        </div>
+                        <div class="ap-row">
+                            <span>Marchand</span><span>Aura RNG</span>
+                        </div>
+                    </div>
+                    <button class="ap-btn">Payer avec Face ID</button>
+                    <p class="ap-cancel">Annuler</p>
+                </div>
+            </div>
+
+            <div id="form-google" class="payment-screen hidden">
+                <div class="gp-header"><span class="gp-logo">G</span> Pay</div>
+                <div class="gp-body">
+                    <h3>Choisir un moyen de paiement</h3>
+                    <div class="gp-card">
+                        <div class="gp-icon">💳</div>
+                        <div>
+                            <div class="gp-title">Carte •••• 4242</div>
+                            <div class="gp-sub">Expire 12/26</div>
+                        </div>
+                    </div>
+                    <div class="gp-card">
+                        <div class="gp-icon">🏦</div>
+                        <div>
+                            <div class="gp-title">Compte bancaire</div>
+                            <div class="gp-sub">Solde insuffisant</div>
+                        </div>
+                    </div>
+                    <button class="gp-btn">Payer 5,00 €</button>
+                </div>
+            </div>
+
+            <div id="form-cb" class="payment-screen hidden">
+                <div class="cb-header">
+                    <span class="cb-logo">💳</span> Paiement sécurisé
+                </div>
+                <div class="cb-body">
+                    <h3>Informations de carte</h3>
+                    <p class="cb-sub">
+                        Payer <strong>5,00 €</strong> à
+                        <strong>Aura RNG</strong>
+                    </p>
+                    <input
+                        type="text"
+                        placeholder="Numéro de carte"
+                        class="cb-input"
+                        maxlength="19"
+                    />
+                    <div class="cb-row">
+                        <input
+                            type="text"
+                            placeholder="MM / AA"
+                            class="cb-input"
+                            maxlength="5"
+                        />
+                        <input
+                            type="text"
+                            placeholder="CVC"
+                            class="cb-input"
+                            maxlength="4"
+                        />
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="Nom sur la carte"
+                        class="cb-input"
+                    />
+                    <button class="cb-btn">Payer 5,00 €</button>
+                    <p class="cb-secure">🔒 3D Secure</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Révélation spectaculaire -->
+        <div id="reveal-overlay" class="hidden">
+            <div id="reveal-text"></div>
+        </div>
+
+        <!-- Toast -->
+        <div id="toast" class="hidden"></div>
+
+        <script src="script.js"></script>
+    </body>
+</html>
