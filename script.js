@@ -1,6 +1,6 @@
 /* =========================================================
    AURA RNG — script.js
-   v2 : +63 auras, chance recalibrée, upgrades/boutique rééquilibrés
+   v3 : leaderboard fiable + playTime multi-onglets
    ========================================================= */
 
 /* ---------- 1. CONFIGURATION ---------- */
@@ -32,7 +32,7 @@ const RARITY_COLORS = {
     secret: "#ff00ff",
 };
 
-/* ===== AURAS D'ORIGINE (108) — inchangées ===== */
+/* ===== AURAS D'ORIGINE (108) ===== */
 const AURAS = [
     {
         id: "a01",
@@ -801,14 +801,8 @@ const AURAS = [
     },
 ];
 
-/* ===== 63 NOUVELLES AURAS =====
-   Format : [id, nom, rareté, "1 sur N", couleur, description]
-   La chance affichée ("1 sur N") est EXACTE : le poids de chaque nouvelle
-   aura est calculé au chargement pour que sa probabilité réelle soit 1/N.
-   Les anciennes auras gardent leurs poids relatifs (leur chance baisse
-   légèrement car les nouvelles auras prennent aussi une part des tirages). */
+/* ===== 63 NOUVELLES AURAS ===== */
 const NEW_AURAS_RAW = [
-    // Communes
     [
         "a109",
         "Murmure",
@@ -825,7 +819,6 @@ const NEW_AURAS_RAW = [
         "#86b08c",
         "Un tapis vert, doux et humide.",
     ],
-    // Peu communes
     [
         "a111",
         "Orchidée nocturne",
@@ -858,7 +851,6 @@ const NEW_AURAS_RAW = [
         "#bef264",
         "Une danse de petites lumières.",
     ],
-    // Rares
     [
         "a115",
         "Aube glacée",
@@ -923,7 +915,6 @@ const NEW_AURAS_RAW = [
         "#34d399",
         "Chaque arbre connaît ton nom.",
     ],
-    // Épiques
     [
         "a123",
         "Absolute Zero",
@@ -990,7 +981,6 @@ const NEW_AURAS_RAW = [
         "#fb7185",
         "Une flamme qui tourne sur elle-même.",
     ],
-    // Légendaires
     [
         "a133",
         "Phoenix King",
@@ -1071,7 +1061,6 @@ const NEW_AURAS_RAW = [
         "#f472b6",
         "Nul ne passe sans son accord.",
     ],
-    // Mythiques
     [
         "a143",
         "Cosmic Rift",
@@ -1144,7 +1133,6 @@ const NEW_AURAS_RAW = [
         "#fda4af",
         "La lumière sortie de sa grotte.",
     ],
-    // Divines
     [
         "a152",
         "Celestial Crown",
@@ -1201,7 +1189,6 @@ const NEW_AURAS_RAW = [
         "#fed7aa",
         "Il scelle la frontière du jour.",
     ],
-    // Célestes
     [
         "a159",
         "Nébuleuse mère",
@@ -1242,7 +1229,6 @@ const NEW_AURAS_RAW = [
         "#99f6e4",
         "Elle te suit du regard.",
     ],
-    // Cosmiques
     [
         "a164",
         "Fracture du cosmos",
@@ -1275,7 +1261,6 @@ const NEW_AURAS_RAW = [
         "#818cf8",
         "Elle compte les âges de l'univers.",
     ],
-    // Secrètes
     [
         "a168",
         "Unknown",
@@ -1310,9 +1295,7 @@ const NEW_AURAS_RAW = [
     ],
 ];
 
-// Poids des nouvelles auras : on veut P(aura) = 1/N exactement.
-// Avec T = poids total final et T0 = poids des auras d'origine :
-//   T = T0 / (1 - Σ 1/N)   puis   poids(aura) = T / N
+// Poids des nouvelles auras
 const BASE_WEIGHT_TOTAL = AURAS.reduce((s, a) => s + a.weight, 0);
 const NEW_AURA_MASS = NEW_AURAS_RAW.reduce((s, r) => s + 1 / r[3], 0);
 const TOTAL_WEIGHT = BASE_WEIGHT_TOTAL / (1 - NEW_AURA_MASS);
@@ -1330,12 +1313,19 @@ NEW_AURAS_RAW.forEach(([id, name, rarity, oneIn, color, desc]) => {
 
 const AURA_BY_ID = Object.fromEntries(AURAS.map((a) => [a.id, a]));
 
-// Couleur principale d'une aura (couleur propre si définie, sinon celle de la rareté)
+// Couleur principale d'une aura
 function auraColor(aura) {
     return aura.color || RARITY_COLORS[aura.rarity];
 }
 
-/* ===== BIOMES : bonus de chance PERMANENTS (additifs : x1.04 = +4 %) ===== */
+// ✅ Poids de référence d'une aura (nombre de 1 sur N)
+function auraWeight(aura) {
+    if (!aura) return Infinity;
+    if (aura.oneIn) return aura.oneIn;
+    return TOTAL_WEIGHT / aura.weight;
+}
+
+/* ===== BIOMES ===== */
 const BIOMES = [
     {
         id: "plains",
@@ -1387,8 +1377,7 @@ const BIOMES = [
     },
 ];
 
-/* ===== POTIONS : bonus de chance TEMPORAIRES (non cumulables entre elles :
-   seule la meilleure potion de chance active compte) ===== */
+/* ===== POTIONS ===== */
 const POTIONS = [
     {
         id: "p_luck1",
@@ -1424,7 +1413,7 @@ const POTIONS = [
     },
 ];
 
-/* ===== BOUTIQUE : objets PERMANENTS (achat unique) et ressources ===== */
+/* ===== BOUTIQUE ===== */
 const SHOP_ITEMS = [
     {
         id: "i_lucky_charm",
@@ -1485,9 +1474,7 @@ const RECIPES = [
     },
 ];
 
-/* ===== AMÉLIORATIONS : petits gains progressifs, coûts très croissants =====
-   costs[i]   = prix du niveau i+1
-   effects[i] = bonus ajouté en passant au niveau i+1 (le total est cumulé) */
+/* ===== AMÉLIORATIONS ===== */
 const UPGRADES = [
     {
         id: "up_luck",
@@ -1536,9 +1523,7 @@ const UPGRADES = [
     },
 ];
 
-/* ===== PLAFONDS DE CHANCE =====
-   Chance totale = (1 + bonus permanents) x meilleure potion active,
-   puis rendements décroissants au-delà de x2.00 et plafond dur à x3.50. */
+/* ===== PLAFONDS DE CHANCE ===== */
 const LUCK_SOFT_CAP = 2.0;
 const LUCK_HARD_CAP = 3.5;
 const POTION_LUCK_MAX = 1.35;
@@ -1568,7 +1553,7 @@ const SAVE_KEY = "auraRng_save_v1";
 const SAVE_VERSION = 1;
 const FB_EMAIL_DOMAIN = "@aurarng.local";
 
-// ✅ Dernière aura rollée (mémorisée pour l'affichage)
+// ✅ Dernière aura rollée
 let lastRolledAura = null;
 
 /* ---------- 2. ÉTAT + SAUVEGARDE ---------- */
@@ -1697,7 +1682,6 @@ function flushCloudSave() {
 
 /* ---------- 3. ROLLS & CHANCE ---------- */
 
-// Niveau acheté (plafonné au niveau max actuel : compatible avec d'anciennes sauvegardes)
 function getUpgradeLevel(id) {
     const up = UPGRADES.find((u) => u.id === id);
     const lvl = state.upgrades[id] || 0;
@@ -1710,7 +1694,6 @@ function getUpgradeCost(upgrade) {
     return upgrade.costs[level];
 }
 
-// Bonus cumulé d'une amélioration pour un niveau donné
 function getUpgradeTotalEffect(upgrade, level) {
     return upgrade.effects.slice(0, level).reduce((a, b) => a + b, 0);
 }
@@ -1744,7 +1727,6 @@ function buyUpgrade(upgrade) {
     renderUpgrades();
 }
 
-// Bonus PERMANENTS (additifs) : biome + objets de boutique + améliorations
 function getPermanentLuckBonus() {
     let bonus = 0;
     const biome = BIOMES.find((b) => b.id === state.currentBiome);
@@ -1760,7 +1742,6 @@ function getPermanentLuckBonus() {
     return bonus;
 }
 
-// Bonus TEMPORAIRE : seule la meilleure potion de chance active compte
 function getTemporaryLuckMultiplier() {
     const now = Date.now();
     let best = 1;
@@ -1781,9 +1762,6 @@ function getTotalLuckMultiplier() {
     return applyLuckCap(raw);
 }
 
-/* La chance agit plus fort sur les raretés élevées :
-   poids final = poids x chance ^ (indice de rareté / indice max)
-   -> communes : aucun effet ; secrètes : x chance (au maximum x3.5). */
 function pickAuraByWeight(luckMultiplier) {
     const luck = Math.max(1, luckMultiplier);
     const maxIdx = RARITIES.length - 1;
@@ -1800,7 +1778,6 @@ function pickAuraByWeight(luckMultiplier) {
     return effective[effective.length - 1].aura;
 }
 
-// Chance de base (sans bonus de chance) : correspond exactement à la probabilité de tirage
 function formatChance(aura) {
     const oneIn = Math.round(TOTAL_WEIGHT / aura.weight);
     return `1 sur ${oneIn.toLocaleString("fr-FR")}`;
@@ -1820,14 +1797,23 @@ function registerAura(aura) {
     state.discovered[aura.id] = true;
     if (quantity === 2) showToast("✨ Aura doublée !");
 
-    // Meilleure aura : rareté la plus haute, puis aura la plus improbable
+    // ✅ Meilleure aura : on compare D'ABORD par rareté, puis par poids (1 sur N)
     const currentBest = state.bestAura ? AURA_BY_ID[state.bestAura] : null;
-    if (
-        !currentBest ||
-        RARITY_INDEX[aura.rarity] > RARITY_INDEX[currentBest.rarity] ||
-        (aura.rarity === currentBest.rarity && aura.weight < currentBest.weight)
-    ) {
+    if (!currentBest) {
         state.bestAura = aura.id;
+    } else {
+        const newR = RARITY_INDEX[aura.rarity];
+        const oldR = RARITY_INDEX[currentBest.rarity];
+        const newW = auraWeight(aura);
+        const oldW = auraWeight(currentBest);
+
+        if (
+            newR > oldR ||
+            (newR === oldR && newW > oldW) || // ✅ poids plus grand = plus rare
+            (newR === oldR && newW === oldW && aura.id < currentBest.id)
+        ) {
+            state.bestAura = aura.id;
+        }
     }
 
     const rareRarities = [
@@ -1955,9 +1941,6 @@ function spawnParticles(container, count, rarity) {
     }
 }
 
-// ✅ Affiche une aura ET la mémorise
-// (la couleur propre de l'aura remplace celle de la rareté pour le halo et le nom ;
-//  les classes de rareté gardent les effets visuels existants)
 function displayAura(aura) {
     lastRolledAura = aura;
     $("#aura-name").textContent = aura.name;
@@ -1997,7 +1980,6 @@ function renderUI() {
         : "Aucune";
     $("#stat-username").textContent = state.username || "—";
 
-    // ✅ Priorité : dernière aura rollée > aura équipée > écran par défaut
     if (lastRolledAura) {
         displayAura(lastRolledAura);
     } else if (state.equipped && AURA_BY_ID[state.equipped]) {
@@ -2047,12 +2029,11 @@ function renderInventory() {
         return true;
     });
 
-    // Tri par rareté : d'abord la rareté, puis l'aura la plus improbable
     if (sortBy === "rarity")
         list.sort(
             (a, b) =>
                 RARITY_INDEX[b.rarity] - RARITY_INDEX[a.rarity] ||
-                a.weight - b.weight,
+                b.weight - a.weight,
         );
     else if (sortBy === "name")
         list.sort((a, b) => a.name.localeCompare(b.name));
@@ -2091,11 +2072,11 @@ function equipAura(id) {
     if (state.equipped === id) {
         state.equipped = null;
         showToast("Aura déséquipée");
-        lastRolledAura = null; // ✅ Reset pour revenir à l'écran par défaut
+        lastRolledAura = null;
     } else {
         state.equipped = id;
         showToast("Aura équipée : " + AURA_BY_ID[id].name);
-        lastRolledAura = AURA_BY_ID[id]; // ✅ Affiche l'aura équipée
+        lastRolledAura = AURA_BY_ID[id];
     }
     saveGame();
     renderUI();
@@ -2145,7 +2126,6 @@ function renderShop() {
 }
 
 function buyItem(item) {
-    // Les bonus permanents ne se cumulent pas : inutile de les racheter
     if (item.perm && (state.ownedItems[item.id] || 0) > 0) {
         showToast("✅ Déjà possédé : le bonus permanent est actif.");
         return;
@@ -2235,7 +2215,6 @@ function craftRecipe(recipe) {
         showToast("❌ Ressources insuffisantes.");
         return;
     }
-    // Un objet permanent déjà possédé ne se cumule pas : on évite de gaspiller les ressources
     const resultItem = SHOP_ITEMS.find((i) => i.id === recipe.result.id);
     if (
         resultItem &&
@@ -2286,7 +2265,6 @@ function renderBiomes() {
     });
 }
 
-// 2 -> "2", 1.5 -> "1.5"
 function fmtPct(x) {
     return (x * 100).toFixed(1).replace(/\.0$/, "") + "%";
 }
@@ -2534,7 +2512,7 @@ async function handleLogout() {
     if (!window.FB) return;
     if (!confirm("Se déconnecter ? Ta progression est dans le cloud.")) return;
     try {
-        flushCloudSave();
+        flushPlayTime();
         await window.FB.signOut(window.FB.auth);
         location.reload();
     } catch (e) {
@@ -2588,7 +2566,7 @@ function initAuth() {
 
             state = createDefaultState();
             state.uid = user.uid;
-            lastRolledAura = null; // ✅ Reset au login
+            lastRolledAura = null;
 
             const username = await resolveUsername(user);
             state.username = username;
@@ -2613,12 +2591,13 @@ function initAuth() {
             showAuthModal(false);
             renderUI();
 
+            // ✅ Sync classement (y compris bestAuraScore pour les anciens comptes)
             pushToLeaderboard();
             initLeaderboard();
             localStorage.removeItem(LS_PENDING_PSEUDO);
         } else {
             state = createDefaultState();
-            lastRolledAura = null; // ✅ Reset au logout
+            lastRolledAura = null;
             document.getElementById("stat-username").textContent = "—";
             showAuthLoading(false);
             showAuthModal(true);
@@ -2631,6 +2610,7 @@ function initAuth() {
                 clearInterval(leaderboardRefreshInterval);
                 leaderboardRefreshInterval = null;
             }
+            stopPlayTimeTracker();
         }
     });
 }
@@ -2639,55 +2619,97 @@ function getPlayerName() {
     return state.username;
 }
 
+// ✅ Push : bestAuraScore POSITIF et proportionnel à la rareté
 function pushToLeaderboard() {
     const name = getPlayerName();
     const uid = state.uid;
     if (!name || !uid || !window.FB) return;
+
     const { db, ref, update } = window.FB;
     const playerRef = ref(db, "players/" + uid);
+
     const bestAura = state.bestAura ? AURA_BY_ID[state.bestAura] : null;
-    const bestRarityIndex = bestAura ? RARITIES.indexOf(bestAura.rarity) : -1;
+
+    // Formule : (rarityIndex + 1) × 10^12 + poids
+    // - Rareté domine toujours le poids
+    // - À rareté égale, l'aura la plus rare (poids le plus grand) gagne
+    let bestAuraScore = 0;
+    let bestAuraName = "Aucune";
+    let bestAuraRarity = "none";
+    let bestAuraWeight = 0;
+    let bestAuraChance = "—";
+
+    if (bestAura) {
+        const rIdx = RARITY_INDEX[bestAura.rarity];
+        const w = auraWeight(bestAura);
+        bestAuraScore = (rIdx + 1) * 1e12 + w;
+        bestAuraName = bestAura.name;
+        bestAuraRarity = bestAura.rarity;
+        bestAuraWeight = w;
+        bestAuraChance = formatChance(bestAura);
+    }
+
     update(playerRef, {
         name,
-        bestAuraName: bestAura ? bestAura.name : "Aucune",
-        bestAuraRarity: bestAura ? bestAura.rarity : "none",
-        bestAuraRarityIndex: bestRarityIndex,
+        bestAuraName,
+        bestAuraRarity,
+        bestAuraScore,
+        bestAuraWeight,
+        bestAuraChance,
         totalRolls: state.totalRolls,
-        playTime: state.playTime,
+        playTime: Math.floor(state.playTime),
         updatedAt: Date.now(),
     }).catch((e) => console.warn("Erreur sync classement :", e));
 }
 
 function fetchLeaderboard(type, callback) {
     if (!window.FB) {
-        callback([]);
+        callback({ players: [], error: "Firebase indisponible" });
         return;
     }
     const { db, ref, query, orderByChild, limitToLast, get } = window.FB;
-    const orderField = {
-        bestAura: "bestAuraRarityIndex",
+
+    const config = {
+        bestAura: "bestAuraScore",
         totalRolls: "totalRolls",
         playTime: "playTime",
     }[type];
-    if (!orderField) {
-        callback([]);
+
+    if (!config) {
+        callback({ players: [], error: "Type inconnu" });
         return;
     }
-    const q = query(
-        ref(db, "players"),
-        orderByChild(orderField),
-        limitToLast(20),
-    );
+
+    // limitToLast(20) sur un tri ASC prend les 20 plus grands scores
+    // → reverse() les met dans le bon ordre (meilleur en premier)
+    const q = query(ref(db, "players"), orderByChild(config), limitToLast(20));
+
     get(q)
         .then((snapshot) => {
             const results = [];
-            snapshot.forEach((child) => results.push(child.val()));
+            snapshot.forEach((child) => {
+                const val = child.val();
+                if (!val) return;
+                if (!val.name || val.name === "Joueur") return;
+                if (
+                    type === "bestAura" &&
+                    (!val.bestAuraRarity || val.bestAuraRarity === "none")
+                )
+                    return;
+                results.push(val);
+            });
+
             results.reverse();
-            callback(results);
+
+            callback({ players: results, error: null });
         })
         .catch((e) => {
             console.warn("Erreur classement :", e);
-            callback([]);
+            const msg =
+                e.code === "PERMISSION_DENIED"
+                    ? "Accès refusé — vérifie les règles Firebase."
+                    : e.message || "Erreur inconnue.";
+            callback({ players: [], error: msg });
         });
 }
 
@@ -2699,19 +2721,28 @@ function renderLeaderboard(type, silent = false) {
 
     if (!silent) {
         status.textContent = "Chargement...";
+        status.style.color = "";
         container.innerHTML = "";
     }
 
-    fetchLeaderboard(type, (players) => {
-        if (players.length === 0) {
-            status.textContent = "Aucun joueur pour le moment.";
+    fetchLeaderboard(type, ({ players, error }) => {
+        if (error) {
+            status.textContent = "⚠️ " + error;
+            status.style.color = "#fca5a5";
             container.innerHTML = "";
             return;
         }
 
+        if (!players || players.length === 0) {
+            status.textContent = "Aucun joueur pour le moment.";
+            status.style.color = "";
+            container.innerHTML = "";
+            return;
+        }
+
+        status.style.color = "";
         const myName = getPlayerName();
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString("fr-FR", {
+        const timeStr = new Date().toLocaleTimeString("fr-FR", {
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit",
@@ -2723,18 +2754,24 @@ function renderLeaderboard(type, silent = false) {
         players.forEach((p, index) => {
             const rank = index + 1;
             const isMe = myName && p.name === myName;
-            let displayValue = "",
-                subValue = "";
+
+            let displayValue = "";
+            let subValue = "";
+            let valueColor = "#4ade80";
+
             if (type === "bestAura") {
                 displayValue = p.bestAuraName || "Aucune";
-                subValue = p.bestAuraRarity || "";
+                subValue =
+                    p.bestAuraChance && p.bestAuraChance !== "—"
+                        ? p.bestAuraChance
+                        : (p.bestAuraRarity || "").toUpperCase();
+                valueColor = RARITY_COLORS[p.bestAuraRarity] || "#4ade80";
             } else if (type === "totalRolls") {
                 displayValue =
                     (p.totalRolls || 0).toLocaleString("fr-FR") + " rolls";
             } else if (type === "playTime") {
-                displayValue =
-                    Math.floor((p.playTime || 0) / 60).toLocaleString("fr-FR") +
-                    " min";
+                const mins = Math.floor((p.playTime || 0) / 60);
+                displayValue = mins.toLocaleString("fr-FR") + " min";
             }
 
             const row = document.createElement("div");
@@ -2747,18 +2784,14 @@ function renderLeaderboard(type, silent = false) {
                       : rank === 3
                         ? " top3"
                         : "";
-            const rarityColor =
-                subValue && RARITY_COLORS[subValue]
-                    ? RARITY_COLORS[subValue]
-                    : "#4ade80";
 
             row.innerHTML = `
                 <div class="lb-rank${rankClass}">${rank}</div>
                 <div class="lb-name">
                     ${p.name || "Anonyme"}${isMe ? ' <span style="opacity:.6">(toi)</span>' : ""}
-                    ${subValue ? `<span class="lb-sub" style="color:${rarityColor}">${subValue}</span>` : ""}
+                    ${subValue ? `<span class="lb-sub" style="color:${valueColor}">${subValue}</span>` : ""}
                 </div>
-                <div class="lb-value" style="color:${rarityColor}">${displayValue}</div>
+                <div class="lb-value" style="color:${valueColor}">${displayValue}</div>
             `;
             container.appendChild(row);
         });
@@ -2809,7 +2842,118 @@ async function cleanGhostPlayers() {
     }
 }
 
-/* ---------- 7. ÉVÉNEMENTS ---------- */
+/* ---------- 7. PLAYTIME TRACKER (multi-onglets + arrière-plan) ---------- */
+
+const TAB_ID = Math.random().toString(36).slice(2, 10);
+const TAB_HEARTBEAT_KEY = "auraRng_activeTab";
+const TAB_HEARTBEAT_INTERVAL = 5000;
+const TAB_STALE_MS = 10000;
+
+let playTimeTickInterval = null;
+let heartbeatInterval = null;
+let lastTickAt = 0;
+let isPrimaryTab = false;
+let tabChannel = null;
+
+function startPlayTimeTracker() {
+    try {
+        if ("BroadcastChannel" in window)
+            tabChannel = new BroadcastChannel("auraRng_tabs");
+    } catch (e) {
+        tabChannel = null;
+    }
+
+    electPrimaryTab();
+
+    if (tabChannel) {
+        tabChannel.onmessage = (ev) => {
+            if (!ev.data) return;
+            if (ev.data.type === "iam_primary" && ev.data.tabId !== TAB_ID) {
+                isPrimaryTab = false;
+            }
+        };
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+            lastTickAt = Date.now();
+            electPrimaryTab();
+        } else {
+            flushPlayTime();
+        }
+    });
+
+    heartbeatInterval = setInterval(() => {
+        if (document.visibilityState === "visible") {
+            try {
+                localStorage.setItem(
+                    TAB_HEARTBEAT_KEY,
+                    JSON.stringify({ tabId: TAB_ID, ts: Date.now() }),
+                );
+            } catch (e) {}
+            if (tabChannel) tabChannel.postMessage({ type: "hello" });
+        }
+    }, TAB_HEARTBEAT_INTERVAL);
+
+    lastTickAt = Date.now();
+    playTimeTickInterval = setInterval(() => {
+        const now = Date.now();
+        const delta = (now - lastTickAt) / 1000;
+        lastTickAt = now;
+
+        if (!state.uid) return;
+        if (document.visibilityState !== "visible") return;
+        if (!isPrimaryTab) return;
+        if (delta > 10) return; // throttle navigateur → ignore
+
+        const beforeFloor = Math.floor(state.playTime);
+        state.playTime += delta;
+        const afterFloor = Math.floor(state.playTime);
+
+        if (afterFloor !== beforeFloor && afterFloor % 10 === 0) saveGame(true);
+        if (afterFloor !== beforeFloor && afterFloor % 60 === 0) saveGame();
+    }, 1000);
+}
+
+function stopPlayTimeTracker() {
+    if (playTimeTickInterval) {
+        clearInterval(playTimeTickInterval);
+        playTimeTickInterval = null;
+    }
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
+    try {
+        localStorage.removeItem(TAB_HEARTBEAT_KEY);
+    } catch (e) {}
+}
+
+function flushPlayTime() {
+    if (!state.uid) return;
+    saveGame();
+    flushCloudSave();
+}
+
+function electPrimaryTab() {
+    try {
+        const raw = localStorage.getItem(TAB_HEARTBEAT_KEY);
+        if (!raw) {
+            isPrimaryTab = true;
+            return;
+        }
+        const data = JSON.parse(raw);
+        if (!data || !data.ts || Date.now() - data.ts > TAB_STALE_MS) {
+            isPrimaryTab = true;
+            return;
+        }
+        isPrimaryTab = data.tabId === TAB_ID;
+    } catch (e) {
+        isPrimaryTab = true;
+    }
+}
+
+/* ---------- 8. ÉVÉNEMENTS ---------- */
 
 let rollInProgress = false;
 let autoRollActive = false;
@@ -2823,7 +2967,6 @@ function handleAuraReveal(aura) {
     }
 }
 
-// ✅ Ordre corrigé : renderUI() PUIS displayAura() pour garantir l'affichage
 $("#roll-btn").addEventListener("click", () => {
     if (rollInProgress) return;
     rollInProgress = true;
@@ -2835,8 +2978,8 @@ $("#roll-btn").addEventListener("click", () => {
         handleAuraReveal(aura);
         playSound("roll");
         if (REVEAL_RARITIES.includes(aura.rarity)) playSound("rare");
-        renderUI(); // Met à jour stats, coins...
-        displayAura(aura); // ✅ RÉ-AFFICHE l'aura APRÈS renderUI
+        renderUI();
+        displayAura(aura);
         saveGame();
         rollInProgress = false;
         $("#roll-btn").disabled = false;
@@ -2877,13 +3020,11 @@ function runAutoRollLoop() {
     const aura = performRoll();
     handleAuraReveal(aura);
     playSound("roll");
-    renderUI(); // Met à jour stats
-    displayAura(aura); // ✅ RÉ-AFFICHE l'aura APRÈS renderUI
+    renderUI();
+    displayAura(aura);
     saveGame();
     rollInProgress = false;
 
-    // Délai de base 600 ms, réduit par la potion de vitesse (-35 %) et les
-    // améliorations (-33 % max), avec un plancher de 150 ms.
     let interval = 600;
     const speedEffect = state.activeEffects.find((e) => e.speed);
     if (speedEffect) interval *= 1 - speedEffect.speed;
@@ -3165,7 +3306,7 @@ $("#reset-save-btn").addEventListener("click", () => {
     location.reload();
 });
 
-/* ---------- 8. AUDIO ---------- */
+/* ---------- 9. AUDIO ---------- */
 
 let audioCtx = null;
 function playSound(type) {
@@ -3247,7 +3388,7 @@ function playSound(type) {
     }
 }
 
-/* ---------- 9. INIT ---------- */
+/* ---------- 10. INIT ---------- */
 
 function init() {
     const raritySelect = $("#inv-filter-rarity");
@@ -3260,13 +3401,6 @@ function init() {
 
     showAuthModal(true);
     setAuthMode("login");
-
-    setInterval(() => {
-        if (!state.uid) return;
-        state.playTime++;
-        if (state.playTime % 10 === 0) saveGame(true);
-        if (state.playTime % 60 === 0) saveGame();
-    }, 1000);
 
     setInterval(renderEffectsBar, 1000);
 
@@ -3285,6 +3419,10 @@ function init() {
         authInitialized = true;
         initAuth();
     }
+
+    // Démarre le tracker de temps dès qu'un utilisateur est connecté
+    // (le tracker vérifie lui-même state.uid à chaque tick)
+    startPlayTimeTracker();
 
     console.log("🎮 Aura RNG prêt !");
 }
