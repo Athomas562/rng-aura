@@ -631,7 +631,7 @@ const SAVE_VERSION = 1;
 const FB_EMAIL_DOMAIN = "@aurarng.local";
 
 /* =========================================================
-   2. ÉTAT DU JEU + SAUVEGARDE
+   2. ÉTAT DU JEU + SAUVEGARDE (local + cloud)
    ========================================================= */
 
 function createDefaultState() {
@@ -682,7 +682,6 @@ function loadGame() {
         const currentUsername = state.username;
 
         state = Object.assign(createDefaultState(), parsed);
-
         state.uid = currentUid;
         state.username = currentUsername;
         state.settings = Object.assign(
@@ -690,15 +689,78 @@ function loadGame() {
             parsed.settings || {},
         );
     } catch (e) {
-        console.warn("Sauvegarde invalide :", e);
+        console.warn("Sauvegarde locale invalide :", e);
     }
 }
 
-function saveGame() {
+async function loadGameFromCloud() {
+    if (!state.uid || !window.FB) return false;
+    try {
+        const { db, ref, get } = window.FB;
+        const snap = await get(ref(db, "saves/" + state.uid));
+        if (!snap.exists()) return false;
+
+        const parsed = snap.val();
+        if (!parsed || parsed.version !== SAVE_VERSION) return false;
+
+        const currentUid = state.uid;
+        const currentUsername = state.username;
+
+        state = Object.assign(createDefaultState(), parsed);
+        state.uid = currentUid;
+        state.username = currentUsername;
+        state.settings = Object.assign(
+            createDefaultState().settings,
+            parsed.settings || {},
+        );
+        console.log("☁️ Sauvegarde cloud chargée");
+        return true;
+    } catch (e) {
+        console.warn("Erreur chargement cloud :", e);
+        return false;
+    }
+}
+
+// Debounce Firebase (évite de spammer la DB)
+let fbSaveTimer = null;
+let fbSavePending = false;
+
+function saveGame(skipCloud = false) {
+    // 1) Toujours : sauvegarde locale (instantanée)
     try {
         localStorage.setItem(getSaveKey(), JSON.stringify(state));
     } catch (e) {
-        console.warn("Impossible de sauvegarder :", e);
+        console.warn("Impossible de sauvegarder en local :", e);
+    }
+
+    // 2) Si demandé, on ne va PAS sur Firebase
+    if (skipCloud) return;
+
+    // 3) Sinon : cloud debounced (3s)
+    if (!state.uid || !window.FB) return;
+    fbSavePending = true;
+    clearTimeout(fbSaveTimer);
+    fbSaveTimer = setTimeout(pushSaveToCloud, 3000);
+}
+
+function pushSaveToCloud() {
+    if (!state.uid || !window.FB) return;
+    fbSavePending = false;
+    const { db, ref, set } = window.FB;
+
+    const payload = { ...state };
+    delete payload.uid;
+    delete payload.username;
+
+    set(ref(db, "saves/" + state.uid), payload)
+        .then(() => console.log("☁️ Sauvegarde cloud OK"))
+        .catch((e) => console.warn("Erreur save cloud :", e));
+}
+
+function flushCloudSave() {
+    if (fbSavePending) {
+        clearTimeout(fbSaveTimer);
+        pushSaveToCloud();
     }
 }
 
@@ -1346,7 +1408,6 @@ async function handleAuthSubmit() {
         } else {
             await FB.signInWithEmailAndPassword(FB.auth, email, password);
         }
-        // onAuthStateChanged va fermer la modale
     } catch (e) {
         console.warn("Erreur auth :", e);
         let msg = "❌ Erreur inconnue.";
@@ -1377,8 +1438,14 @@ async function handleAuthSubmit() {
 
 async function handleLogout() {
     if (!window.FB) return;
-    if (!confirm("Se déconnecter ?")) return;
+    if (
+        !confirm(
+            "Se déconnecter ? Ta progression est sauvegardée dans le cloud.",
+        )
+    )
+        return;
     try {
+        flushCloudSave();
         await window.FB.signOut(window.FB.auth);
         location.reload();
     } catch (e) {
@@ -1418,8 +1485,16 @@ function initAuth() {
             }
             state.username = username;
 
-            // 3) Sauvegarde liée à l'uid
-            loadGame();
+            // 3) Sauvegarde : cloud en PRIORITÉ
+            const loadedFromCloud = await loadGameFromCloud();
+            if (!loadedFromCloud) {
+                // Pas de cloud → on charge le local (si présent)
+                loadGame();
+                // Si on a une progression locale, on la pousse au cloud
+                if (state.totalRolls > 0 || state.coins > 0) {
+                    pushSaveToCloud();
+                }
+            }
             state.uid = user.uid;
             state.username = username;
 
@@ -1924,10 +1999,18 @@ $("#reset-save-btn").addEventListener("click", () => {
     localStorage.removeItem(getSaveKey());
     const uid = state.uid;
     const username = state.username;
+
+    // Supprime aussi le cloud
+    if (uid && window.FB) {
+        window.FB.set(window.FB.ref(window.FB.db, "saves/" + uid), null).catch(
+            (e) => console.warn("Erreur reset cloud :", e),
+        );
+    }
+
     state = createDefaultState();
     state.uid = uid;
     state.username = username;
-    saveGame();
+    saveGame(true); // local seulement, cloud vient d'être supprimé
     location.reload();
 });
 
@@ -1991,14 +2074,29 @@ function init() {
     showAuthModal(true);
     setAuthMode("login");
 
+    // PlayTime : local toutes les 10s, cloud toutes les 60s
     setInterval(() => {
         if (!state.uid) return;
         state.playTime++;
-        if (state.playTime % 10 === 0) saveGame();
+        if (state.playTime % 10 === 0) saveGame(true);
+        if (state.playTime % 60 === 0) saveGame();
     }, 1000);
+
     setInterval(renderEffectsBar, 1000);
+
+    // Avant fermeture : on flush tout
     window.addEventListener("beforeunload", () => {
-        if (state.uid) saveGame();
+        if (state.uid) {
+            saveGame();
+            flushCloudSave();
+        }
+    });
+
+    // Si l'onglet passe en arrière-plan → flush immédiat
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden" && state.uid) {
+            flushCloudSave();
+        }
     });
 
     if (!authInitialized) {
