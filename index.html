@@ -140,6 +140,11 @@
                     Améliorations
                 </button>
                 <button id="titles-btn" class="small-btn">🎖️ Titres</button>
+                <button id="skills-btn" class="small-btn">
+                    🌳 Compétences
+                </button>
+                <button id="skins-btn" class="small-btn">🎨 Skins</button>
+                <button id="chat-btn" class="small-btn">💬 Chat</button>
                 <button id="leaderboard-btn" class="small-btn">
                     🏆 Classement
                 </button>
@@ -285,6 +290,50 @@
                     Équipe un titre pour l'afficher après ton pseudo.
                 </p>
                 <div id="titles-grid" class="grid"></div>
+            </div>
+        </div>
+
+        <!-- Skins -->
+        <div id="skins-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="skins-modal">✕</button>
+                <h2>🎨 Skins</h2>
+                <p class="hint">
+                    Choisis un thème visuel. Les skins débloqués restent
+                    disponibles.
+                </p>
+                <div id="skins-grid" class="grid"></div>
+            </div>
+        </div>
+
+        <!-- Compétences -->
+        <div id="skills-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="skills-modal">✕</button>
+                <h2>🌳 Arbre de compétences</h2>
+                <p id="skills-status" class="hint">
+                    Débloqué au niveau 20. Choix définitif.
+                </p>
+                <div id="skills-grid" class="grid"></div>
+            </div>
+        </div>
+
+        <!-- Chat -->
+        <div id="chat-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="chat-modal">✕</button>
+                <h2>💬 Chat global</h2>
+                <div id="chat-messages" class="chat-messages"></div>
+                <div class="chat-input-wrap">
+                    <input
+                        type="text"
+                        id="chat-input"
+                        placeholder="Écris ton message..."
+                        maxlength="200"
+                        autocomplete="off"
+                    />
+                    <button id="chat-send" class="small-btn">Envoyer</button>
+                </div>
             </div>
         </div>
 

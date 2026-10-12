@@ -1,6 +1,6 @@
 /* =========================================================
    AURA RNG — script.js
-   v5 : Lot 1 + Lot 2 + fix double roll + intégration anti-triche
+   v6 : Lot 1 + Lot 2 + Lot 3 + fix double roll + anti-triche
    ========================================================= */
 
 /* ---------- 1. CONFIGURATION ---------- */
@@ -1372,7 +1372,6 @@ const BIOMES = [
     },
 ];
 
-/* ===== POTIONS ===== */
 const POTIONS = [
     {
         id: "p_luck1",
@@ -1408,7 +1407,6 @@ const POTIONS = [
     },
 ];
 
-/* ===== BOUTIQUE ===== */
 const SHOP_ITEMS = [
     {
         id: "i_lucky_charm",
@@ -1469,7 +1467,6 @@ const RECIPES = [
     },
 ];
 
-/* ===== AMÉLIORATIONS ===== */
 const UPGRADES = [
     {
         id: "up_luck",
@@ -1548,7 +1545,130 @@ const SAVE_KEY = "auraRng_save_v1";
 const SAVE_VERSION = 1;
 const FB_EMAIL_DOMAIN = "@aurarng.local";
 
-/* ===== LOT 2 : XP / NIVEAUX ===== */
+/* ===== LOT 3 : SKINS ===== */
+const SKINS = [
+    {
+        id: "default",
+        name: "Cosmique",
+        desc: "Thème par défaut du jeu.",
+        preview: "default",
+        unlock: () => true,
+        price: 0,
+    },
+    {
+        id: "halloween",
+        name: "Halloween",
+        desc: "Ambiance orange et citrouilles.",
+        preview: "halloween",
+        unlock: () => (state.level || 1) >= 15,
+        price: 50000,
+    },
+    {
+        id: "christmas",
+        name: "Noël",
+        desc: "Vert et rouge festif.",
+        preview: "christmas",
+        unlock: () => new Date().getMonth() === 11,
+        price: 50000,
+    },
+    {
+        id: "cyberpunk",
+        name: "Cyberpunk",
+        desc: "Rose néon et cyan futuriste.",
+        preview: "cyberpunk",
+        unlock: () => (state.level || 1) >= 40,
+        price: 200000,
+    },
+    {
+        id: "sakura",
+        name: "Sakura",
+        desc: "Rose pâle et fleurs de cerisier.",
+        preview: "sakura",
+        unlock: () => new Date().getMonth() === 5,
+        price: 100000,
+    },
+];
+
+/* ===== LOT 3 : COMPÉTENCES ===== */
+const SKILL_BRANCHES = [
+    {
+        id: "luck",
+        icon: "🌿",
+        name: "Chance",
+        className: "skill-luck",
+        desc: "Augmente ta chance de manière permanente.",
+        benefits: [
+            "+15% de chance permanente",
+            "Potions durent 50% plus longtemps",
+            "+2% de chance supplémentaire sur les auras divine+",
+        ],
+    },
+    {
+        id: "speed",
+        icon: "⚡",
+        name: "Vitesse",
+        className: "skill-speed",
+        desc: "Accélère tes rolls.",
+        benefits: [
+            "Auto-roll 2x plus rapide",
+            "Multi-roll x10 débloqué",
+            "-20% de délai sur le roll manuel",
+        ],
+    },
+    {
+        id: "fortune",
+        icon: "💰",
+        name: "Fortune",
+        className: "skill-fortune",
+        desc: "Améliore tes gains de monnaie.",
+        benefits: [
+            "+40% de pièces par roll",
+            "-25% sur le coût des améliorations",
+            "+5% de chance de doubler une aura",
+        ],
+    },
+];
+
+const SKILL_REQUIRED_LEVEL = 20;
+
+/* ===== LOT 3 : CHAT ===== */
+const CHAT_BANNED_WORDS = [
+    "connard",
+    "connasse",
+    "salaud",
+    "salope",
+    "pute",
+    "enculé",
+    "enculer",
+    "fdp",
+    "ntm",
+    "nique",
+    "baiser",
+    "bordel",
+    "merde",
+    "pd",
+    "tapette",
+    "chier",
+    "chiotte",
+    "foutre",
+    "bites",
+    "bite",
+    "couilles",
+    "zob",
+];
+const CHAT_MAX_MESSAGES = 200;
+const CHAT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+function filterChatText(text) {
+    let filtered = text;
+    CHAT_BANNED_WORDS.forEach((w) => {
+        const re = new RegExp(w, "gi");
+        filtered = filtered.replace(re, "*".repeat(w.length));
+    });
+    return filtered.slice(0, 200);
+}
+
+/* ===== LOT 2 : XP ===== */
 const XP_REWARDS = {
     common: 1,
     uncommon: 3,
@@ -1656,18 +1776,18 @@ function collectionPercent() {
     return total > 0 ? (found / total) * 100 : 0;
 }
 
-/* ===== LOT 2 : COLLECTIONS COMPLÈTES ===== */
+/* ===== LOT 2 : COLLECTIONS COMPLÈTES (NERFÉ) ===== */
 const COMPLETE_COLLECTION_BONUSES = {
-    common: 0.02,
-    uncommon: 0.03,
-    rare: 0.05,
-    epic: 0.08,
-    legendary: 0.12,
-    mythic: 0.18,
-    divine: 0.25,
-    celestial: 0.35,
-    cosmic: 0.5,
-    secret: 1.0,
+    common: 0.01,
+    uncommon: 0.015,
+    rare: 0.02,
+    epic: 0.03,
+    legendary: 0.04,
+    mythic: 0.06,
+    divine: 0.08,
+    celestial: 0.1,
+    cosmic: 0.15,
+    secret: 0.25,
 };
 
 function isRarityComplete(rarity) {
@@ -1714,6 +1834,10 @@ function createDefaultState() {
         level: 1,
         equippedTitle: null,
         unlockedTitles: [],
+        // LOT 3
+        equippedSkin: "default",
+        unlockedSkins: ["default"],
+        skillBranch: null,
         settings: {
             sound: true,
             volume: 0.5,
@@ -1823,7 +1947,9 @@ function getUpgradeLevel(id) {
 function getUpgradeCost(upgrade) {
     const level = getUpgradeLevel(upgrade.id);
     if (level >= upgrade.maxLevel) return null;
-    return upgrade.costs[level];
+    let cost = upgrade.costs[level];
+    if (state.skillBranch === "fortune") cost = Math.round(cost * 0.75);
+    return cost;
 }
 function getUpgradeTotalEffect(upgrade, level) {
     return upgrade.effects.slice(0, level).reduce((a, b) => a + b, 0);
@@ -1869,8 +1995,8 @@ function getPermanentLuckBonus() {
         const a = AURA_BY_ID[state.equipped];
         if (a && a.luckBonus) bonus += a.luckBonus - 1;
     }
-    // ✅ LOT 2 : bonus collections complètes
     bonus += getCompleteCollectionBonus();
+    if (state.skillBranch === "luck") bonus += 0.15;
     return bonus;
 }
 
@@ -1897,9 +2023,16 @@ function getTotalLuckMultiplier() {
 function pickAuraByWeight(luckMultiplier) {
     const luck = Math.max(1, luckMultiplier);
     const maxIdx = RARITIES.length - 1;
+    const divineBonus = state.skillBranch === "luck" ? 1.02 : 1;
     const effective = AURAS.map((aura) => {
         const exponent = RARITY_INDEX[aura.rarity] / maxIdx;
-        return { aura, weight: aura.weight * Math.pow(luck, exponent) };
+        let w = aura.weight * Math.pow(luck, exponent);
+        if (
+            state.skillBranch === "luck" &&
+            RARITY_INDEX[aura.rarity] >= RARITY_INDEX["divine"]
+        )
+            w *= divineBonus;
+        return { aura, weight: w };
     });
     const total = effective.reduce((sum, e) => sum + e.weight, 0);
     let r = Math.random() * total;
@@ -1916,7 +2049,6 @@ function formatChance(aura) {
 }
 
 function performRoll() {
-    // ✅ Anti-triche : rate limit
     if (window.__auraAntiTamper) {
         const check = window.__auraAntiTamper.rateCheck();
         if (!check.ok) {
@@ -1924,7 +2056,6 @@ function performRoll() {
             return null;
         }
     }
-
     const aura = pickAuraByWeight(getTotalLuckMultiplier());
     registerAura(aura);
     return aura;
@@ -1932,7 +2063,8 @@ function performRoll() {
 
 function registerAura(aura) {
     state.totalRolls++;
-    const doubleChance = getUpgradeEffect("double");
+    let doubleChance = getUpgradeEffect("double");
+    if (state.skillBranch === "fortune") doubleChance += 0.05;
     const quantity = Math.random() < doubleChance ? 2 : 1;
     state.inventory[aura.id] = (state.inventory[aura.id] || 0) + quantity;
     state.discovered[aura.id] = true;
@@ -1966,8 +2098,11 @@ function registerAura(aura) {
     if (rareRarities.includes(aura.rarity)) state.rollsSinceRare = 0;
     else state.rollsSinceRare++;
 
+    const fortuneMult = state.skillBranch === "fortune" ? 1.4 : 1;
     state.coins += Math.round(
-        (COIN_REWARDS[aura.rarity] || 1) * (1 + getUpgradeEffect("coins")),
+        (COIN_REWARDS[aura.rarity] || 1) *
+            (1 + getUpgradeEffect("coins")) *
+            fortuneMult,
     );
 
     BIOMES.forEach((b) => {
@@ -1980,22 +2115,18 @@ function registerAura(aura) {
         }
     });
 
-    // Annonce globale mythic+
     if (ANNOUNCE_RARITIES.includes(aura.rarity)) publishAnnouncement(aura);
-
-    // ✅ LOT 2 : gagne de l'XP
     gainXP(XP_REWARDS[aura.rarity] || 1);
 
     if (state.totalRolls % 10 === 0) pushToLeaderboard();
     saveGame();
 }
 
-/* ---------- LOT 2 : XP / NIVEAUX / TITRES ---------- */
+/* ---------- LOT 2 : XP / NIVEAUX ---------- */
 
 function gainXP(amount) {
     if (amount <= 0) return;
     state.xp = (state.xp || 0) + amount;
-
     let leveled = false;
     while (state.level < MAX_LEVEL && state.xp >= xpForLevel(state.level + 1)) {
         state.level++;
@@ -2006,14 +2137,12 @@ function gainXP(amount) {
             `🎉 Niveau ${state.level} atteint ! +${reward.toLocaleString("fr-FR")} 💰`,
         );
     }
-
     TITLES.forEach((t) => {
         if (!state.unlockedTitles.includes(t.id) && t.check()) {
             state.unlockedTitles.push(t.id);
             if (!leveled) showToast(`🎖️ Titre débloqué : ${t.icon} ${t.name}`);
         }
     });
-
     if (leveled) {
         setTimeout(() => {
             const badge = document.getElementById("stat-level-badge");
@@ -2085,15 +2214,15 @@ function showReveal(aura) {
         document.body.classList.add("screen-shake");
         setTimeout(() => document.body.classList.remove("screen-shake"), 600);
     }
-
     if (PARTICLE_RARITIES.includes(aura.rarity)) {
-        const count = aura.rarity === "secret" ? 60 : 35;
-        spawnParticles(particlesBox, count, aura.rarity);
+        spawnParticles(
+            particlesBox,
+            aura.rarity === "secret" ? 60 : 35,
+            aura.rarity,
+        );
     }
-
     playSound("reveal-" + aura.rarity);
     overlay.classList.remove("hidden");
-
     setTimeout(() => {
         overlay.classList.add("hidden");
         overlay.className = "hidden";
@@ -2115,16 +2244,13 @@ function spawnParticles(container, count, rarity) {
         ],
     };
     const palette = colors[rarity] || ["#ffffff"];
-
     for (let i = 0; i < count; i++) {
         const p = document.createElement("div");
         p.className = "reveal-particle";
         const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
         const distance = 300 + Math.random() * 500;
-        const tx = Math.cos(angle) * distance;
-        const ty = Math.sin(angle) * distance;
-        p.style.setProperty("--tx", tx + "px");
-        p.style.setProperty("--ty", ty + "px");
+        p.style.setProperty("--tx", Math.cos(angle) * distance + "px");
+        p.style.setProperty("--ty", Math.sin(angle) * distance + "px");
         p.style.left = "50%";
         p.style.top = "50%";
         p.style.background =
@@ -2177,7 +2303,6 @@ function renderUI() {
         : "Aucune";
     $("#stat-username").textContent = state.username || "—";
 
-    // LOT 2 : niveau + titre
     const levelBadge = document.getElementById("stat-level-badge");
     const levelNum = document.getElementById("stat-level");
     if (levelBadge && levelNum) {
@@ -2186,7 +2311,6 @@ function renderUI() {
             levelNum.textContent = state.level || 1;
         } else levelBadge.classList.add("hidden");
     }
-
     const titleBadge = document.getElementById("stat-title");
     if (titleBadge) {
         if (state.equippedTitle) {
@@ -2230,7 +2354,6 @@ function renderUI() {
     renderBiomeBackground();
 }
 
-/* ===== LOT 2 : RENDU XP / TITRES ===== */
 function renderXPBar() {
     const container = document.getElementById("xp-bar-container");
     const fill = document.getElementById("xp-bar-fill");
@@ -2241,14 +2364,12 @@ function renderXPBar() {
         return;
     }
     container.classList.remove("hidden");
-
     const level = state.level || 1;
     if (level >= MAX_LEVEL) {
         fill.style.width = "100%";
         text.textContent = `Niveau max atteint (${MAX_LEVEL})`;
         return;
     }
-
     const xpThisLevel = state.xp - xpForLevel(level);
     const xpNeeded = xpToNextLevel(level);
     const pct =
@@ -2261,12 +2382,10 @@ function renderTitles() {
     const grid = document.getElementById("titles-grid");
     if (!grid) return;
     grid.innerHTML = "";
-
     TITLES.forEach((t) => {
         if (!state.unlockedTitles.includes(t.id) && t.check())
             state.unlockedTitles.push(t.id);
     });
-
     TITLES.forEach((t) => {
         const unlocked = state.unlockedTitles.includes(t.id);
         const equipped = state.equippedTitle === t.id;
@@ -2280,10 +2399,125 @@ function renderTitles() {
             <div class="title-name">${t.name}</div>
             <div class="title-desc">${unlocked ? t.desc : "🔒 " + t.desc}</div>
         `;
-        if (unlocked) {
+        if (unlocked)
             card.addEventListener("click", () => {
                 if (equipped) equipTitle(null);
                 else equipTitle(t.id);
+            });
+        grid.appendChild(card);
+    });
+}
+
+function renderSkins() {
+    const grid = document.getElementById("skins-grid");
+    if (!grid) return;
+    grid.innerHTML = "";
+    SKINS.forEach((skin) => {
+        const unlocked = state.unlockedSkins.includes(skin.id);
+        const equipped = state.equippedSkin === skin.id;
+        const canUnlock = !unlocked && skin.unlock();
+        const canBuy = !unlocked && state.coins >= skin.price;
+        const card = document.createElement("div");
+        card.className =
+            "skin-card" +
+            (unlocked ? "" : " locked") +
+            (equipped ? " equipped" : "");
+        card.innerHTML = `
+            <div class="skin-preview skin-preview-${skin.preview}"></div>
+            <div class="skin-name">${skin.name}</div>
+            <div class="skin-desc">${skin.desc}</div>
+            ${!unlocked ? `<div class="skin-price">💰 ${skin.price.toLocaleString("fr-FR")}</div>` : ""}
+        `;
+        if (unlocked) {
+            card.addEventListener("click", () => {
+                state.equippedSkin = skin.id;
+                applySkin(skin.id);
+                saveGame();
+                renderSkins();
+                renderUI();
+                showToast(`🎨 Skin équipé : ${skin.name}`);
+            });
+        } else {
+            card.addEventListener("click", () => {
+                if (canUnlock) {
+                    state.unlockedSkins.push(skin.id);
+                    state.equippedSkin = skin.id;
+                    applySkin(skin.id);
+                    saveGame();
+                    renderSkins();
+                    renderUI();
+                    showToast(`🎨 Skin débloqué : ${skin.name}`);
+                } else if (canBuy) {
+                    state.coins -= skin.price;
+                    state.unlockedSkins.push(skin.id);
+                    state.equippedSkin = skin.id;
+                    applySkin(skin.id);
+                    saveGame();
+                    renderSkins();
+                    renderUI();
+                    showToast(`🎨 Skin acheté : ${skin.name}`);
+                } else showToast("🔒 Pas encore débloqué.");
+            });
+        }
+        grid.appendChild(card);
+    });
+}
+
+function applySkin(skinId) {
+    if (!skinId || skinId === "default")
+        document.body.removeAttribute("data-skin");
+    else document.body.setAttribute("data-skin", skinId);
+}
+
+function renderSkills() {
+    const grid = document.getElementById("skills-grid");
+    const status = document.getElementById("skills-status");
+    if (!grid || !status) return;
+    const level = state.level || 1;
+    const alreadyChosen = !!state.skillBranch;
+    if (alreadyChosen) {
+        status.textContent = "✅ Choix effectué — définitif.";
+        status.style.color = "#4ade80";
+    } else if (level < SKILL_REQUIRED_LEVEL) {
+        status.textContent = `🔒 Débloqué au niveau ${SKILL_REQUIRED_LEVEL} (tu es niveau ${level}).`;
+        status.style.color = "";
+    } else {
+        status.textContent = "⚠️ Choisis UNE branche. Ce choix est définitif.";
+        status.style.color = "#fbbf24";
+    }
+
+    grid.innerHTML = "";
+    SKILL_BRANCHES.forEach((b) => {
+        const chosen = state.skillBranch === b.id;
+        const locked = alreadyChosen && !chosen;
+        const canChoose = !alreadyChosen && level >= SKILL_REQUIRED_LEVEL;
+        const card = document.createElement("div");
+        card.className =
+            "skill-card " +
+            b.className +
+            (chosen ? " chosen" : "") +
+            (locked ? " unavailable" : "") +
+            (!canChoose && !chosen ? " locked" : "");
+        card.innerHTML = `
+            <div class="skill-icon">${b.icon}</div>
+            <div class="skill-title">${b.name}</div>
+            <div class="skin-desc">${b.desc}</div>
+            <ul class="skill-benefits">${b.benefits.map((x) => `<li>${x}</li>`).join("")}</ul>
+        `;
+        if (canChoose) {
+            card.addEventListener("click", () => {
+                if (alreadyChosen) return;
+                if (
+                    !confirm(
+                        `Choisir la branche "${b.name}" ? Ce choix est DÉFINITIF.`,
+                    )
+                )
+                    return;
+                state.skillBranch = b.id;
+                saveGame();
+                renderSkills();
+                renderUI();
+                showToast(`🌳 Branche choisie : ${b.icon} ${b.name}`);
             });
         }
         grid.appendChild(card);
@@ -2307,7 +2541,6 @@ function renderInventory() {
         if (search && !a.name.toLowerCase().includes(search)) return false;
         return true;
     });
-
     if (sortBy === "rarity")
         list.sort(
             (a, b) =>
@@ -2367,7 +2600,6 @@ function renderShop() {
     grid.innerHTML = "";
     $("#shop-coins").textContent = state.coins.toLocaleString("fr-FR");
     const discount = getUpgradeEffect("potionDiscount");
-
     POTIONS.forEach((p) => {
         const realPrice = Math.round(p.price * (1 - discount));
         const card = document.createElement("div");
@@ -2387,7 +2619,6 @@ function renderShop() {
         useBtn.addEventListener("click", () => usePotion(p.id));
         grid.appendChild(card);
     });
-
     SHOP_ITEMS.forEach((item) => {
         const card = document.createElement("div");
         card.className = "card";
@@ -2406,7 +2637,7 @@ function renderShop() {
 
 function buyItem(item) {
     if (item.perm && (state.ownedItems[item.id] || 0) > 0) {
-        showToast("✅ Déjà possédé : le bonus permanent est actif.");
+        showToast("✅ Déjà possédé.");
         return;
     }
     if (state.coins < item.price) {
@@ -2432,12 +2663,13 @@ function usePotion(potionId) {
     state.ownedItems[potionId]--;
     state.usedPotions++;
     state.activeEffects = state.activeEffects.filter((e) => e.id !== potionId);
+    const durationMult = state.skillBranch === "luck" ? 1.5 : 1;
     state.activeEffects.push({
         id: potion.id,
         name: potion.name,
         bonus: potion.bonus || null,
         speed: potion.speed || null,
-        endsAt: Date.now() + potion.duration * 1000,
+        endsAt: Date.now() + potion.duration * 1000 * durationMult,
     });
     playSound("potion");
     showToast(`🧪 ${potion.name} utilisée !`);
@@ -2500,7 +2732,7 @@ function craftRecipe(recipe) {
         resultItem.perm &&
         (state.ownedItems[resultItem.id] || 0) > 0
     ) {
-        showToast("✅ Déjà possédé : le bonus permanent est actif.");
+        showToast("✅ Déjà possédé.");
         return;
     }
     recipe.ingredients.forEach((ing) => {
@@ -2552,7 +2784,6 @@ function renderUpgrades() {
     const list = $("#upgrades-list");
     list.innerHTML = "";
     $("#upgrades-coins").textContent = state.coins.toLocaleString("fr-FR");
-
     UPGRADES.forEach((up) => {
         const level = getUpgradeLevel(up.id);
         const maxed = level >= up.maxLevel;
@@ -2571,7 +2802,6 @@ function renderUpgrades() {
             effectText = `Double : ${fmtPct(totalEffect)}${nextTxt}`;
         if (up.effectType === "potionDiscount")
             effectText = `Réduction : -${fmtPct(totalEffect)}${nextTxt}`;
-
         const card = document.createElement("div");
         card.className = "upgrade-card" + (maxed ? " maxed" : "");
         card.innerHTML = `
@@ -2612,7 +2842,6 @@ function renderStats() {
     const permBonus = getPermanentLuckBonus();
     const tempMult = getTemporaryLuckMultiplier();
     const totalLuck = getTotalLuckMultiplier();
-
     const level = state.level || 1;
     const xpThis = state.xp - xpForLevel(level);
     const xpNext = xpToNextLevel(level);
@@ -2624,6 +2853,12 @@ function renderStats() {
         ? (() => {
               const t = TITLES.find((x) => x.id === state.equippedTitle);
               return t ? `<p>🎖️ Titre équipé : ${t.icon} ${t.name}</p>` : "";
+          })()
+        : "";
+    const skillLine = state.skillBranch
+        ? (() => {
+              const b = SKILL_BRANCHES.find((x) => x.id === state.skillBranch);
+              return b ? `<p>🌳 Branche : ${b.icon} ${b.name}</p>` : "";
           })()
         : "";
 
@@ -2644,6 +2879,7 @@ function renderStats() {
     <p>👤 Joueur : ${state.username || "—"}</p>
     ${levelLine}
     ${titleLine}
+    ${skillLine}
     <p>📊 Collection : ${pct}%</p>
     <hr style="margin:10px 0; opacity:.2;" />
     <h3>Répartition par rareté</h3>
@@ -2657,8 +2893,8 @@ function renderStats() {
             const complete = isRarityComplete(r);
             const bonus = COMPLETE_COLLECTION_BONUSES[r] || 0;
             const bonusText = complete
-                ? `✅ +${(bonus * 100).toFixed(0)}% chance active`
-                : `+${(bonus * 100).toFixed(0)}% si complète`;
+                ? `✅ +${(bonus * 100).toFixed(1)}% chance active`
+                : `+${(bonus * 100).toFixed(1)}% si complète`;
             return `
                 <div class="collection-row ${complete ? "complete" : ""}">
                     <span class="col-rarity">${r}</span>
@@ -2685,7 +2921,6 @@ const pseudoKeyFor = (uid) => "auraRng_pseudo_" + uid;
 function usernameToEmail(username) {
     return username.toLowerCase().replace(/[^a-z0-9_]/g, "") + FB_EMAIL_DOMAIN;
 }
-
 function showAuthModal(show) {
     const modal = document.getElementById("auth-modal");
     if (show) {
@@ -2696,7 +2931,6 @@ function showAuthModal(show) {
         document.body.classList.remove("not-logged");
     }
 }
-
 function showAuthLoading(show, text) {
     const loading = document.getElementById("auth-loading");
     if (show) {
@@ -2705,7 +2939,6 @@ function showAuthLoading(show, text) {
         loading.classList.remove("hidden");
     } else loading.classList.add("hidden");
 }
-
 function setAuthMode(mode) {
     authMode = mode;
     showAuthLoading(false);
@@ -2726,13 +2959,11 @@ async function handleAuthSubmit() {
             "Firebase non chargé.";
         return;
     }
-
     const username = document.getElementById("auth-username").value.trim();
     const password = document.getElementById("auth-password").value;
     const errorEl = document.getElementById("auth-error");
     const submitBtn = document.getElementById("auth-submit");
     errorEl.textContent = "";
-
     if (!username || username.length < 3) {
         errorEl.textContent = "❌ Pseudo trop court.";
         return;
@@ -2745,10 +2976,8 @@ async function handleAuthSubmit() {
         errorEl.textContent = "❌ Mot de passe : 6 car. min.";
         return;
     }
-
     submitBtn.disabled = true;
     submitBtn.textContent = "Chargement...";
-
     try {
         const email = usernameToEmail(username);
         if (authMode === "register") {
@@ -2843,11 +3072,10 @@ async function resolveUsername(user) {
                 const snap = await window.FB.get(
                     window.FB.ref(window.FB.db, "usernames"),
                 );
-                if (snap.exists()) {
+                if (snap.exists())
                     snap.forEach((child) => {
                         if (child.val().uid === user.uid) username = child.key;
                     });
-                }
                 if (username) break;
             } catch (e) {
                 console.warn("Lookup pseudo échoué :", e);
@@ -2866,14 +3094,12 @@ function initAuth() {
         showAuthModal(false);
         return;
     }
-
     showAuthModal(true);
     setAuthMode("login");
 
     FB.onAuthStateChanged(FB.auth, async (user) => {
         if (user) {
             showAuthLoading(true, "Chargement de ta progression...");
-
             state = createDefaultState();
             state.uid = user.uid;
             lastRolledAura = null;
@@ -2894,14 +3120,19 @@ function initAuth() {
             state.username = username;
             state._uid = user.uid;
 
-            // LOT 2 : init
             if (!Array.isArray(state.unlockedTitles)) state.unlockedTitles = [];
             if (!state.level || state.level < 1) state.level = 1;
             if (!state.xp || state.xp < 0) state.xp = 0;
+            if (!Array.isArray(state.unlockedSkins))
+                state.unlockedSkins = ["default"];
+            if (!state.equippedSkin) state.equippedSkin = "default";
+
             TITLES.forEach((t) => {
                 if (!state.unlockedTitles.includes(t.id) && t.check())
                     state.unlockedTitles.push(t.id);
             });
+
+            applySkin(state.equippedSkin);
 
             document.getElementById("stat-username").textContent =
                 state.username;
@@ -2912,6 +3143,7 @@ function initAuth() {
             pushToLeaderboard();
             initLeaderboard();
             startAnnouncementsListener();
+            startChatListener();
             localStorage.removeItem(LS_PENDING_PSEUDO);
         } else {
             state = createDefaultState();
@@ -3235,7 +3467,6 @@ function electPrimaryTab() {
 /* ---------- 8. LOT 1 : BANDEAU / NUMÉROS / PARTICULES ---------- */
 
 let bannerTimeout = null;
-
 function showGlobalBanner(data) {
     const banner = document.getElementById("global-banner");
     const text = document.getElementById("global-banner-text");
@@ -3435,7 +3666,130 @@ function stopBiomeParticles() {
     currentBiomeParticleType = null;
 }
 
-/* ---------- 9. ÉVÉNEMENTS ---------- */
+/* ---------- 9. CHAT (LOT 3) ---------- */
+
+let chatListenerStarted = false;
+let chatMessages = [];
+
+function startChatListener() {
+    if (!window.FB || chatListenerStarted) return;
+    chatListenerStarted = true;
+    const { db, ref, query, orderByChild, limitToLast, onChildAdded } =
+        window.FB;
+    const q = query(
+        ref(db, "chat"),
+        orderByChild("ts"),
+        limitToLast(CHAT_MAX_MESSAGES),
+    );
+    onChildAdded(q, (snap) => {
+        const msg = snap.val();
+        if (!msg || !msg.ts) return;
+        if (Date.now() - msg.ts > CHAT_MAX_AGE_MS) return;
+        chatMessages.push({ id: snap.key, ...msg });
+        if (chatMessages.length > CHAT_MAX_MESSAGES) chatMessages.shift();
+        appendChatMessage({ id: snap.key, ...msg });
+    });
+    setTimeout(cleanOldChat, 5000);
+}
+
+function appendChatMessage(msg) {
+    const box = document.getElementById("chat-messages");
+    if (!box) return;
+    const isMe = state.username && msg.name === state.username;
+    const el = document.createElement("div");
+    el.className = "chat-msg" + (isMe ? " own" : "");
+    const color = getPlayerDisplayColor(msg.name);
+    const time = new Date(msg.ts).toLocaleTimeString("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+    el.innerHTML = `
+        <span class="chat-author" style="color:${color}">${escapeHtml(msg.name)}</span>
+        <span class="chat-text">${escapeHtml(msg.text)}</span>
+        <span class="chat-time">${time}</span>
+    `;
+    const wasAtBottom =
+        box.scrollHeight - box.scrollTop - box.clientHeight < 50;
+    box.appendChild(el);
+    if (wasAtBottom) box.scrollTop = box.scrollHeight;
+}
+
+function escapeHtml(s) {
+    return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function getPlayerDisplayColor(name) {
+    if (name === state.username && state.bestAura) {
+        const aura = AURA_BY_ID[state.bestAura];
+        if (aura) return RARITY_COLORS[aura.rarity] || "#c4b5fd";
+    }
+    let hash = 0;
+    for (let i = 0; i < name.length; i++)
+        hash = (hash << 5) - hash + name.charCodeAt(i);
+    const hues = [260, 290, 320, 200, 170, 40, 15];
+    const hue = hues[Math.abs(hash) % hues.length];
+    return `hsl(${hue}, 70%, 65%)`;
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById("chat-input");
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    if (text.length > 200) {
+        showToast("❌ Message trop long.");
+        return;
+    }
+    if (!state.uid || !state.username) {
+        showToast("❌ Connecte-toi d'abord.");
+        return;
+    }
+    const now = Date.now();
+    if (state._lastChatAt && now - state._lastChatAt < 2000) {
+        showToast("⏳ Attends un peu avant de renvoyer.");
+        return;
+    }
+    state._lastChatAt = now;
+    const safeText = filterChatText(text);
+    try {
+        const { db, ref, push, set, serverTimestamp } = window.FB;
+        const msgRef = push(ref(db, "chat"));
+        await set(msgRef, {
+            name: state.username,
+            text: safeText,
+            ts: serverTimestamp(),
+        });
+        input.value = "";
+    } catch (e) {
+        console.warn("Erreur envoi chat :", e);
+        showToast("❌ Impossible d'envoyer le message.");
+    }
+}
+
+async function cleanOldChat() {
+    if (!window.FB) return;
+    try {
+        const { db, ref, get, remove } = window.FB;
+        const snap = await get(ref(db, "chat"));
+        if (!snap.exists()) return;
+        const now = Date.now();
+        const deletions = [];
+        snap.forEach((child) => {
+            const v = child.val();
+            if (!v || !v.ts) return;
+            if (now - v.ts > CHAT_MAX_AGE_MS)
+                deletions.push(remove(ref(db, "chat/" + child.key)));
+        });
+        if (deletions.length) await Promise.all(deletions);
+    } catch (e) {}
+}
+
+/* ---------- 10. ÉVÉNEMENTS ---------- */
 
 let lastRolledAura = null;
 let rollLock = false;
@@ -3530,6 +3884,7 @@ function runAutoRollLoop() {
     const speedEffect = state.activeEffects.find((e) => e.speed);
     if (speedEffect) interval *= 1 - speedEffect.speed;
     interval *= 1 - getUpgradeEffect("speed");
+    if (state.skillBranch === "speed") interval *= 0.5;
     interval = Math.max(AUTOROLL_MIN_INTERVAL, interval);
     autoRollTimer = setTimeout(runAutoRollLoop, interval);
 }
@@ -3714,11 +4069,42 @@ $("#titles-btn").addEventListener("click", () => {
     renderTitles();
     openModal("titles-modal");
 });
+$("#skills-btn").addEventListener("click", () => {
+    renderSkills();
+    openModal("skills-modal");
+});
+$("#skins-btn").addEventListener("click", () => {
+    renderSkins();
+    openModal("skins-modal");
+});
+$("#chat-btn").addEventListener("click", () => {
+    if (!getPlayerName()) {
+        showToast("❌ Connecte-toi pour accéder au chat.");
+        return;
+    }
+    startChatListener();
+    openModal("chat-modal");
+    setTimeout(() => {
+        const box = document.getElementById("chat-messages");
+        if (box) box.scrollTop = box.scrollHeight;
+    }, 100);
+});
 $("#stats-btn").addEventListener("click", () => {
     renderStats();
     openModal("stats-modal");
 });
 $("#settings-btn").addEventListener("click", () => openModal("settings-modal"));
+
+const chatSendBtn = document.getElementById("chat-send");
+if (chatSendBtn) chatSendBtn.addEventListener("click", sendChatMessage);
+const chatInput = document.getElementById("chat-input");
+if (chatInput)
+    chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            sendChatMessage();
+        }
+    });
 
 document.querySelectorAll(".auth-tab").forEach((tab) => {
     tab.addEventListener("click", () => setAuthMode(tab.dataset.auth));
@@ -3821,7 +4207,7 @@ $("#reset-save-btn").addEventListener("click", () => {
     location.reload();
 });
 
-/* ---------- 10. AUDIO ---------- */
+/* ---------- 11. AUDIO ---------- */
 
 let audioCtx = null;
 function playSound(type) {
@@ -3899,7 +4285,7 @@ function playSound(type) {
     }
 }
 
-/* ---------- 11. INIT ---------- */
+/* ---------- 12. INIT ---------- */
 
 function init() {
     const raritySelect = $("#inv-filter-rarity");
@@ -3947,7 +4333,7 @@ if (window.FB) {
     }, 500);
 }
 
-/* ---------- 12. EXPOSE POUR ANTI-TRICHE ---------- */
+/* ---------- 13. EXPOSE POUR ANTI-TRICHE ---------- */
 
 window.performRoll = performRoll;
 window.registerAura = registerAura;
