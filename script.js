@@ -30,9 +30,9 @@ const RARITY_COLORS = {
     secret: "#ff00ff",
 };
 
-/* ===== 105 AURAS ===== */
+/* ===== 108 AURAS ===== */
 const AURAS = [
-    // ===== COMMON (15) =====
+    // COMMON (15)
     {
         id: "a01",
         name: "Cendre",
@@ -139,7 +139,7 @@ const AURAS = [
         desc: "Le vent qui passe.",
     },
 
-    // ===== UNCOMMON (15) =====
+    // UNCOMMON (15)
     {
         id: "a16",
         name: "Feuille",
@@ -246,7 +246,7 @@ const AURAS = [
         desc: "Une plume légère.",
     },
 
-    // ===== RARE (15) =====
+    // RARE (15)
     {
         id: "a31",
         name: "Lame",
@@ -353,7 +353,7 @@ const AURAS = [
         desc: "Un morceau de ciel.",
     },
 
-    // ===== EPIC (15) =====
+    // EPIC (15)
     {
         id: "a46",
         name: "Nébuleuse",
@@ -460,7 +460,7 @@ const AURAS = [
         desc: "Runes anciennes.",
     },
 
-    // ===== LEGENDARY (15) =====
+    // LEGENDARY (15)
     {
         id: "a61",
         name: "Éclipse",
@@ -567,7 +567,7 @@ const AURAS = [
         desc: "Le jardin d'Éden.",
     },
 
-    // ===== MYTHIC (10) =====
+    // MYTHIC (10)
     {
         id: "a76",
         name: "Chronos",
@@ -639,7 +639,7 @@ const AURAS = [
         desc: "Étoile morte.",
     },
 
-    // ===== DIVINE (8) =====
+    // DIVINE (8)
     {
         id: "a86",
         name: "Création",
@@ -697,7 +697,7 @@ const AURAS = [
         desc: "Élévation ultime.",
     },
 
-    // ===== CELESTIAL (5) =====
+    // CELESTIAL (5)
     {
         id: "a94",
         name: "Voie lactée",
@@ -734,7 +734,7 @@ const AURAS = [
         desc: "Phare cosmique.",
     },
 
-    // ===== COSMIC (5) =====
+    // COSMIC (5)
     {
         id: "a99",
         name: "Big Bang",
@@ -771,7 +771,7 @@ const AURAS = [
         desc: "Une réalité parallèle.",
     },
 
-    // ===== SECRET (5) =====
+    // SECRET (5)
     {
         id: "a104",
         name: "Genesis",
@@ -1023,11 +1023,11 @@ const COIN_REWARDS = {
     secret: 50000,
 };
 
-// ✅ Raretés qui déclenchent une animation de révélation
+// Raretés qui déclenchent l'animation de révélation
 const REVEAL_RARITIES = ["divine", "celestial", "cosmic", "secret"];
-// ✅ Raretés qui secouent l'écran
+// Raretés qui secouent l'écran
 const SHAKE_RARITIES = ["secret"];
-// ✅ Raretés avec particules
+// Raretés avec particules
 const PARTICLE_RARITIES = ["cosmic", "secret"];
 
 const AUTOROLL_PRICE_COINS = 1500;
@@ -1134,7 +1134,6 @@ function saveGame(skipCloud = false) {
     } catch (e) {
         console.warn("Erreur save locale :", e);
     }
-
     if (skipCloud) return;
     if (!state.uid || !window.FB) return;
     fbSavePending = true;
@@ -1309,56 +1308,46 @@ function showToast(msg) {
     toastTimer = setTimeout(() => el.classList.add("hidden"), 2200);
 }
 
-/* ✅ NOUVELLE fonction showReveal avec animation spectaculaire */
+// Animation de révélation
 function showReveal(aura) {
     const overlay = $("#reveal-overlay");
-    const content = $("#reveal-content");
     const text = $("#reveal-text");
     const rarityTag = $("#reveal-rarity-tag");
     const chanceEl = $("#reveal-chance");
     const particlesBox = $("#reveal-particles");
 
-    // Reset
     overlay.className = "";
     particlesBox.innerHTML = "";
     document.body.classList.remove("screen-shake");
 
-    // Set contenu
     text.textContent = aura.name;
     rarityTag.textContent = aura.rarity;
     rarityTag.style.color = RARITY_COLORS[aura.rarity];
     chanceEl.textContent = formatChance(aura);
     chanceEl.style.color = RARITY_COLORS[aura.rarity];
 
-    // Ajoute la classe de rareté
     overlay.classList.add("rarity-" + aura.rarity);
 
-    // Durée selon rareté
     let duration = 2500;
     if (aura.rarity === "secret") duration = 4500;
     else if (aura.rarity === "cosmic") duration = 3800;
     else if (aura.rarity === "celestial") duration = 3500;
     else if (aura.rarity === "divine") duration = 3200;
 
-    // Screen shake pour secret
     if (SHAKE_RARITIES.includes(aura.rarity)) {
         document.body.classList.add("screen-shake");
         setTimeout(() => document.body.classList.remove("screen-shake"), 600);
     }
 
-    // Particules pour cosmic + secret
     if (PARTICLE_RARITIES.includes(aura.rarity)) {
         const count = aura.rarity === "secret" ? 60 : 35;
         spawnParticles(particlesBox, count, aura.rarity);
     }
 
-    // Sons spéciaux
     playSound("reveal-" + aura.rarity);
 
-    // Affiche
     overlay.classList.remove("hidden");
 
-    // Cache après la durée
     setTimeout(() => {
         overlay.classList.add("hidden");
         overlay.className = "hidden";
@@ -1787,6 +1776,8 @@ function renderStats() {
 let authMode = "login";
 let authInitialized = false;
 let leaderboardInterval = null;
+let leaderboardRefreshInterval = null;
+let currentLeaderboardTab = "bestAura";
 
 const LS_PENDING_PSEUDO = "auraRng_pendingPseudo";
 const pseudoKeyFor = (uid) => "auraRng_pseudo_" + uid;
@@ -2027,6 +2018,10 @@ function initAuth() {
                 clearInterval(leaderboardInterval);
                 leaderboardInterval = null;
             }
+            if (leaderboardRefreshInterval) {
+                clearInterval(leaderboardRefreshInterval);
+                leaderboardRefreshInterval = null;
+            }
         }
     });
 }
@@ -2087,18 +2082,35 @@ function fetchLeaderboard(type, callback) {
         });
 }
 
-function renderLeaderboard(type) {
+function renderLeaderboard(type, silent = false) {
     const container = $("#lb-content");
     const status = $("#lb-status");
-    status.textContent = "Chargement...";
-    container.innerHTML = "";
+
+    currentLeaderboardTab = type;
+
+    if (!silent) {
+        status.textContent = "Chargement...";
+        container.innerHTML = "";
+    }
+
     fetchLeaderboard(type, (players) => {
         if (players.length === 0) {
-            status.textContent = "Aucun joueur.";
+            status.textContent = "Aucun joueur pour le moment.";
+            container.innerHTML = "";
             return;
         }
-        status.textContent = `Top ${players.length} joueurs`;
+
         const myName = getPlayerName();
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+        });
+        status.textContent = `Top ${players.length} joueurs · actualisé à ${timeStr}`;
+
+        container.innerHTML = "";
+
         players.forEach((p, index) => {
             const rank = index + 1;
             const isMe = myName && p.name === myName;
@@ -2107,13 +2119,15 @@ function renderLeaderboard(type) {
             if (type === "bestAura") {
                 displayValue = p.bestAuraName || "Aucune";
                 subValue = p.bestAuraRarity || "";
-            } else if (type === "totalRolls")
+            } else if (type === "totalRolls") {
                 displayValue =
                     (p.totalRolls || 0).toLocaleString("fr-FR") + " rolls";
-            else if (type === "playTime")
+            } else if (type === "playTime") {
                 displayValue =
                     Math.floor((p.playTime || 0) / 60).toLocaleString("fr-FR") +
                     " min";
+            }
+
             const row = document.createElement("div");
             row.className = "lb-row" + (isMe ? " me" : "");
             const rankClass =
@@ -2124,25 +2138,40 @@ function renderLeaderboard(type) {
                       : rank === 3
                         ? " top3"
                         : "";
+            const rarityColor =
+                subValue && RARITY_COLORS[subValue]
+                    ? RARITY_COLORS[subValue]
+                    : "#4ade80";
+
             row.innerHTML = `
-        <div class="lb-rank${rankClass}">${rank}</div>
-        <div class="lb-name">
-          ${p.name || "Anonyme"}${isMe ? ' <span style="opacity:.6">(toi)</span>' : ""}
-          ${subValue ? `<span class="lb-sub">${subValue}</span>` : ""}
-        </div>
-        <div class="lb-value">${displayValue}</div>
-      `;
+                <div class="lb-rank${rankClass}">${rank}</div>
+                <div class="lb-name">
+                    ${p.name || "Anonyme"}${isMe ? ' <span style="opacity:.6">(toi)</span>' : ""}
+                    ${subValue ? `<span class="lb-sub" style="color:${rarityColor}">${subValue}</span>` : ""}
+                </div>
+                <div class="lb-value" style="color:${rarityColor}">${displayValue}</div>
+            `;
             container.appendChild(row);
         });
     });
 }
 
+// ✅ Init du classement : push toutes les 15s + refresh de l'affichage toutes les 15s
 function initLeaderboard() {
     if (getPlayerName()) pushToLeaderboard();
-    if (leaderboardInterval) return;
+
+    if (leaderboardInterval) clearInterval(leaderboardInterval);
     leaderboardInterval = setInterval(() => {
         if (getPlayerName()) pushToLeaderboard();
-    }, 60000);
+    }, 15000);
+
+    if (leaderboardRefreshInterval) clearInterval(leaderboardRefreshInterval);
+    leaderboardRefreshInterval = setInterval(() => {
+        const modal = document.getElementById("leaderboard-modal");
+        if (modal && !modal.classList.contains("hidden") && getPlayerName()) {
+            renderLeaderboard(currentLeaderboardTab, true);
+        }
+    }, 15000);
 }
 
 async function cleanGhostPlayers() {
@@ -2178,7 +2207,6 @@ let rollInProgress = false;
 let autoRollActive = false;
 let autoRollTimer = null;
 
-// ✅ Helper : affiche la révélation (animation OU toast)
 function handleAuraReveal(aura) {
     if (REVEAL_RARITIES.includes(aura.rarity) && !state.settings.reduceAnim) {
         showReveal(aura);
@@ -2448,13 +2476,17 @@ document
 });
 document.getElementById("logout-btn").addEventListener("click", handleLogout);
 
+// Ouverture du classement : push immédiat + affichage
 $("#leaderboard-btn").addEventListener("click", () => {
     if (!getPlayerName()) {
         showToast("❌ Connecte-toi pour voir le classement.");
         return;
     }
-    renderLeaderboard("bestAura");
-    openModal("leaderboard-modal");
+    pushToLeaderboard();
+    setTimeout(() => {
+        renderLeaderboard("bestAura");
+        openModal("leaderboard-modal");
+    }, 400);
 });
 document.querySelectorAll(".lb-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -2559,8 +2591,6 @@ function playSound(type) {
         freq = 700;
         dur = 0.2;
     }
-
-    // ✅ Sons spéciaux pour les révélations
     if (type === "reveal-divine") {
         freq = 1200;
         dur = 1.2;
@@ -2589,7 +2619,6 @@ function playSound(type) {
     osc.start();
     osc.stop(audioCtx.currentTime + dur);
 
-    // Second oscillateur pour les révélations (effet riche)
     if (type.startsWith("reveal-")) {
         const osc2 = audioCtx.createOscillator();
         const gain2 = audioCtx.createGain();
