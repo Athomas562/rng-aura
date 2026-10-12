@@ -1,6 +1,6 @@
 /* =========================================================
    AURA RNG — style.css
-   Lot 1 + Lot 2 + Lot 3 intégrés
+   Lots 1 + 2 + 3 + 4
    ========================================================= */
 
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Outfit:wght@400;500;600;700&display=swap");
@@ -547,8 +547,12 @@ button:disabled {
     margin-left: auto;
     border-color: var(--line-strong);
 }
+#stat-social {
+    border-color: rgba(52, 211, 153, 0.4) !important;
+    background: rgba(52, 211, 153, 0.08) !important;
+    color: #a7f3d0;
+}
 
-/* Badge niveau + titre */
 .level-badge {
     display: inline-block;
     margin-left: 8px;
@@ -577,7 +581,6 @@ button:disabled {
     vertical-align: middle;
 }
 
-/* Barre XP */
 #xp-bar-container {
     position: relative;
     z-index: 2;
@@ -638,18 +641,6 @@ button:disabled {
 }
 .level-up-anim {
     animation: levelUpPulse 0.8s ease-out;
-}
-#toast.level-up-toast {
-    background: linear-gradient(
-        135deg,
-        rgba(124, 58, 237, 0.95),
-        rgba(37, 99, 235, 0.95)
-    );
-    border-color: rgba(196, 181, 253, 0.6);
-    box-shadow: 0 12px 40px rgba(124, 58, 237, 0.5);
-    font-size: 15px;
-    font-weight: 700;
-    padding: 14px 28px;
 }
 
 /* ===== ÉCRAN PRINCIPAL ===== */
@@ -1021,7 +1012,7 @@ button:disabled {
     flex-wrap: wrap;
     gap: 8px;
     justify-content: center;
-    max-width: 900px;
+    max-width: 960px;
 }
 .small-btn {
     padding: 9px 16px;
@@ -2782,7 +2773,7 @@ body.screen-shake {
     }
 }
 
-/* ===== LOT 3 : SKINS ===== */
+/* ===== SKINS ===== */
 .skin-card {
     position: relative;
     padding: 16px 14px;
@@ -2872,7 +2863,7 @@ body.screen-shake {
     color: var(--gold);
 }
 
-/* ===== LOT 3 : COMPÉTENCES ===== */
+/* ===== COMPÉTENCES ===== */
 .skill-card {
     padding: 18px 16px;
     border-radius: 16px;
@@ -2966,7 +2957,7 @@ body.screen-shake {
     color: #f472b6;
 }
 
-/* ===== LOT 3 : CHAT ===== */
+/* ===== CHAT ===== */
 .chat-messages {
     max-height: 400px;
     overflow-y: auto;
@@ -3029,7 +3020,277 @@ body.screen-shake {
     background: rgba(255, 255, 255, 0.08);
 }
 
-/* ===== LOT 3 : THÈMES ===== */
+/* ===== AMIS ===== */
+.friends-badge {
+    display: inline-block;
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    margin-left: 4px;
+    vertical-align: middle;
+    animation: badgePulse 1.5s ease-in-out infinite;
+}
+@keyframes badgePulse {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.15);
+    }
+}
+
+.friends-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    margin: 16px 0;
+    border-radius: var(--r-md);
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.04);
+}
+.friends-tab {
+    flex: 1;
+    padding: 10px;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    transition:
+        background 0.15s ease,
+        color 0.15s ease;
+}
+.friends-tab:hover {
+    color: var(--text);
+}
+.friends-tab.active {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: #fff;
+}
+
+.friend-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.055),
+        rgba(255, 255, 255, 0.02)
+    );
+    margin-bottom: 8px;
+    transition:
+        border-color 0.15s ease,
+        transform 0.15s ease;
+}
+.friend-card:hover {
+    border-color: var(--line-strong);
+    transform: translateX(2px);
+}
+.friend-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    color: #fff;
+    box-shadow: 0 0 14px rgba(124, 58, 237, 0.5);
+}
+.friend-info {
+    flex: 1;
+    min-width: 0;
+}
+.friend-name {
+    font-weight: 700;
+    font-size: 15px;
+    overflow-wrap: anywhere;
+}
+.friend-sub {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--muted);
+}
+.friend-online {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 8px #4ade80;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+.friend-offline {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #6b7280;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+.friend-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.friend-actions button {
+    padding: 7px 12px;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.06);
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+}
+.friend-actions button:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--line-strong);
+}
+.friend-actions button.follow-btn {
+    background: linear-gradient(135deg, #34d399, #10b981);
+    color: #04130d;
+    border-color: transparent;
+}
+.friend-actions button.unfollow-btn {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.friends-search {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.friends-search input {
+    flex: 1;
+    min-width: 0;
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+}
+.friends-search input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(255, 255, 255, 0.08);
+}
+.friends-search button {
+    padding: 11px 20px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    font-weight: 700;
+    font-size: 14px;
+    border: 1px solid rgba(196, 181, 253, 0.5);
+    transition:
+        transform 0.15s ease,
+        filter 0.15s ease;
+}
+.friends-search button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+}
+.friends-search button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+.friends-hr {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: 20px 0 14px;
+}
+.friends-feed {
+    max-height: 240px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.feed-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--line);
+    margin-bottom: 6px;
+    font-size: 13px;
+    animation: feedIn 0.3s ease;
+}
+@keyframes feedIn {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+.feed-item.feed-legendary {
+    border-color: rgba(251, 191, 36, 0.4);
+}
+.feed-item.feed-mythic {
+    border-color: rgba(244, 63, 94, 0.4);
+}
+.feed-item.feed-divine {
+    border-color: rgba(254, 240, 138, 0.4);
+}
+.feed-item.feed-celestial {
+    border-color: rgba(103, 232, 249, 0.4);
+}
+.feed-item.feed-cosmic {
+    border-color: rgba(192, 132, 252, 0.5);
+}
+.feed-item.feed-secret {
+    border-color: rgba(255, 0, 255, 0.5);
+    background: linear-gradient(
+        135deg,
+        rgba(255, 0, 255, 0.08),
+        rgba(170, 0, 255, 0.04)
+    );
+}
+.feed-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+.feed-text {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.feed-author {
+    font-weight: 700;
+    color: #c4b5fd;
+}
+.feed-time {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: 6px;
+    opacity: 0.7;
+}
+
+/* ===== THÈMES ===== */
 body[data-skin="halloween"] {
     --accent: #f97316;
     --accent-2: #fb923c;
@@ -3217,6 +3478,17 @@ body[data-skin="sakura"] .main-btn {
     }
     .collection-row .col-rarity {
         min-width: 80px;
+    }
+    .friend-card {
+        flex-wrap: wrap;
+        padding: 12px;
+    }
+    .friend-actions {
+        width: 100%;
+        margin-top: 8px;
+    }
+    .friend-actions button {
+        flex: 1;
     }
 }
 @media (max-width: 360px) {

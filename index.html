@@ -28,6 +28,7 @@
                 orderByChild,
                 limitToLast,
                 onChildAdded,
+                onValue,
                 serverTimestamp,
             } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
@@ -65,6 +66,7 @@
                 orderByChild,
                 limitToLast,
                 onChildAdded,
+                onValue,
                 serverTimestamp,
             };
 
@@ -72,7 +74,6 @@
         </script>
     </head>
     <body class="not-logged">
-        <!-- Bandeau global d'annonces -->
         <div id="global-banner" class="hidden">
             <div id="global-banner-text"></div>
         </div>
@@ -95,6 +96,9 @@
             <div class="stat-box" title="Monnaie">
                 💰 <span id="stat-coins">0</span>
             </div>
+            <div class="stat-box" id="stat-social" title="Bonus social">
+                👥 <span id="stat-social-bonus">+0%</span>
+            </div>
             <div class="stat-box" id="stat-user" title="Joueur connecté">
                 👤 <span id="stat-username">—</span>
                 <span id="stat-level-badge" class="level-badge hidden"
@@ -104,7 +108,6 @@
             </div>
         </header>
 
-        <!-- Barre de progression XP -->
         <div id="xp-bar-container" class="hidden">
             <div id="xp-bar">
                 <div id="xp-bar-fill"></div>
@@ -145,6 +148,13 @@
                 </button>
                 <button id="skins-btn" class="small-btn">🎨 Skins</button>
                 <button id="chat-btn" class="small-btn">💬 Chat</button>
+                <button id="friends-btn" class="small-btn">
+                    👥 Amis
+                    <span
+                        id="friends-badge"
+                        class="friends-badge hidden"
+                    ></span>
+                </button>
                 <button id="leaderboard-btn" class="small-btn">
                     🏆 Classement
                 </button>
@@ -333,6 +343,36 @@
                         autocomplete="off"
                     />
                     <button id="chat-send" class="small-btn">Envoyer</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Amis -->
+        <div id="friends-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="friends-modal">✕</button>
+                <h2>👥 Amis</h2>
+                <p id="friends-stats" class="hint">— abonnements · — abonnés</p>
+
+                <div class="friends-tabs">
+                    <button class="friends-tab active" data-friends="following">
+                        Mes amis
+                    </button>
+                    <button class="friends-tab" data-friends="followers">
+                        Abonnés
+                    </button>
+                    <button class="friends-tab" data-friends="search">
+                        Rechercher
+                    </button>
+                </div>
+
+                <div id="friends-content"></div>
+
+                <hr class="friends-hr" />
+
+                <h3 style="margin-bottom: 8px">📜 Activité récente</h3>
+                <div id="friends-feed" class="friends-feed">
+                    <p class="hint">Aucune activité récente.</p>
                 </div>
             </div>
         </div>
@@ -623,7 +663,6 @@
 
         <div id="toast" class="hidden"></div>
 
-        <!-- Bouton Buy Me a Coffee -->
         <a
             id="bmc-btn"
             href="https://www.buymeacoffee.com/"

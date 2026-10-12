@@ -1,6 +1,6 @@
 /* =========================================================
    AURA RNG — script.js
-   v6 : Lot 1 + Lot 2 + Lot 3 + fix double roll + anti-triche
+   v7 : Lots 1 + 2 + 3 + 4 + fix double roll + anti-triche
    ========================================================= */
 
 /* ---------- 1. CONFIGURATION ---------- */
@@ -139,7 +139,6 @@ const AURAS = [
         weight: 6600,
         desc: "Le vent qui passe.",
     },
-
     {
         id: "a16",
         name: "Feuille",
@@ -245,7 +244,6 @@ const AURAS = [
         weight: 1600,
         desc: "Une plume légère.",
     },
-
     {
         id: "a31",
         name: "Lame",
@@ -351,7 +349,6 @@ const AURAS = [
         weight: 370,
         desc: "Un morceau de ciel.",
     },
-
     {
         id: "a46",
         name: "Nébuleuse",
@@ -457,7 +454,6 @@ const AURAS = [
         weight: 70,
         desc: "Runes anciennes.",
     },
-
     {
         id: "a61",
         name: "Éclipse",
@@ -563,7 +559,6 @@ const AURAS = [
         weight: 12,
         desc: "Le jardin d'Éden.",
     },
-
     {
         id: "a76",
         name: "Chronos",
@@ -634,7 +629,6 @@ const AURAS = [
         weight: 1.5,
         desc: "Étoile morte.",
     },
-
     {
         id: "a86",
         name: "Création",
@@ -691,7 +685,6 @@ const AURAS = [
         weight: 0.3,
         desc: "Élévation ultime.",
     },
-
     {
         id: "a94",
         name: "Voie lactée",
@@ -727,7 +720,6 @@ const AURAS = [
         weight: 0.1,
         desc: "Phare cosmique.",
     },
-
     {
         id: "a99",
         name: "Big Bang",
@@ -763,7 +755,6 @@ const AURAS = [
         weight: 0.03,
         desc: "Une réalité parallèle.",
     },
-
     {
         id: "a104",
         name: "Genesis",
@@ -1545,7 +1536,7 @@ const SAVE_KEY = "auraRng_save_v1";
 const SAVE_VERSION = 1;
 const FB_EMAIL_DOMAIN = "@aurarng.local";
 
-/* ===== LOT 3 : SKINS ===== */
+/* ===== SKINS ===== */
 const SKINS = [
     {
         id: "default",
@@ -1589,7 +1580,7 @@ const SKINS = [
     },
 ];
 
-/* ===== LOT 3 : COMPÉTENCES ===== */
+/* ===== COMPÉTENCES ===== */
 const SKILL_BRANCHES = [
     {
         id: "luck",
@@ -1628,10 +1619,9 @@ const SKILL_BRANCHES = [
         ],
     },
 ];
-
 const SKILL_REQUIRED_LEVEL = 20;
 
-/* ===== LOT 3 : CHAT ===== */
+/* ===== CHAT ===== */
 const CHAT_BANNED_WORDS = [
     "connard",
     "connasse",
@@ -1668,7 +1658,13 @@ function filterChatText(text) {
     return filtered.slice(0, 200);
 }
 
-/* ===== LOT 2 : XP ===== */
+/* ===== AMIS ===== */
+const FRIENDS_MAX_ACTIVITY_PER_PLAYER = 20;
+const FRIENDS_ONLINE_WINDOW_MS = 5 * 60 * 1000;
+const FRIENDS_SOCIAL_BONUS_PER_FRIEND = 0.01;
+const FRIENDS_SOCIAL_BONUS_MAX = 10;
+
+/* ===== XP ===== */
 const XP_REWARDS = {
     common: 1,
     uncommon: 3,
@@ -1692,7 +1688,7 @@ function xpToNextLevel(n) {
     return xpForLevel(n + 1) - xpForLevel(n);
 }
 
-/* ===== LOT 2 : TITRES ===== */
+/* ===== TITRES ===== */
 const TITLES = [
     {
         id: "t_rookie",
@@ -1776,7 +1772,7 @@ function collectionPercent() {
     return total > 0 ? (found / total) * 100 : 0;
 }
 
-/* ===== LOT 2 : COLLECTIONS COMPLÈTES (NERFÉ) ===== */
+/* ===== COLLECTIONS (NERFÉ) ===== */
 const COMPLETE_COLLECTION_BONUSES = {
     common: 0.01,
     uncommon: 0.015,
@@ -1829,12 +1825,10 @@ function createDefaultState() {
         autoRollPaywallOpenCount: 0,
         uid: null,
         username: null,
-        // LOT 2
         xp: 0,
         level: 1,
         equippedTitle: null,
         unlockedTitles: [],
-        // LOT 3
         equippedSkin: "default",
         unlockedSkins: ["default"],
         skillBranch: null,
@@ -1983,6 +1977,14 @@ function buyUpgrade(upgrade) {
     renderUpgrades();
 }
 
+function getSocialBonus() {
+    const count = Math.min(
+        Object.keys(state._following || {}).length,
+        FRIENDS_SOCIAL_BONUS_MAX,
+    );
+    return count * FRIENDS_SOCIAL_BONUS_PER_FRIEND;
+}
+
 function getPermanentLuckBonus() {
     let bonus = 0;
     const biome = BIOMES.find((b) => b.id === state.currentBiome);
@@ -1997,6 +1999,7 @@ function getPermanentLuckBonus() {
     }
     bonus += getCompleteCollectionBonus();
     if (state.skillBranch === "luck") bonus += 0.15;
+    bonus += getSocialBonus();
     return bonus;
 }
 
@@ -2082,9 +2085,8 @@ function registerAura(aura) {
             newR > oldR ||
             (newR === oldR && newW > oldW) ||
             (newR === oldR && newW === oldW && aura.id < currentBest.id)
-        ) {
+        )
             state.bestAura = aura.id;
-        }
     }
 
     const rareRarities = [
@@ -2116,13 +2118,24 @@ function registerAura(aura) {
     });
 
     if (ANNOUNCE_RARITIES.includes(aura.rarity)) publishAnnouncement(aura);
+    if (
+        [
+            "legendary",
+            "mythic",
+            "divine",
+            "celestial",
+            "cosmic",
+            "secret",
+        ].includes(aura.rarity)
+    )
+        publishActivity(aura);
     gainXP(XP_REWARDS[aura.rarity] || 1);
 
     if (state.totalRolls % 10 === 0) pushToLeaderboard();
     saveGame();
 }
 
-/* ---------- LOT 2 : XP / NIVEAUX ---------- */
+/* ---------- 4. XP / TITRES ---------- */
 
 function gainXP(amount) {
     if (amount <= 0) return;
@@ -2172,7 +2185,7 @@ function equipTitle(titleId) {
     renderTitles();
 }
 
-/* ---------- 4. UI ---------- */
+/* ---------- 5. UI ---------- */
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -2191,36 +2204,30 @@ function showReveal(aura) {
     const rarityTag = $("#reveal-rarity-tag");
     const chanceEl = $("#reveal-chance");
     const particlesBox = $("#reveal-particles");
-
     overlay.className = "";
     particlesBox.innerHTML = "";
     document.body.classList.remove("screen-shake");
-
     text.textContent = aura.name;
     rarityTag.textContent = aura.rarity;
     rarityTag.style.color = auraColor(aura);
     chanceEl.textContent = formatChance(aura);
     chanceEl.style.color = auraColor(aura);
-
     overlay.classList.add("rarity-" + aura.rarity);
-
     let duration = 2500;
     if (aura.rarity === "secret") duration = 4500;
     else if (aura.rarity === "cosmic") duration = 3800;
     else if (aura.rarity === "celestial") duration = 3500;
     else if (aura.rarity === "divine") duration = 3200;
-
     if (SHAKE_RARITIES.includes(aura.rarity)) {
         document.body.classList.add("screen-shake");
         setTimeout(() => document.body.classList.remove("screen-shake"), 600);
     }
-    if (PARTICLE_RARITIES.includes(aura.rarity)) {
+    if (PARTICLE_RARITIES.includes(aura.rarity))
         spawnParticles(
             particlesBox,
             aura.rarity === "secret" ? 60 : 35,
             aura.rarity,
         );
-    }
     playSound("reveal-" + aura.rarity);
     overlay.classList.remove("hidden");
     setTimeout(() => {
@@ -2302,6 +2309,12 @@ function renderUI() {
         ? AURA_BY_ID[state.bestAura].name
         : "Aucune";
     $("#stat-username").textContent = state.username || "—";
+
+    const sb = document.getElementById("stat-social-bonus");
+    if (sb) {
+        const b = getSocialBonus();
+        sb.textContent = "+" + (b * 100).toFixed(0) + "%";
+    }
 
     const levelBadge = document.getElementById("stat-level-badge");
     const levelNum = document.getElementById("stat-level");
@@ -2394,11 +2407,7 @@ function renderTitles() {
             "title-card" +
             (unlocked ? "" : " locked") +
             (equipped ? " equipped" : "");
-        card.innerHTML = `
-            <div class="title-icon">${t.icon}</div>
-            <div class="title-name">${t.name}</div>
-            <div class="title-desc">${unlocked ? t.desc : "🔒 " + t.desc}</div>
-        `;
+        card.innerHTML = `<div class="title-icon">${t.icon}</div><div class="title-name">${t.name}</div><div class="title-desc">${unlocked ? t.desc : "🔒 " + t.desc}</div>`;
         if (unlocked)
             card.addEventListener("click", () => {
                 if (equipped) equipTitle(null);
@@ -2524,7 +2533,7 @@ function renderSkills() {
     });
 }
 
-/* ---------- 5. INVENTAIRE / BOUTIQUE / CRAFT / BIOMES / UPGRADES / STATS ---------- */
+/* ---------- 6. INVENTAIRE / BOUTIQUE / CRAFT / BIOMES / UPGRADES / STATS ---------- */
 
 function renderInventory() {
     const grid = $("#inventory-grid");
@@ -2533,7 +2542,6 @@ function renderInventory() {
     const filterR = $("#inv-filter-rarity").value;
     const sortBy = $("#inv-sort").value;
     const showLocked = $("#inv-show-locked").checked;
-
     let list = AURAS.filter((a) => {
         const owned = state.inventory[a.id] > 0;
         if (!owned && !showLocked) return false;
@@ -2554,7 +2562,6 @@ function renderInventory() {
             (a, b) =>
                 (state.inventory[b.id] || 0) - (state.inventory[a.id] || 0),
         );
-
     list.forEach((aura) => {
         const owned = state.inventory[aura.id] > 0;
         const card = document.createElement("div");
@@ -2572,7 +2579,6 @@ function renderInventory() {
         if (owned) card.addEventListener("click", () => equipAura(aura.id));
         grid.appendChild(card);
     });
-
     const discovered = Object.keys(state.discovered).length;
     const pct = Math.round((discovered / AURAS.length) * 100);
     $("#collection-progress").textContent =
@@ -2861,6 +2867,7 @@ function renderStats() {
               return b ? `<p>🌳 Branche : ${b.icon} ${b.name}</p>` : "";
           })()
         : "";
+    const socialBonus = getSocialBonus();
 
     $("#stats-content").innerHTML = `
     <p>🎲 Rolls totaux : ${state.totalRolls.toLocaleString("fr-FR")}</p>
@@ -2874,6 +2881,7 @@ function renderStats() {
     <p>⭐ Améliorations : ${totalUpgradeLevels} niveaux</p>
     <p>🤖 Auto Roll : ${state.autoRollUnlocked ? "Débloqué" : "Verrouillé"}</p>
     <p>♾️ Chance permanente : +${(permBonus * 100).toFixed(1)}%</p>
+    <p>👥 Bonus social : +${(socialBonus * 100).toFixed(1)}%</p>
     <p>⏳ Chance temporaire (potion) : +${((tempMult - 1) * 100).toFixed(0)}%</p>
     <p>🍀 Chance totale : x${totalLuck.toFixed(2)} (plafond x${LUCK_HARD_CAP.toFixed(2)})</p>
     <p>👤 Joueur : ${state.username || "—"}</p>
@@ -2907,13 +2915,17 @@ function renderStats() {
   `;
 }
 
-/* ---------- 6. AUTH + LEADERBOARD ---------- */
+/* ---------- 7. AUTH + LEADERBOARD ---------- */
 
 let authMode = "login";
 let authInitialized = false;
 let leaderboardInterval = null;
 let leaderboardRefreshInterval = null;
 let currentLeaderboardTab = "bestAura";
+let lastRolledAura = null;
+let rollLock = false;
+let autoRollActive = false;
+let autoRollTimer = null;
 
 const LS_PENDING_PSEUDO = "auraRng_pendingPseudo";
 const pseudoKeyFor = (uid) => "auraRng_pseudo_" + uid;
@@ -3126,12 +3138,10 @@ function initAuth() {
             if (!Array.isArray(state.unlockedSkins))
                 state.unlockedSkins = ["default"];
             if (!state.equippedSkin) state.equippedSkin = "default";
-
             TITLES.forEach((t) => {
                 if (!state.unlockedTitles.includes(t.id) && t.check())
                     state.unlockedTitles.push(t.id);
             });
-
             applySkin(state.equippedSkin);
 
             document.getElementById("stat-username").textContent =
@@ -3144,6 +3154,10 @@ function initAuth() {
             initLeaderboard();
             startAnnouncementsListener();
             startChatListener();
+            await loadFriendsLists();
+            renderFriendsStats();
+            updateSocialBonus();
+            startFriendsActivityListener();
             localStorage.removeItem(LS_PENDING_PSEUDO);
         } else {
             state = createDefaultState();
@@ -3364,7 +3378,7 @@ async function cleanGhostPlayers() {
     }
 }
 
-/* ---------- 7. PLAYTIME ---------- */
+/* ---------- 8. PLAYTIME ---------- */
 
 const TAB_ID = Math.random().toString(36).slice(2, 10);
 const TAB_HEARTBEAT_KEY = "auraRng_activeTab";
@@ -3464,7 +3478,7 @@ function electPrimaryTab() {
     }
 }
 
-/* ---------- 8. LOT 1 : BANDEAU / NUMÉROS / PARTICULES ---------- */
+/* ---------- 9. BANDEAU / NUMÉROS / PARTICULES ---------- */
 
 let bannerTimeout = null;
 function showGlobalBanner(data) {
@@ -3666,7 +3680,7 @@ function stopBiomeParticles() {
     currentBiomeParticleType = null;
 }
 
-/* ---------- 9. CHAT (LOT 3) ---------- */
+/* ---------- 10. CHAT ---------- */
 
 let chatListenerStarted = false;
 let chatMessages = [];
@@ -3732,8 +3746,7 @@ function getPlayerDisplayColor(name) {
     for (let i = 0; i < name.length; i++)
         hash = (hash << 5) - hash + name.charCodeAt(i);
     const hues = [260, 290, 320, 200, 170, 40, 15];
-    const hue = hues[Math.abs(hash) % hues.length];
-    return `hsl(${hue}, 70%, 65%)`;
+    return `hsl(${hues[Math.abs(hash) % hues.length]}, 70%, 65%)`;
 }
 
 async function sendChatMessage() {
@@ -3751,7 +3764,7 @@ async function sendChatMessage() {
     }
     const now = Date.now();
     if (state._lastChatAt && now - state._lastChatAt < 2000) {
-        showToast("⏳ Attends un peu avant de renvoyer.");
+        showToast("⏳ Attends un peu.");
         return;
     }
     state._lastChatAt = now;
@@ -3767,7 +3780,7 @@ async function sendChatMessage() {
         input.value = "";
     } catch (e) {
         console.warn("Erreur envoi chat :", e);
-        showToast("❌ Impossible d'envoyer le message.");
+        showToast("❌ Impossible d'envoyer.");
     }
 }
 
@@ -3789,12 +3802,437 @@ async function cleanOldChat() {
     } catch (e) {}
 }
 
-/* ---------- 10. ÉVÉNEMENTS ---------- */
+/* ---------- 11. AMIS / ACTIVITÉ ---------- */
 
-let lastRolledAura = null;
-let rollLock = false;
-let autoRollActive = false;
-let autoRollTimer = null;
+let friendsCurrentTab = "following";
+let friendsUnreadCount = 0;
+let friendsActivityListenerStarted = false;
+
+async function loadFriendsLists() {
+    if (!window.FB || !state.uid) return;
+    try {
+        const { db, ref, get } = window.FB;
+        const snap = await get(ref(db, "friends/" + state.uid));
+        if (!snap.exists()) {
+            state._following = {};
+            state._followers = {};
+            return;
+        }
+        const data = snap.val();
+        state._following = data.following || {};
+        state._followers = data.followers || {};
+    } catch (e) {
+        console.warn("Erreur chargement amis :", e);
+    }
+}
+
+async function fetchPlayerInfo(uid) {
+    if (!window.FB) return null;
+    try {
+        const { db, ref, get } = window.FB;
+        const snap = await get(ref(db, "players/" + uid));
+        if (!snap.exists()) return null;
+        return { uid, ...snap.val() };
+    } catch (e) {
+        return null;
+    }
+}
+
+async function renderFollowingTab() {
+    const container = document.getElementById("friends-content");
+    if (!container) return;
+    container.innerHTML = `<p class="hint">Chargement...</p>`;
+    const uids = Object.keys(state._following);
+    if (uids.length === 0) {
+        container.innerHTML = `<p class="hint">Tu ne suis personne. Va dans "Rechercher".</p>`;
+        return;
+    }
+    const players = await Promise.all(uids.map((uid) => fetchPlayerInfo(uid)));
+    container.innerHTML = "";
+    players
+        .filter(Boolean)
+        .forEach((p) => container.appendChild(buildFriendCard(p, "following")));
+    if (container.children.length === 0)
+        container.innerHTML = `<p class="hint">Aucun profil trouvé.</p>`;
+}
+
+async function renderFollowersTab() {
+    const container = document.getElementById("friends-content");
+    if (!container) return;
+    container.innerHTML = `<p class="hint">Chargement...</p>`;
+    const uids = Object.keys(state._followers);
+    if (uids.length === 0) {
+        container.innerHTML = `<p class="hint">Personne ne te suit pour le moment.</p>`;
+        return;
+    }
+    const players = await Promise.all(uids.map((uid) => fetchPlayerInfo(uid)));
+    container.innerHTML = "";
+    players
+        .filter(Boolean)
+        .forEach((p) => container.appendChild(buildFriendCard(p, "followers")));
+    if (container.children.length === 0)
+        container.innerHTML = `<p class="hint">Aucun profil trouvé.</p>`;
+}
+
+function buildFriendCard(player, mode) {
+    const card = document.createElement("div");
+    card.className = "friend-card";
+    const initial = (player.name || "?")[0].toUpperCase();
+    const hue = hashStringHue(player.name || "?");
+    const avatar = document.createElement("div");
+    avatar.className = "friend-avatar";
+    avatar.style.background = `linear-gradient(135deg, hsl(${hue}, 70%, 55%), hsl(${(hue + 40) % 360}, 70%, 40%))`;
+    avatar.textContent = initial;
+    const info = document.createElement("div");
+    info.className = "friend-info";
+    const lastUpd = player.updatedAt || 0;
+    const isOnline = Date.now() - lastUpd < FRIENDS_ONLINE_WINDOW_MS;
+    const onlineHtml = isOnline
+        ? `<span class="friend-online"></span>En ligne`
+        : `<span class="friend-offline"></span>${formatLastSeen(lastUpd)}`;
+    const bestAuraTxt =
+        player.bestAuraName && player.bestAuraName !== "Aucune"
+            ? `⭐ ${player.bestAuraName} (${player.bestAuraRarity})`
+            : "⭐ Aucune aura";
+    info.innerHTML = `
+        <div class="friend-name">${escapeHtml(player.name || "Anonyme")}</div>
+        <div class="friend-sub">🎖️ Niv. ${player.level || 1} · ${bestAuraTxt}</div>
+        <div class="friend-sub">${onlineHtml}</div>
+    `;
+    const actions = document.createElement("div");
+    actions.className = "friend-actions";
+    const iFollow = !!state._following[player.uid];
+    const theyFollow = !!state._followers[player.uid];
+    if (mode === "following") {
+        const btn = document.createElement("button");
+        btn.className = "unfollow-btn";
+        btn.textContent = "Ne plus suivre";
+        btn.addEventListener("click", () =>
+            unfollowPlayer(player.uid, player.name),
+        );
+        actions.appendChild(btn);
+    } else if (mode === "followers") {
+        if (iFollow) {
+            const btn = document.createElement("button");
+            btn.className = "unfollow-btn";
+            btn.textContent = "Ne plus suivre";
+            btn.addEventListener("click", () =>
+                unfollowPlayer(player.uid, player.name),
+            );
+            actions.appendChild(btn);
+        } else {
+            const btn = document.createElement("button");
+            btn.className = "follow-btn";
+            btn.textContent = "Suivre en retour";
+            btn.addEventListener("click", () =>
+                followPlayer(player.uid, player.name),
+            );
+            actions.appendChild(btn);
+        }
+        if (theyFollow && iFollow) {
+            const mutual = document.createElement("span");
+            mutual.style.cssText =
+                "font-size:11px;opacity:.7;align-self:center;";
+            mutual.textContent = "🤝 Mutuel";
+            actions.appendChild(mutual);
+        }
+    } else if (mode === "search") {
+        const btn = document.createElement("button");
+        btn.className = iFollow ? "unfollow-btn" : "follow-btn";
+        btn.textContent = iFollow ? "Ne plus suivre" : "Suivre";
+        btn.addEventListener("click", () =>
+            iFollow
+                ? unfollowPlayer(player.uid, player.name)
+                : followPlayer(player.uid, player.name),
+        );
+        actions.appendChild(btn);
+    }
+    card.appendChild(avatar);
+    card.appendChild(info);
+    card.appendChild(actions);
+    return card;
+}
+
+function hashStringHue(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i);
+    return Math.abs(h) % 360;
+}
+
+function formatLastSeen(ts) {
+    if (!ts) return "Jamais connecté";
+    const diff = Date.now() - ts;
+    const min = Math.floor(diff / 60000);
+    const h = Math.floor(diff / 3600000);
+    const d = Math.floor(diff / 86400000);
+    if (min < 1) return "À l'instant";
+    if (min < 60) return `Il y a ${min} min`;
+    if (h < 24) return `Il y a ${h} h`;
+    if (d < 30) return `Il y a ${d} j`;
+    return `Il y a +1 mois`;
+}
+
+function renderSearchTab() {
+    const container = document.getElementById("friends-content");
+    if (!container) return;
+    container.innerHTML = `
+        <div class="friends-search">
+            <input type="text" id="friends-search-input" placeholder="Pseudo exact..." maxlength="20" autocomplete="off" />
+            <button id="friends-search-btn">Chercher</button>
+        </div>
+        <div id="friends-search-results"></div>
+    `;
+    const input = document.getElementById("friends-search-input");
+    const btn = document.getElementById("friends-search-btn");
+    const doSearch = () => searchPlayers(input.value.trim());
+    btn.addEventListener("click", doSearch);
+    input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") doSearch();
+    });
+}
+
+async function searchPlayers(query) {
+    const resultsBox = document.getElementById("friends-search-results");
+    const btn = document.getElementById("friends-search-btn");
+    if (!resultsBox) return;
+    resultsBox.innerHTML = "";
+    if (!query || query.length < 3) {
+        resultsBox.innerHTML = `<p class="hint">Tape au moins 3 caractères.</p>`;
+        return;
+    }
+    btn.disabled = true;
+    btn.textContent = "…";
+    resultsBox.innerHTML = `<p class="hint">Recherche...</p>`;
+    try {
+        const { db, ref, get } = window.FB;
+        const snap = await get(ref(db, "usernames/" + query.toLowerCase()));
+        resultsBox.innerHTML = "";
+        if (!snap.exists()) {
+            resultsBox.innerHTML = `<p class="hint">Aucun joueur trouvé.</p>`;
+            return;
+        }
+        const uid = snap.val().uid;
+        if (uid === state.uid) {
+            resultsBox.innerHTML = `<p class="hint">C'est toi 😄</p>`;
+            return;
+        }
+        const player = await fetchPlayerInfo(uid);
+        if (!player) {
+            resultsBox.innerHTML = `<p class="hint">Profil introuvable.</p>`;
+            return;
+        }
+        resultsBox.appendChild(buildFriendCard(player, "search"));
+    } catch (e) {
+        resultsBox.innerHTML = `<p class="hint">Erreur.</p>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Chercher";
+    }
+}
+
+async function followPlayer(targetUid, targetName) {
+    if (!window.FB || !state.uid || targetUid === state.uid) return;
+    try {
+        const { db, ref, set } = window.FB;
+        const now = Date.now();
+        await set(ref(db, `friends/${state.uid}/following/${targetUid}`), {
+            name: targetName,
+            since: now,
+        });
+        await set(ref(db, `friends/${targetUid}/followers/${state.uid}`), {
+            name: state.username,
+            since: now,
+        });
+        state._following[targetUid] = { name: targetName, since: now };
+        showToast(`✅ Tu suis maintenant ${targetName}`);
+        renderFriendsStats();
+        refreshFriendsTab();
+        updateSocialBonus();
+    } catch (e) {
+        console.warn(e);
+        showToast("❌ Impossible de suivre.");
+    }
+}
+
+async function unfollowPlayer(targetUid, targetName) {
+    if (!window.FB || !state.uid) return;
+    if (!confirm(`Ne plus suivre ${targetName} ?`)) return;
+    try {
+        const { db, ref, remove } = window.FB;
+        await remove(ref(db, `friends/${state.uid}/following/${targetUid}`));
+        await remove(ref(db, `friends/${targetUid}/followers/${state.uid}`));
+        delete state._following[targetUid];
+        showToast(`👋 Tu ne suis plus ${targetName}`);
+        renderFriendsStats();
+        refreshFriendsTab();
+        updateSocialBonus();
+    } catch (e) {
+        console.warn(e);
+        showToast("❌ Impossible de se désabonner.");
+    }
+}
+
+function renderFriendsStats() {
+    const el = document.getElementById("friends-stats");
+    if (!el) return;
+    const f = Object.keys(state._following || {}).length;
+    const fo = Object.keys(state._followers || {}).length;
+    el.textContent = `${f} abonnement${f > 1 ? "s" : ""} · ${fo} abonné${fo > 1 ? "s" : ""}`;
+}
+
+function refreshFriendsTab() {
+    if (friendsCurrentTab === "following") renderFollowingTab();
+    else if (friendsCurrentTab === "followers") renderFollowersTab();
+    else if (friendsCurrentTab === "search") {
+        /* rien */
+    }
+}
+
+function updateSocialBonus() {
+    const el = document.getElementById("stat-social-bonus");
+    if (el) el.textContent = "+" + (getSocialBonus() * 100).toFixed(0) + "%";
+}
+
+async function publishActivity(aura) {
+    if (!window.FB || !state.uid) return;
+    if (
+        ![
+            "legendary",
+            "mythic",
+            "divine",
+            "celestial",
+            "cosmic",
+            "secret",
+        ].includes(aura.rarity)
+    )
+        return;
+    try {
+        const { db, ref, push, set, serverTimestamp } = window.FB;
+        const evtRef = push(ref(db, "activity/" + state.uid));
+        await set(evtRef, {
+            auraName: aura.name,
+            auraRarity: aura.rarity,
+            chance: formatChance(aura),
+            ts: serverTimestamp(),
+        });
+        setTimeout(cleanOldActivity, 3000);
+    } catch (e) {
+        /* skip */
+    }
+}
+
+async function cleanOldActivity() {
+    if (!window.FB || !state.uid) return;
+    try {
+        const { db, ref, get, remove } = window.FB;
+        const snap = await get(ref(db, "activity/" + state.uid));
+        if (!snap.exists()) return;
+        const list = [];
+        snap.forEach((child) => {
+            const v = child.val();
+            if (v && v.ts) list.push({ key: child.key, ts: v.ts });
+        });
+        list.sort((a, b) => b.ts - a.ts);
+        const toDelete = list.slice(FRIENDS_MAX_ACTIVITY_PER_PLAYER);
+        await Promise.all(
+            toDelete.map((e) =>
+                remove(ref(db, "activity/" + state.uid + "/" + e.key)),
+            ),
+        );
+    } catch (e) {}
+}
+
+async function loadFriendsFeed() {
+    if (!window.FB || !state.uid) return;
+    const feedBox = document.getElementById("friends-feed");
+    if (!feedBox) return;
+    const uids = Object.keys(state._following);
+    if (uids.length === 0) {
+        feedBox.innerHTML = `<p class="hint">Suis des joueurs pour voir leur activité.</p>`;
+        return;
+    }
+    feedBox.innerHTML = `<p class="hint">Chargement...</p>`;
+    try {
+        const { db, ref, get } = window.FB;
+        const allEvents = [];
+        await Promise.all(
+            uids.slice(0, 15).map(async (uid) => {
+                try {
+                    const snap = await get(ref(db, "activity/" + uid));
+                    if (!snap.exists()) return;
+                    snap.forEach((child) => {
+                        const v = child.val();
+                        if (v && v.ts) allEvents.push({ uid, ...v });
+                    });
+                } catch (e) {}
+            }),
+        );
+        allEvents.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        const recent = allEvents.slice(0, 20);
+        feedBox.innerHTML = "";
+        if (recent.length === 0) {
+            feedBox.innerHTML = `<p class="hint">Aucune activité récente.</p>`;
+            return;
+        }
+        recent.forEach((evt) => {
+            const followingName = state._following[evt.uid]?.name || "Ami";
+            const item = document.createElement("div");
+            item.className = "feed-item feed-" + (evt.auraRarity || "common");
+            item.innerHTML = `
+                <span class="feed-icon">⚡</span>
+                <span class="feed-text">
+                    <span class="feed-author">${escapeHtml(followingName)}</span>
+                    a obtenu <strong>[${escapeHtml(evt.auraName)}]</strong> — ${escapeHtml(evt.chance || "?")}
+                    <span class="feed-time">${formatLastSeen(evt.ts)}</span>
+                </span>
+            `;
+            feedBox.appendChild(item);
+        });
+    } catch (e) {
+        feedBox.innerHTML = `<p class="hint">Erreur de chargement.</p>`;
+    }
+}
+
+function startFriendsActivityListener() {
+    if (!window.FB || friendsActivityListenerStarted) return;
+    friendsActivityListenerStarted = true;
+    const { db, ref, query, orderByChild, limitToLast, onChildAdded } =
+        window.FB;
+    const q = query(ref(db, "activity"), orderByChild("ts"), limitToLast(50));
+    const startTs = Date.now();
+    onChildAdded(q, (snap) => {
+        const uid = snap.ref.parent.key;
+        if (uid === state.uid) return;
+        const data = snap.val();
+        if (!data || !data.ts) return;
+        if (startTs - data.ts > 60000) return;
+        if (!state._following[uid]) return;
+        const friendName = state._following[uid].name || "Ami";
+        if (
+            ["mythic", "divine", "celestial", "cosmic", "secret"].includes(
+                data.auraRarity,
+            )
+        ) {
+            showToast(`⚡ ${friendName} vient d'obtenir [${data.auraName}] !`);
+        }
+        friendsUnreadCount++;
+        updateFriendsBadge();
+    });
+}
+
+function updateFriendsBadge() {
+    const badge = document.getElementById("friends-badge");
+    if (!badge) return;
+    if (friendsUnreadCount > 0) {
+        badge.classList.remove("hidden");
+        badge.textContent =
+            friendsUnreadCount > 99 ? "99+" : friendsUnreadCount;
+    } else {
+        badge.classList.add("hidden");
+    }
+}
+
+/* ---------- 12. ÉVÉNEMENTS ---------- */
 
 function handleAuraReveal(aura) {
     if (REVEAL_RARITIES.includes(aura.rarity) && !state.settings.reduceAnim)
@@ -3866,7 +4304,7 @@ function runAutoRollLoop() {
             const btn = $("#auto-roll-btn");
             btn.textContent = "Auto Roll : OFF";
             btn.classList.remove("active");
-            showToast("🚫 Auto Roll arrêté (triche détectée)");
+            showToast("🚫 Auto Roll arrêté.");
             return;
         }
         handleAuraReveal(aura);
@@ -3962,9 +4400,9 @@ function startFakePaymentProcess(method) {
     const loadingText = document.getElementById("payment-loading-text");
     const steps = [
         "Connexion sécurisée...",
-        "Vérification du compte...",
-        "Autorisation en cours...",
-        "Traitement du paiement...",
+        "Vérification...",
+        "Autorisation...",
+        "Traitement...",
         `Communication avec ${method}...`,
     ];
     let i = 0;
@@ -4079,7 +4517,7 @@ $("#skins-btn").addEventListener("click", () => {
 });
 $("#chat-btn").addEventListener("click", () => {
     if (!getPlayerName()) {
-        showToast("❌ Connecte-toi pour accéder au chat.");
+        showToast("❌ Connecte-toi.");
         return;
     }
     startChatListener();
@@ -4089,11 +4527,36 @@ $("#chat-btn").addEventListener("click", () => {
         if (box) box.scrollTop = box.scrollHeight;
     }, 100);
 });
+$("#friends-btn").addEventListener("click", async () => {
+    if (!getPlayerName()) {
+        showToast("❌ Connecte-toi.");
+        return;
+    }
+    await loadFriendsLists();
+    friendsUnreadCount = 0;
+    updateFriendsBadge();
+    renderFriendsStats();
+    refreshFriendsTab();
+    loadFriendsFeed();
+    openModal("friends-modal");
+});
 $("#stats-btn").addEventListener("click", () => {
     renderStats();
     openModal("stats-modal");
 });
 $("#settings-btn").addEventListener("click", () => openModal("settings-modal"));
+
+document.querySelectorAll(".friends-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+        document
+            .querySelectorAll(".friends-tab")
+            .forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        friendsCurrentTab = tab.dataset.friends;
+        if (friendsCurrentTab === "search") renderSearchTab();
+        else refreshFriendsTab();
+    });
+});
 
 const chatSendBtn = document.getElementById("chat-send");
 if (chatSendBtn) chatSendBtn.addEventListener("click", sendChatMessage);
@@ -4121,7 +4584,7 @@ document.getElementById("logout-btn").addEventListener("click", handleLogout);
 
 $("#leaderboard-btn").addEventListener("click", () => {
     if (!getPlayerName()) {
-        showToast("❌ Connecte-toi pour voir le classement.");
+        showToast("❌ Connecte-toi.");
         return;
     }
     pushToLeaderboard();
@@ -4207,7 +4670,7 @@ $("#reset-save-btn").addEventListener("click", () => {
     location.reload();
 });
 
-/* ---------- 11. AUDIO ---------- */
+/* ---------- 13. AUDIO ---------- */
 
 let audioCtx = null;
 function playSound(type) {
@@ -4285,7 +4748,7 @@ function playSound(type) {
     }
 }
 
-/* ---------- 12. INIT ---------- */
+/* ---------- 14. INIT ---------- */
 
 function init() {
     const raritySelect = $("#inv-filter-rarity");
@@ -4333,7 +4796,7 @@ if (window.FB) {
     }, 500);
 }
 
-/* ---------- 13. EXPOSE POUR ANTI-TRICHE ---------- */
+/* ---------- 15. EXPOSE POUR ANTI-TRICHE ---------- */
 
 window.performRoll = performRoll;
 window.registerAura = registerAura;
@@ -4351,11 +4814,11 @@ setTimeout(() => {
             if (!integrity.ok) {
                 console.warn("🚨", integrity.reason);
                 document.body.innerHTML = `
-                    <div style="color: #fff; background: #1a0000; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 40px;">
+                    <div style="color:#fff;background:#1a0000;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;text-align:center;padding:40px;">
                         <div>
-                            <h1 style="color: #f87171;">🚫 Triche détectée</h1>
-                            <p style="margin-top: 20px; opacity: 0.8;">${integrity.reason}</p>
-                            <p style="margin-top: 20px; opacity: 0.6;">Recharge la page pour reprendre.</p>
+                            <h1 style="color:#f87171;">🚫 Triche détectée</h1>
+                            <p style="margin-top:20px;opacity:.8;">${integrity.reason}</p>
+                            <p style="margin-top:20px;opacity:.6;">Recharge la page.</p>
                         </div>
                     </div>
                 `;
