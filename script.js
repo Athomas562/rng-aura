@@ -1,6 +1,6 @@
 /* =========================================================
    AURA RNG — script.js
-   v7 : Lots 1 + 2 + 3 + 4 + fix double roll + anti-triche
+   v9 : Lots 1+2+3+4+5 + fix double roll + anti-triche console + admin panel + sync temps réel
    ========================================================= */
 
 /* ---------- 1. CONFIGURATION ---------- */
@@ -32,7 +32,6 @@ const RARITY_COLORS = {
     secret: "#ff00ff",
 };
 
-/* ===== AURAS D'ORIGINE (108) ===== */
 const AURAS = [
     {
         id: "a01",
@@ -1301,7 +1300,6 @@ NEW_AURAS_RAW.forEach(([id, name, rarity, oneIn, color, desc]) => {
 });
 
 const AURA_BY_ID = Object.fromEntries(AURAS.map((a) => [a.id, a]));
-
 function auraColor(aura) {
     return aura.color || RARITY_COLORS[aura.rarity];
 }
@@ -1311,7 +1309,6 @@ function auraWeight(aura) {
     return TOTAL_WEIGHT / aura.weight;
 }
 
-/* ===== BIOMES ===== */
 const BIOMES = [
     {
         id: "plains",
@@ -1541,7 +1538,7 @@ const SKINS = [
     {
         id: "default",
         name: "Cosmique",
-        desc: "Thème par défaut du jeu.",
+        desc: "Thème par défaut.",
         preview: "default",
         unlock: () => true,
         price: 0,
@@ -1549,7 +1546,7 @@ const SKINS = [
     {
         id: "halloween",
         name: "Halloween",
-        desc: "Ambiance orange et citrouilles.",
+        desc: "Orange et citrouilles.",
         preview: "halloween",
         unlock: () => (state.level || 1) >= 15,
         price: 50000,
@@ -1557,7 +1554,7 @@ const SKINS = [
     {
         id: "christmas",
         name: "Noël",
-        desc: "Vert et rouge festif.",
+        desc: "Vert et rouge.",
         preview: "christmas",
         unlock: () => new Date().getMonth() === 11,
         price: 50000,
@@ -1565,7 +1562,7 @@ const SKINS = [
     {
         id: "cyberpunk",
         name: "Cyberpunk",
-        desc: "Rose néon et cyan futuriste.",
+        desc: "Rose néon futuriste.",
         preview: "cyberpunk",
         unlock: () => (state.level || 1) >= 40,
         price: 200000,
@@ -1573,7 +1570,7 @@ const SKINS = [
     {
         id: "sakura",
         name: "Sakura",
-        desc: "Rose pâle et fleurs de cerisier.",
+        desc: "Rose et cerisier.",
         preview: "sakura",
         unlock: () => new Date().getMonth() === 5,
         price: 100000,
@@ -1587,11 +1584,11 @@ const SKILL_BRANCHES = [
         icon: "🌿",
         name: "Chance",
         className: "skill-luck",
-        desc: "Augmente ta chance de manière permanente.",
+        desc: "Augmente ta chance.",
         benefits: [
             "+15% de chance permanente",
             "Potions durent 50% plus longtemps",
-            "+2% de chance supplémentaire sur les auras divine+",
+            "+2% sur divine+",
         ],
     },
     {
@@ -1599,11 +1596,11 @@ const SKILL_BRANCHES = [
         icon: "⚡",
         name: "Vitesse",
         className: "skill-speed",
-        desc: "Accélère tes rolls.",
+        desc: "Accélère les rolls.",
         benefits: [
             "Auto-roll 2x plus rapide",
             "Multi-roll x10 débloqué",
-            "-20% de délai sur le roll manuel",
+            "-20% de délai",
         ],
     },
     {
@@ -1611,11 +1608,11 @@ const SKILL_BRANCHES = [
         icon: "💰",
         name: "Fortune",
         className: "skill-fortune",
-        desc: "Améliore tes gains de monnaie.",
+        desc: "Améliore les gains.",
         benefits: [
             "+40% de pièces par roll",
-            "-25% sur le coût des améliorations",
-            "+5% de chance de doubler une aura",
+            "-25% sur les améliorations",
+            "+5% de doubler",
         ],
     },
 ];
@@ -1648,12 +1645,10 @@ const CHAT_BANNED_WORDS = [
 ];
 const CHAT_MAX_MESSAGES = 200;
 const CHAT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-
 function filterChatText(text) {
     let filtered = text;
     CHAT_BANNED_WORDS.forEach((w) => {
-        const re = new RegExp(w, "gi");
-        filtered = filtered.replace(re, "*".repeat(w.length));
+        filtered = filtered.replace(new RegExp(w, "gi"), "*".repeat(w.length));
     });
     return filtered.slice(0, 200);
 }
@@ -1678,7 +1673,6 @@ const XP_REWARDS = {
     secret: 50000,
 };
 const MAX_LEVEL = 100;
-
 function xpForLevel(n) {
     if (n <= 1) return 0;
     return Math.round((100 * n * (n - 1)) / 2);
@@ -1694,56 +1688,56 @@ const TITLES = [
         id: "t_rookie",
         name: "Débutant",
         icon: "🌱",
-        desc: "Bienvenue dans l'aventure.",
+        desc: "Bienvenue.",
         check: () => true,
     },
     {
         id: "t_passion",
         name: "Passionné",
         icon: "🔥",
-        desc: "Atteins le niveau 10.",
+        desc: "Niveau 10.",
         check: () => (state.level || 1) >= 10,
     },
     {
         id: "t_veteran",
         name: "Vétéran",
         icon: "👑",
-        desc: "Atteins le niveau 30.",
+        desc: "Niveau 30.",
         check: () => (state.level || 1) >= 30,
     },
     {
         id: "t_legend",
         name: "Légende",
         icon: "💎",
-        desc: "Atteins le niveau 50.",
+        desc: "Niveau 50.",
         check: () => (state.level || 1) >= 50,
     },
     {
         id: "t_supreme",
         name: "Maître Suprême",
         icon: "🌟",
-        desc: "Atteins le niveau 100.",
+        desc: "Niveau 100.",
         check: () => (state.level || 1) >= 100,
     },
     {
         id: "t_rollking",
         name: "Roi des Rolls",
         icon: "🎲",
-        desc: "Fais 10 000 rolls.",
+        desc: "10 000 rolls.",
         check: () => (state.totalRolls || 0) >= 10000,
     },
     {
         id: "t_secret",
         name: "Chasseur de Secrets",
         icon: "🎯",
-        desc: "Obtiens 1 aura secret.",
+        desc: "1 secret.",
         check: () => hasRarity("secret"),
     },
     {
         id: "t_blessed",
         name: "Béni des Dieux",
         icon: "🍀",
-        desc: "Obtiens 1 aura divine ou supérieure.",
+        desc: "1 divine+.",
         check: () =>
             ["divine", "celestial", "cosmic", "secret"].some(hasRarity),
     },
@@ -1751,18 +1745,17 @@ const TITLES = [
         id: "t_collector",
         name: "Le Collectionneur",
         icon: "📚",
-        desc: "Complète 50% de la collection.",
+        desc: "50% collection.",
         check: () => collectionPercent() >= 50,
     },
     {
         id: "t_master",
         name: "Maître Absolu",
         icon: "🏆",
-        desc: "Complète 100% de la collection.",
+        desc: "100% collection.",
         check: () => collectionPercent() >= 100,
     },
 ];
-
 function hasRarity(rarity) {
     return AURAS.some((a) => a.rarity === rarity && state.discovered[a.id]);
 }
@@ -1772,7 +1765,7 @@ function collectionPercent() {
     return total > 0 ? (found / total) * 100 : 0;
 }
 
-/* ===== COLLECTIONS (NERFÉ) ===== */
+/* ===== COLLECTIONS ===== */
 const COMPLETE_COLLECTION_BONUSES = {
     common: 0.01,
     uncommon: 0.015,
@@ -1785,22 +1778,35 @@ const COMPLETE_COLLECTION_BONUSES = {
     cosmic: 0.15,
     secret: 0.25,
 };
-
 function isRarityComplete(rarity) {
     return AURAS.filter((a) => a.rarity === rarity).every(
         (a) => state.discovered[a.id],
     );
 }
-
 function getCompleteCollectionBonus() {
-    let bonus = 0;
+    let b = 0;
     RARITIES.forEach((r) => {
-        if (isRarityComplete(r)) bonus += COMPLETE_COLLECTION_BONUSES[r] || 0;
+        if (isRarityComplete(r)) b += COMPLETE_COLLECTION_BONUSES[r] || 0;
     });
-    return bonus;
+    return b;
 }
 
-/* ---------- 2. ÉTAT + SAUVEGARDE ---------- */
+/* ===== LOT 5 : BAN / ADMIN ===== */
+const ADMIN_USERNAME = "ks_l9";
+const CONSOLE_BAN_REASON = "Utilisation de la console détectée";
+const BAN_DURATIONS = {
+    first: 10 * 60 * 1000,
+    second: 30 * 60 * 1000,
+    third: 2 * 60 * 60 * 1000,
+    fourth: 24 * 60 * 60 * 1000,
+};
+const BAN_COUNT_KEY = "auraRng_banCount";
+
+let isAdminUser = false;
+let currentAdminTarget = null;
+let banTimerInterval = null;
+
+/* ---------- 2. ÉTAT ---------- */
 
 function createDefaultState() {
     return {
@@ -1832,6 +1838,7 @@ function createDefaultState() {
         equippedSkin: "default",
         unlockedSkins: ["default"],
         skillBranch: null,
+        adminLuckBonus: 0,
         settings: {
             sound: true,
             volume: 0.5,
@@ -1842,6 +1849,10 @@ function createDefaultState() {
 }
 
 let state = createDefaultState();
+let lastRolledAura = null;
+let rollLock = false;
+let autoRollActive = false;
+let autoRollTimer = null;
 
 function getSaveKey() {
     return state.uid ? `auraRng_save_v1_${state.uid}` : SAVE_KEY;
@@ -1854,18 +1865,16 @@ function loadGame() {
         const parsed = JSON.parse(raw);
         if (!parsed || parsed.version !== SAVE_VERSION) return;
         if (parsed._uid && parsed._uid !== state.uid) return;
-        const currentUid = state.uid;
-        const currentUsername = state.username;
+        const curUid = state.uid,
+            curName = state.username;
         state = Object.assign(createDefaultState(), parsed);
-        state.uid = currentUid;
-        state.username = currentUsername;
+        state.uid = curUid;
+        state.username = curName;
         state.settings = Object.assign(
             createDefaultState().settings,
             parsed.settings || {},
         );
-    } catch (e) {
-        console.warn("Save locale invalide :", e);
-    }
+    } catch (e) {}
 }
 
 async function loadGameFromCloud() {
@@ -1877,40 +1886,34 @@ async function loadGameFromCloud() {
         const parsed = snap.val();
         if (!parsed || parsed.version !== SAVE_VERSION) return false;
         if (parsed._uid && parsed._uid !== state.uid) return false;
-        const currentUid = state.uid;
-        const currentUsername = state.username;
+        const curUid = state.uid,
+            curName = state.username;
         state = Object.assign(createDefaultState(), parsed);
-        state.uid = currentUid;
-        state.username = currentUsername;
+        state.uid = curUid;
+        state.username = curName;
         state.settings = Object.assign(
             createDefaultState().settings,
             parsed.settings || {},
         );
-        console.log("☁️ Save cloud chargée :", state.totalRolls, "rolls");
         return true;
     } catch (e) {
-        console.warn("Erreur cloud load :", e);
         return false;
     }
 }
 
-let fbSaveTimer = null;
-let fbSavePending = false;
-
+let fbSaveTimer = null,
+    fbSavePending = false;
 function saveGame(skipCloud = false) {
     state._uid = state.uid;
     try {
         localStorage.setItem(getSaveKey(), JSON.stringify(state));
-    } catch (e) {
-        console.warn("Erreur save locale :", e);
-    }
+    } catch (e) {}
     if (skipCloud) return;
     if (!state.uid || !window.FB) return;
     fbSavePending = true;
     clearTimeout(fbSaveTimer);
     fbSaveTimer = setTimeout(pushSaveToCloud, 3000);
 }
-
 function pushSaveToCloud() {
     if (!state.uid || !window.FB) return;
     fbSavePending = false;
@@ -1919,11 +1922,8 @@ function pushSaveToCloud() {
     const payload = { ...state };
     delete payload.uid;
     delete payload.username;
-    set(ref(db, "saves/" + state.uid), payload)
-        .then(() => console.log("☁️ Save cloud OK"))
-        .catch((e) => console.warn("Erreur save cloud :", e));
+    set(ref(db, "saves/" + state.uid), payload).catch(() => {});
 }
-
 function flushCloudSave() {
     if (fbSavePending) {
         clearTimeout(fbSaveTimer);
@@ -1931,7 +1931,7 @@ function flushCloudSave() {
     }
 }
 
-/* ---------- 3. ROLLS & CHANCE ---------- */
+/* ---------- 3. ROLLS ---------- */
 
 function getUpgradeLevel(id) {
     const up = UPGRADES.find((u) => u.id === id);
@@ -1949,12 +1949,12 @@ function getUpgradeTotalEffect(upgrade, level) {
     return upgrade.effects.slice(0, level).reduce((a, b) => a + b, 0);
 }
 function getUpgradeEffect(effectType) {
-    let total = 0;
+    let t = 0;
     UPGRADES.forEach((up) => {
         if (up.effectType === effectType)
-            total += getUpgradeTotalEffect(up, getUpgradeLevel(up.id));
+            t += getUpgradeTotalEffect(up, getUpgradeLevel(up.id));
     });
-    return total;
+    return t;
 }
 
 function buyUpgrade(upgrade) {
@@ -2000,9 +2000,9 @@ function getPermanentLuckBonus() {
     bonus += getCompleteCollectionBonus();
     if (state.skillBranch === "luck") bonus += 0.15;
     bonus += getSocialBonus();
+    if (state.adminLuckBonus) bonus += state.adminLuckBonus;
     return bonus;
 }
-
 function getTemporaryLuckMultiplier() {
     const now = Date.now();
     let best = 1;
@@ -2012,12 +2012,10 @@ function getTemporaryLuckMultiplier() {
     });
     return best;
 }
-
 function applyLuckCap(raw) {
     if (raw <= LUCK_SOFT_CAP) return raw;
     return Math.min(LUCK_HARD_CAP, LUCK_SOFT_CAP + (raw - LUCK_SOFT_CAP) * 0.5);
 }
-
 function getTotalLuckMultiplier() {
     const raw = (1 + getPermanentLuckBonus()) * getTemporaryLuckMultiplier();
     return applyLuckCap(raw);
@@ -2037,7 +2035,7 @@ function pickAuraByWeight(luckMultiplier) {
             w *= divineBonus;
         return { aura, weight: w };
     });
-    const total = effective.reduce((sum, e) => sum + e.weight, 0);
+    const total = effective.reduce((s, e) => s + e.weight, 0);
     let r = Math.random() * total;
     for (const e of effective) {
         r -= e.weight;
@@ -2045,13 +2043,20 @@ function pickAuraByWeight(luckMultiplier) {
     }
     return effective[effective.length - 1].aura;
 }
-
 function formatChance(aura) {
     const oneIn = Math.round(TOTAL_WEIGHT / aura.weight);
     return `1 sur ${oneIn.toLocaleString("fr-FR")}`;
 }
 
+let __auraInternalWrite = false;
 function performRoll() {
+    // ✅ Bloque si l'overlay de ban est visible
+    const banOverlay = document.getElementById("ban-overlay");
+    if (banOverlay && !banOverlay.classList.contains("hidden")) {
+        showToast("🚫 Tu es banni.");
+        return null;
+    }
+
     if (window.__auraAntiTamper) {
         const check = window.__auraAntiTamper.rateCheck();
         if (!check.ok) {
@@ -2059,12 +2064,24 @@ function performRoll() {
             return null;
         }
     }
-    const aura = pickAuraByWeight(getTotalLuckMultiplier());
-    registerAura(aura);
-    return aura;
+
+    // ✅ Vérif ban à chaque roll (anti-contournement)
+    if (window.FB && state.uid) {
+        window.FB.get(window.FB.ref(window.FB.db, "bans/" + state.uid))
+            .then((snap) => {
+                if (snap.exists()) {
+                    const d = snap.val();
+                    if (d.until && Date.now() < d.until) {
+                        showBanOverlay(d.until, d.reason || "Banni");
+                    }
+                }
+            })
+            .catch(() => {});
+    }
 }
 
 function registerAura(aura) {
+    __auraInternalWrite = true;
     state.totalRolls++;
     let doubleChance = getUpgradeEffect("double");
     if (state.skillBranch === "fortune") doubleChance += 0.05;
@@ -2072,23 +2089,21 @@ function registerAura(aura) {
     state.inventory[aura.id] = (state.inventory[aura.id] || 0) + quantity;
     state.discovered[aura.id] = true;
     if (quantity === 2) showToast("✨ Aura doublée !");
-
     const currentBest = state.bestAura ? AURA_BY_ID[state.bestAura] : null;
     if (!currentBest) {
         state.bestAura = aura.id;
     } else {
-        const newR = RARITY_INDEX[aura.rarity];
-        const oldR = RARITY_INDEX[currentBest.rarity];
-        const newW = auraWeight(aura);
-        const oldW = auraWeight(currentBest);
+        const nR = RARITY_INDEX[aura.rarity],
+            oR = RARITY_INDEX[currentBest.rarity];
+        const nW = auraWeight(aura),
+            oW = auraWeight(currentBest);
         if (
-            newR > oldR ||
-            (newR === oldR && newW > oldW) ||
-            (newR === oldR && newW === oldW && aura.id < currentBest.id)
+            nR > oR ||
+            (nR === oR && nW > oW) ||
+            (nR === oR && nW === oW && aura.id < currentBest.id)
         )
             state.bestAura = aura.id;
     }
-
     const rareRarities = [
         "legendary",
         "mythic",
@@ -2099,14 +2114,12 @@ function registerAura(aura) {
     ];
     if (rareRarities.includes(aura.rarity)) state.rollsSinceRare = 0;
     else state.rollsSinceRare++;
-
     const fortuneMult = state.skillBranch === "fortune" ? 1.4 : 1;
     state.coins += Math.round(
         (COIN_REWARDS[aura.rarity] || 1) *
             (1 + getUpgradeEffect("coins")) *
             fortuneMult,
     );
-
     BIOMES.forEach((b) => {
         if (
             state.totalRolls >= b.unlockRolls &&
@@ -2116,7 +2129,6 @@ function registerAura(aura) {
             showToast(`🌍 Biome débloqué : ${b.name}`);
         }
     });
-
     if (ANNOUNCE_RARITIES.includes(aura.rarity)) publishAnnouncement(aura);
     if (
         [
@@ -2130,9 +2142,9 @@ function registerAura(aura) {
     )
         publishActivity(aura);
     gainXP(XP_REWARDS[aura.rarity] || 1);
-
     if (state.totalRolls % 10 === 0) pushToLeaderboard();
     saveGame();
+    __auraInternalWrite = false;
 }
 
 /* ---------- 4. XP / TITRES ---------- */
@@ -2156,15 +2168,14 @@ function gainXP(amount) {
             if (!leveled) showToast(`🎖️ Titre débloqué : ${t.icon} ${t.name}`);
         }
     });
-    if (leveled) {
+    if (leveled)
         setTimeout(() => {
-            const badge = document.getElementById("stat-level-badge");
-            if (badge) {
-                badge.classList.add("level-up-anim");
-                setTimeout(() => badge.classList.remove("level-up-anim"), 900);
+            const b = document.getElementById("stat-level-badge");
+            if (b) {
+                b.classList.add("level-up-anim");
+                setTimeout(() => b.classList.remove("level-up-anim"), 900);
             }
         }, 100);
-    }
 }
 
 function equipTitle(titleId) {
@@ -2188,10 +2199,10 @@ function equipTitle(titleId) {
 /* ---------- 5. UI ---------- */
 
 const $ = (sel) => document.querySelector(sel);
-
 let toastTimer = null;
 function showToast(msg) {
     const el = $("#toast");
+    if (!el) return;
     el.textContent = msg;
     el.classList.remove("hidden");
     clearTimeout(toastTimer);
@@ -2199,11 +2210,11 @@ function showToast(msg) {
 }
 
 function showReveal(aura) {
-    const overlay = $("#reveal-overlay");
-    const text = $("#reveal-text");
-    const rarityTag = $("#reveal-rarity-tag");
-    const chanceEl = $("#reveal-chance");
-    const particlesBox = $("#reveal-particles");
+    const overlay = $("#reveal-overlay"),
+        text = $("#reveal-text"),
+        rarityTag = $("#reveal-rarity-tag"),
+        chanceEl = $("#reveal-chance"),
+        particlesBox = $("#reveal-particles");
     overlay.className = "";
     particlesBox.innerHTML = "";
     document.body.classList.remove("screen-shake");
@@ -2287,10 +2298,10 @@ function renderEffectsBar() {
     const bar = $("#effects-bar");
     bar.innerHTML = "";
     state.activeEffects.forEach((eff) => {
-        const remaining = Math.ceil((eff.endsAt - now) / 1000);
+        const r = Math.ceil((eff.endsAt - now) / 1000);
         const chip = document.createElement("div");
         chip.className = "effect-chip";
-        chip.textContent = `${eff.name} (${remaining}s)`;
+        chip.textContent = `${eff.name} (${r}s)`;
         bar.appendChild(chip);
     });
 }
@@ -2309,15 +2320,10 @@ function renderUI() {
         ? AURA_BY_ID[state.bestAura].name
         : "Aucune";
     $("#stat-username").textContent = state.username || "—";
-
     const sb = document.getElementById("stat-social-bonus");
-    if (sb) {
-        const b = getSocialBonus();
-        sb.textContent = "+" + (b * 100).toFixed(0) + "%";
-    }
-
-    const levelBadge = document.getElementById("stat-level-badge");
-    const levelNum = document.getElementById("stat-level");
+    if (sb) sb.textContent = "+" + (getSocialBonus() * 100).toFixed(0) + "%";
+    const levelBadge = document.getElementById("stat-level-badge"),
+        levelNum = document.getElementById("stat-level");
     if (levelBadge && levelNum) {
         if (state.uid) {
             levelBadge.classList.remove("hidden");
@@ -2334,9 +2340,7 @@ function renderUI() {
             } else titleBadge.classList.add("hidden");
         } else titleBadge.classList.add("hidden");
     }
-
     renderXPBar();
-
     if (lastRolledAura) displayAura(lastRolledAura);
     else if (state.equipped && AURA_BY_ID[state.equipped])
         displayAura(AURA_BY_ID[state.equipped]);
@@ -2350,7 +2354,6 @@ function renderUI() {
         $("#aura-visual").className = "rarity-common";
         $("#aura-visual").style.color = "";
     }
-
     const btn = $("#auto-roll-btn");
     if (!state.autoRollUnlocked) {
         btn.textContent = "🔒 Auto Roll";
@@ -2362,15 +2365,14 @@ function renderUI() {
         btn.textContent = "Auto Roll : ON";
         btn.classList.add("active");
     }
-
     renderEffectsBar();
     renderBiomeBackground();
 }
 
 function renderXPBar() {
-    const container = document.getElementById("xp-bar-container");
-    const fill = document.getElementById("xp-bar-fill");
-    const text = document.getElementById("xp-bar-text");
+    const container = document.getElementById("xp-bar-container"),
+        fill = document.getElementById("xp-bar-fill"),
+        text = document.getElementById("xp-bar-text");
     if (!container || !fill || !text) return;
     if (!state.uid) {
         container.classList.add("hidden");
@@ -2380,11 +2382,11 @@ function renderXPBar() {
     const level = state.level || 1;
     if (level >= MAX_LEVEL) {
         fill.style.width = "100%";
-        text.textContent = `Niveau max atteint (${MAX_LEVEL})`;
+        text.textContent = `Niveau max (${MAX_LEVEL})`;
         return;
     }
-    const xpThisLevel = state.xp - xpForLevel(level);
-    const xpNeeded = xpToNextLevel(level);
+    const xpThisLevel = state.xp - xpForLevel(level),
+        xpNeeded = xpToNextLevel(level);
     const pct =
         xpNeeded > 0 ? Math.min(100, (xpThisLevel / xpNeeded) * 100) : 0;
     fill.style.width = pct.toFixed(1) + "%";
@@ -2400,8 +2402,8 @@ function renderTitles() {
             state.unlockedTitles.push(t.id);
     });
     TITLES.forEach((t) => {
-        const unlocked = state.unlockedTitles.includes(t.id);
-        const equipped = state.equippedTitle === t.id;
+        const unlocked = state.unlockedTitles.includes(t.id),
+            equipped = state.equippedTitle === t.id;
         const card = document.createElement("div");
         card.className =
             "title-card" +
@@ -2422,22 +2424,17 @@ function renderSkins() {
     if (!grid) return;
     grid.innerHTML = "";
     SKINS.forEach((skin) => {
-        const unlocked = state.unlockedSkins.includes(skin.id);
-        const equipped = state.equippedSkin === skin.id;
-        const canUnlock = !unlocked && skin.unlock();
-        const canBuy = !unlocked && state.coins >= skin.price;
+        const unlocked = state.unlockedSkins.includes(skin.id),
+            equipped = state.equippedSkin === skin.id;
+        const canUnlock = !unlocked && skin.unlock(),
+            canBuy = !unlocked && state.coins >= skin.price;
         const card = document.createElement("div");
         card.className =
             "skin-card" +
             (unlocked ? "" : " locked") +
             (equipped ? " equipped" : "");
-        card.innerHTML = `
-            <div class="skin-preview skin-preview-${skin.preview}"></div>
-            <div class="skin-name">${skin.name}</div>
-            <div class="skin-desc">${skin.desc}</div>
-            ${!unlocked ? `<div class="skin-price">💰 ${skin.price.toLocaleString("fr-FR")}</div>` : ""}
-        `;
-        if (unlocked) {
+        card.innerHTML = `<div class="skin-preview skin-preview-${skin.preview}"></div><div class="skin-name">${skin.name}</div><div class="skin-desc">${skin.desc}</div>${!unlocked ? `<div class="skin-price">💰 ${skin.price.toLocaleString("fr-FR")}</div>` : ""}`;
+        if (unlocked)
             card.addEventListener("click", () => {
                 state.equippedSkin = skin.id;
                 applySkin(skin.id);
@@ -2446,7 +2443,7 @@ function renderSkins() {
                 renderUI();
                 showToast(`🎨 Skin équipé : ${skin.name}`);
             });
-        } else {
+        else
             card.addEventListener("click", () => {
                 if (canUnlock) {
                     state.unlockedSkins.push(skin.id);
@@ -2467,11 +2464,9 @@ function renderSkins() {
                     showToast(`🎨 Skin acheté : ${skin.name}`);
                 } else showToast("🔒 Pas encore débloqué.");
             });
-        }
         grid.appendChild(card);
     });
 }
-
 function applySkin(skinId) {
     if (!skinId || skinId === "default")
         document.body.removeAttribute("data-skin");
@@ -2479,26 +2474,25 @@ function applySkin(skinId) {
 }
 
 function renderSkills() {
-    const grid = document.getElementById("skills-grid");
-    const status = document.getElementById("skills-status");
+    const grid = document.getElementById("skills-grid"),
+        status = document.getElementById("skills-status");
     if (!grid || !status) return;
-    const level = state.level || 1;
-    const alreadyChosen = !!state.skillBranch;
+    const level = state.level || 1,
+        alreadyChosen = !!state.skillBranch;
     if (alreadyChosen) {
-        status.textContent = "✅ Choix effectué — définitif.";
+        status.textContent = "✅ Choix effectué.";
         status.style.color = "#4ade80";
     } else if (level < SKILL_REQUIRED_LEVEL) {
         status.textContent = `🔒 Débloqué au niveau ${SKILL_REQUIRED_LEVEL} (tu es niveau ${level}).`;
         status.style.color = "";
     } else {
-        status.textContent = "⚠️ Choisis UNE branche. Ce choix est définitif.";
+        status.textContent = "⚠️ Choisis UNE branche. Définitif.";
         status.style.color = "#fbbf24";
     }
-
     grid.innerHTML = "";
     SKILL_BRANCHES.forEach((b) => {
-        const chosen = state.skillBranch === b.id;
-        const locked = alreadyChosen && !chosen;
+        const chosen = state.skillBranch === b.id,
+            locked = alreadyChosen && !chosen;
         const canChoose = !alreadyChosen && level >= SKILL_REQUIRED_LEVEL;
         const card = document.createElement("div");
         card.className =
@@ -2507,28 +2501,17 @@ function renderSkills() {
             (chosen ? " chosen" : "") +
             (locked ? " unavailable" : "") +
             (!canChoose && !chosen ? " locked" : "");
-        card.innerHTML = `
-            <div class="skill-icon">${b.icon}</div>
-            <div class="skill-title">${b.name}</div>
-            <div class="skin-desc">${b.desc}</div>
-            <ul class="skill-benefits">${b.benefits.map((x) => `<li>${x}</li>`).join("")}</ul>
-        `;
-        if (canChoose) {
+        card.innerHTML = `<div class="skill-icon">${b.icon}</div><div class="skill-title">${b.name}</div><div class="skin-desc">${b.desc}</div><ul class="skill-benefits">${b.benefits.map((x) => `<li>${x}</li>`).join("")}</ul>`;
+        if (canChoose)
             card.addEventListener("click", () => {
                 if (alreadyChosen) return;
-                if (
-                    !confirm(
-                        `Choisir la branche "${b.name}" ? Ce choix est DÉFINITIF.`,
-                    )
-                )
-                    return;
+                if (!confirm(`Choisir "${b.name}" ? DÉFINITIF.`)) return;
                 state.skillBranch = b.id;
                 saveGame();
                 renderSkills();
                 renderUI();
                 showToast(`🌳 Branche choisie : ${b.icon} ${b.name}`);
             });
-        }
         grid.appendChild(card);
     });
 }
@@ -2538,10 +2521,10 @@ function renderSkills() {
 function renderInventory() {
     const grid = $("#inventory-grid");
     grid.innerHTML = "";
-    const search = $("#inv-search").value.toLowerCase();
-    const filterR = $("#inv-filter-rarity").value;
-    const sortBy = $("#inv-sort").value;
-    const showLocked = $("#inv-show-locked").checked;
+    const search = $("#inv-search").value.toLowerCase(),
+        filterR = $("#inv-filter-rarity").value,
+        sortBy = $("#inv-sort").value,
+        showLocked = $("#inv-show-locked").checked;
     let list = AURAS.filter((a) => {
         const owned = state.inventory[a.id] > 0;
         if (!owned && !showLocked) return false;
@@ -2569,13 +2552,7 @@ function renderInventory() {
             "card" +
             (owned ? "" : " locked") +
             (state.equipped === aura.id ? " equipped" : "");
-        card.innerHTML = `
-      <div style="color:${auraColor(aura)}; font-size:24px;">◆</div>
-      <div class="card-name">${owned ? aura.name : "???"}</div>
-      <span class="rarity-tag tag-${aura.rarity}">${aura.rarity}</span>
-      <div class="card-info">${owned ? "x" + state.inventory[aura.id] : "Non découverte"}</div>
-      ${owned ? `<div class="card-desc">${formatChance(aura)}</div>` : ""}
-    `;
+        card.innerHTML = `<div style="color:${auraColor(aura)}; font-size:24px;">◆</div><div class="card-name">${owned ? aura.name : "???"}</div><span class="rarity-tag tag-${aura.rarity}">${aura.rarity}</span><div class="card-info">${owned ? "x" + state.inventory[aura.id] : "Non découverte"}</div>${owned ? `<div class="card-desc">${formatChance(aura)}</div>` : ""}`;
         if (owned) card.addEventListener("click", () => equipAura(aura.id));
         grid.appendChild(card);
     });
@@ -2610,14 +2587,7 @@ function renderShop() {
         const realPrice = Math.round(p.price * (1 - discount));
         const card = document.createElement("div");
         card.className = "card";
-        card.innerHTML = `
-      <div class="card-name">${p.name}</div>
-      <div class="card-desc">${p.desc}</div>
-      <div class="card-info">💰 ${realPrice}${discount > 0 ? ` <s style="opacity:.5">${p.price}</s>` : ""}</div>
-      <div class="card-info">Possédé : ${state.ownedItems[p.id] || 0}</div>
-      <button class="small-btn" style="margin-top:8px;">Acheter</button>
-      <button class="small-btn" style="margin-top:6px;">Utiliser</button>
-    `;
+        card.innerHTML = `<div class="card-name">${p.name}</div><div class="card-desc">${p.desc}</div><div class="card-info">💰 ${realPrice}${discount > 0 ? ` <s style="opacity:.5">${p.price}</s>` : ""}</div><div class="card-info">Possédé : ${state.ownedItems[p.id] || 0}</div><button class="small-btn" style="margin-top:8px;">Acheter</button><button class="small-btn" style="margin-top:6px;">Utiliser</button>`;
         const [buyBtn, useBtn] = card.querySelectorAll("button");
         buyBtn.addEventListener("click", () =>
             buyItem({ ...p, price: realPrice }),
@@ -2628,19 +2598,13 @@ function renderShop() {
     SHOP_ITEMS.forEach((item) => {
         const card = document.createElement("div");
         card.className = "card";
-        card.innerHTML = `
-      <div class="card-name">${item.name}</div>
-      <div class="card-desc">${item.desc}</div>
-      <div class="card-info">💰 ${item.price} — possédé : ${state.ownedItems[item.id] || 0}</div>
-      <button class="small-btn" style="margin-top:8px;">Acheter</button>
-    `;
+        card.innerHTML = `<div class="card-name">${item.name}</div><div class="card-desc">${item.desc}</div><div class="card-info">💰 ${item.price} — possédé : ${state.ownedItems[item.id] || 0}</div><button class="small-btn" style="margin-top:8px;">Acheter</button>`;
         card.querySelector("button").addEventListener("click", () =>
             buyItem(item),
         );
         grid.appendChild(card);
     });
 }
-
 function buyItem(item) {
     if (item.perm && (state.ownedItems[item.id] || 0) > 0) {
         showToast("✅ Déjà possédé.");
@@ -2658,7 +2622,6 @@ function buyItem(item) {
     renderUI();
     renderShop();
 }
-
 function usePotion(potionId) {
     if (!state.ownedItems[potionId]) {
         showToast("❌ Pas cette potion.");
@@ -2701,21 +2664,13 @@ function renderCraft() {
         const canCraft = r.ingredients.every(
             (ing) => (state.ownedItems[ing.id] || 0) >= ing.qty,
         );
-        div.innerHTML = `
-      <div class="card-name">${findItemName(r.result.id)}</div>
-      <div class="card-desc">${r.desc}</div>
-      <div style="margin-top:8px; font-size:12px;">${ingredientsHTML}</div>
-      <button class="small-btn" style="margin-top:8px;" ${canCraft ? "" : "disabled"}>
-        ${canCraft ? "Fabriquer" : "Ressources insuffisantes"}
-      </button>
-    `;
+        div.innerHTML = `<div class="card-name">${findItemName(r.result.id)}</div><div class="card-desc">${r.desc}</div><div style="margin-top:8px; font-size:12px;">${ingredientsHTML}</div><button class="small-btn" style="margin-top:8px;" ${canCraft ? "" : "disabled"}>${canCraft ? "Fabriquer" : "Ressources insuffisantes"}</button>`;
         div.querySelector("button").addEventListener("click", () =>
             craftRecipe(r),
         );
         list.appendChild(div);
     });
 }
-
 function findItemName(id) {
     const potion = POTIONS.find((p) => p.id === id);
     if (potion) return potion.name;
@@ -2723,7 +2678,6 @@ function findItemName(id) {
     if (item) return item.name;
     return id;
 }
-
 function craftRecipe(recipe) {
     const ok = recipe.ingredients.every(
         (ing) => (state.ownedItems[ing.id] || 0) >= ing.qty,
@@ -2761,15 +2715,8 @@ function renderBiomes() {
         const div = document.createElement("div");
         div.className = "card";
         div.style.marginTop = "10px";
-        div.innerHTML = `
-      <div class="card-name">${unlocked ? b.name : "🔒 " + b.name}</div>
-      <div class="card-desc">${b.desc}</div>
-      <div class="card-info">Bonus chance permanent : +${Math.round((b.luckBonus - 1) * 100)} %</div>
-      <button class="small-btn" style="margin-top:8px;" ${unlocked ? "" : "disabled"}>
-        ${state.currentBiome === b.id ? "Actif" : unlocked ? "Activer" : "Verrouillé"}
-      </button>
-    `;
-        if (unlocked) {
+        div.innerHTML = `<div class="card-name">${unlocked ? b.name : "🔒 " + b.name}</div><div class="card-desc">${b.desc}</div><div class="card-info">Bonus chance permanent : +${Math.round((b.luckBonus - 1) * 100)} %</div><button class="small-btn" style="margin-top:8px;" ${unlocked ? "" : "disabled"}>${state.currentBiome === b.id ? "Actif" : unlocked ? "Activer" : "Verrouillé"}</button>`;
+        if (unlocked)
             div.querySelector("button").addEventListener("click", () => {
                 state.currentBiome = b.id;
                 saveGame();
@@ -2777,7 +2724,6 @@ function renderBiomes() {
                 renderBiomes();
                 showToast(`🌍 Biome actif : ${b.name}`);
             });
-        }
         list.appendChild(div);
     });
 }
@@ -2785,15 +2731,14 @@ function renderBiomes() {
 function fmtPct(x) {
     return (x * 100).toFixed(1).replace(/\.0$/, "") + "%";
 }
-
 function renderUpgrades() {
     const list = $("#upgrades-list");
     list.innerHTML = "";
     $("#upgrades-coins").textContent = state.coins.toLocaleString("fr-FR");
     UPGRADES.forEach((up) => {
-        const level = getUpgradeLevel(up.id);
-        const maxed = level >= up.maxLevel;
-        const cost = getUpgradeCost(up);
+        const level = getUpgradeLevel(up.id),
+            maxed = level >= up.maxLevel,
+            cost = getUpgradeCost(up);
         const totalEffect = getUpgradeTotalEffect(up, level);
         const next = maxed ? null : up.effects[level];
         const nextTxt = next ? ` (prochain niveau : +${fmtPct(next)})` : "";
@@ -2810,15 +2755,7 @@ function renderUpgrades() {
             effectText = `Réduction : -${fmtPct(totalEffect)}${nextTxt}`;
         const card = document.createElement("div");
         card.className = "upgrade-card" + (maxed ? " maxed" : "");
-        card.innerHTML = `
-      <div class="upgrade-info">
-        <div class="upgrade-name">${up.name}</div>
-        <div class="upgrade-desc">${up.desc}</div>
-        <div class="upgrade-level">Niveau : ${level} / ${up.maxLevel}</div>
-        <div class="upgrade-effect">${effectText}</div>
-      </div>
-      <button ${maxed ? "disabled" : ""}>${maxed ? "MAX" : "💰 " + cost.toLocaleString("fr-FR")}</button>
-    `;
+        card.innerHTML = `<div class="upgrade-info"><div class="upgrade-name">${up.name}</div><div class="upgrade-desc">${up.desc}</div><div class="upgrade-level">Niveau : ${level} / ${up.maxLevel}</div><div class="upgrade-effect">${effectText}</div></div><button ${maxed ? "disabled" : ""}>${maxed ? "MAX" : "💰 " + cost.toLocaleString("fr-FR")}</button>`;
         if (!maxed)
             card.querySelector("button").addEventListener("click", () =>
                 buyUpgrade(up),
@@ -2828,14 +2765,14 @@ function renderUpgrades() {
 }
 
 function renderStats() {
-    const discovered = Object.keys(state.discovered).length;
-    const pct = Math.round((discovered / AURAS.length) * 100);
+    const discovered = Object.keys(state.discovered).length,
+        pct = Math.round((discovered / AURAS.length) * 100);
     const bestAura = state.bestAura ? AURA_BY_ID[state.bestAura] : null;
     const byRarity = {};
     RARITIES.forEach((r) => (byRarity[r] = 0));
     Object.keys(state.discovered).forEach((id) => {
-        const aura = AURA_BY_ID[id];
-        if (aura) byRarity[aura.rarity]++;
+        const a = AURA_BY_ID[id];
+        if (a) byRarity[a.rarity]++;
     });
     const totalByRarity = {};
     RARITIES.forEach((r) => (totalByRarity[r] = 0));
@@ -2845,12 +2782,12 @@ function renderStats() {
         (sum, up) => sum + getUpgradeLevel(up.id),
         0,
     );
-    const permBonus = getPermanentLuckBonus();
-    const tempMult = getTemporaryLuckMultiplier();
-    const totalLuck = getTotalLuckMultiplier();
-    const level = state.level || 1;
-    const xpThis = state.xp - xpForLevel(level);
-    const xpNext = xpToNextLevel(level);
+    const permBonus = getPermanentLuckBonus(),
+        tempMult = getTemporaryLuckMultiplier(),
+        totalLuck = getTotalLuckMultiplier();
+    const level = state.level || 1,
+        xpThis = state.xp - xpForLevel(level),
+        xpNext = xpToNextLevel(level);
     const levelLine =
         level >= MAX_LEVEL
             ? `<p>🎖️ Niveau : ${level} (MAX)</p>`
@@ -2858,7 +2795,7 @@ function renderStats() {
     const titleLine = state.equippedTitle
         ? (() => {
               const t = TITLES.find((x) => x.id === state.equippedTitle);
-              return t ? `<p>🎖️ Titre équipé : ${t.icon} ${t.name}</p>` : "";
+              return t ? `<p>🎖️ Titre : ${t.icon} ${t.name}</p>` : "";
           })()
         : "";
     const skillLine = state.skillBranch
@@ -2868,71 +2805,52 @@ function renderStats() {
           })()
         : "";
     const socialBonus = getSocialBonus();
-
     $("#stats-content").innerHTML = `
-    <p>🎲 Rolls totaux : ${state.totalRolls.toLocaleString("fr-FR")}</p>
-    <p>🔍 Auras découvertes : ${discovered} / ${AURAS.length}</p>
-    <p>⭐ Meilleure aura : ${bestAura ? bestAura.name + " (" + bestAura.rarity + ")" : "Aucune"}</p>
-    <p>🎯 Rolls depuis une aura rare : ${state.rollsSinceRare}</p>
-    <p>⏱️ Temps de jeu : ${minutes} min</p>
+    <p>🎲 Rolls : ${state.totalRolls.toLocaleString("fr-FR")}</p>
+    <p>🔍 Auras : ${discovered} / ${AURAS.length}</p>
+    <p>⭐ Meilleure : ${bestAura ? bestAura.name + " (" + bestAura.rarity + ")" : "Aucune"}</p>
+    <p>🎯 Depuis rare : ${state.rollsSinceRare}</p>
+    <p>⏱️ Temps : ${minutes} min</p>
     <p>💰 Monnaie : ${state.coins.toLocaleString("fr-FR")}</p>
-    <p>🧪 Potions utilisées : ${state.usedPotions}</p>
-    <p>🔨 Objets fabriqués : ${state.craftedItems}</p>
-    <p>⭐ Améliorations : ${totalUpgradeLevels} niveaux</p>
-    <p>🤖 Auto Roll : ${state.autoRollUnlocked ? "Débloqué" : "Verrouillé"}</p>
+    <p>🧪 Potions : ${state.usedPotions}</p>
+    <p>🔨 Crafts : ${state.craftedItems}</p>
+    <p>⭐ Améliorations : ${totalUpgradeLevels}</p>
+    <p>🤖 Auto Roll : ${state.autoRollUnlocked ? "✅" : "❌"}</p>
     <p>♾️ Chance permanente : +${(permBonus * 100).toFixed(1)}%</p>
     <p>👥 Bonus social : +${(socialBonus * 100).toFixed(1)}%</p>
-    <p>⏳ Chance temporaire (potion) : +${((tempMult - 1) * 100).toFixed(0)}%</p>
+    <p>⏳ Chance temporaire : +${((tempMult - 1) * 100).toFixed(0)}%</p>
     <p>🍀 Chance totale : x${totalLuck.toFixed(2)} (plafond x${LUCK_HARD_CAP.toFixed(2)})</p>
-    <p>👤 Joueur : ${state.username || "—"}</p>
-    ${levelLine}
-    ${titleLine}
-    ${skillLine}
+    <p>👤 ${state.username || "—"}</p>
+    ${levelLine}${titleLine}${skillLine}
     <p>📊 Collection : ${pct}%</p>
-    <hr style="margin:10px 0; opacity:.2;" />
-    <h3>Répartition par rareté</h3>
+    <hr style="margin:10px 0; opacity:.2;" /><h3>Répartition</h3>
     ${RARITIES.map((r) => `<p>${r} : ${byRarity[r]} / ${totalByRarity[r]}</p>`).join("")}
-    <hr style="margin:10px 0; opacity:.2;" />
-    <h3>Collections complètes</h3>
-    <div class="collections-section">
-        ${RARITIES.map((r) => {
-            const found = byRarity[r];
-            const total = totalByRarity[r];
-            const complete = isRarityComplete(r);
-            const bonus = COMPLETE_COLLECTION_BONUSES[r] || 0;
-            const bonusText = complete
-                ? `✅ +${(bonus * 100).toFixed(1)}% chance active`
-                : `+${(bonus * 100).toFixed(1)}% si complète`;
-            return `
-                <div class="collection-row ${complete ? "complete" : ""}">
-                    <span class="col-rarity">${r}</span>
-                    <span class="col-progress">${found} / ${total}</span>
-                    <span class="col-bonus">${bonusText}</span>
-                </div>
-            `;
-        }).join("")}
-    </div>
-  `;
+    <hr style="margin:10px 0; opacity:.2;" /><h3>Collections complètes</h3>
+    <div class="collections-section">${RARITIES.map((r) => {
+        const found = byRarity[r],
+            total = totalByRarity[r],
+            complete = isRarityComplete(r),
+            bonus = COMPLETE_COLLECTION_BONUSES[r] || 0;
+        const bonusText = complete
+            ? `✅ +${(bonus * 100).toFixed(1)}% active`
+            : `+${(bonus * 100).toFixed(1)}% si complète`;
+        return `<div class="collection-row ${complete ? "complete" : ""}"><span class="col-rarity">${r}</span><span class="col-progress">${found} / ${total}</span><span class="col-bonus">${bonusText}</span></div>`;
+    }).join("")}</div>`;
 }
 
 /* ---------- 7. AUTH + LEADERBOARD ---------- */
 
 let authMode = "login";
 let authInitialized = false;
-let leaderboardInterval = null;
-let leaderboardRefreshInterval = null;
-let currentLeaderboardTab = "bestAura";
-let lastRolledAura = null;
-let rollLock = false;
-let autoRollActive = false;
-let autoRollTimer = null;
-
+let leaderboardInterval = null,
+    leaderboardRefreshInterval = null,
+    currentLeaderboardTab = "bestAura";
 const LS_PENDING_PSEUDO = "auraRng_pendingPseudo";
 const pseudoKeyFor = (uid) => "auraRng_pseudo_" + uid;
-
 function usernameToEmail(username) {
     return username.toLowerCase().replace(/[^a-z0-9_]/g, "") + FB_EMAIL_DOMAIN;
 }
+
 function showAuthModal(show) {
     const modal = document.getElementById("auth-modal");
     if (show) {
@@ -2971,10 +2889,10 @@ async function handleAuthSubmit() {
             "Firebase non chargé.";
         return;
     }
-    const username = document.getElementById("auth-username").value.trim();
-    const password = document.getElementById("auth-password").value;
-    const errorEl = document.getElementById("auth-error");
-    const submitBtn = document.getElementById("auth-submit");
+    const username = document.getElementById("auth-username").value.trim(),
+        password = document.getElementById("auth-password").value;
+    const errorEl = document.getElementById("auth-error"),
+        submitBtn = document.getElementById("auth-submit");
     errorEl.textContent = "";
     if (!username || username.length < 3) {
         errorEl.textContent = "❌ Pseudo trop court.";
@@ -3021,19 +2939,12 @@ async function handleAuthSubmit() {
                     uid: user.uid,
                     createdAt: Date.now(),
                 });
-            } catch (e) {
-                console.warn("usernames échoué :", e);
-            }
+            } catch (e) {}
             try {
                 await FB.updateProfile(user, { displayName: username });
-            } catch (e) {
-                console.warn("updateProfile échoué :", e);
-            }
-        } else {
-            await FB.signInWithEmailAndPassword(FB.auth, email, password);
-        }
+            } catch (e) {}
+        } else await FB.signInWithEmailAndPassword(FB.auth, email, password);
     } catch (e) {
-        console.warn("Erreur auth :", e);
         let msg = "❌ Erreur inconnue.";
         if (e.code === "auth/user-not-found")
             msg = "❌ Aucun compte avec ce pseudo.";
@@ -3061,14 +2972,12 @@ async function handleAuthSubmit() {
 
 async function handleLogout() {
     if (!window.FB) return;
-    if (!confirm("Se déconnecter ? Ta progression est dans le cloud.")) return;
+    if (!confirm("Se déconnecter ?")) return;
     try {
         flushPlayTime();
         await window.FB.signOut(window.FB.auth);
         location.reload();
-    } catch (e) {
-        console.warn("Erreur déconnexion :", e);
-    }
+    } catch (e) {}
 }
 
 async function resolveUsername(user) {
@@ -3078,26 +2987,218 @@ async function resolveUsername(user) {
         if (pending) username = pending;
     }
     if (!username && user.displayName) username = user.displayName;
-    if (!username) {
-        for (let attempt = 0; attempt < 3; attempt++) {
+    if (!username)
+        for (let i = 0; i < 3; i++) {
             try {
                 const snap = await window.FB.get(
                     window.FB.ref(window.FB.db, "usernames"),
                 );
                 if (snap.exists())
-                    snap.forEach((child) => {
-                        if (child.val().uid === user.uid) username = child.key;
+                    snap.forEach((c) => {
+                        if (c.val().uid === user.uid) username = c.key;
                     });
                 if (username) break;
-            } catch (e) {
-                console.warn("Lookup pseudo échoué :", e);
-            }
+            } catch (e) {}
             await new Promise((r) => setTimeout(r, 400));
         }
-    }
     if (!username) username = "Joueur";
     localStorage.setItem(pseudoKeyFor(user.uid), username);
     return username;
+}
+
+/* =========================================================
+   SYNC TEMPS RÉEL — Applique les changements admin instantanément
+   ========================================================= */
+
+let realtimeSyncStarted = false;
+let realtimeBanListener = null;
+let realtimeFreezeListener = null;
+let realtimeSaveListener = null;
+let realtimePlayerListener = null;
+let realtimeKickListener = null;
+
+function startRealtimeSync() {
+    if (!window.FB || !state.uid || realtimeSyncStarted) return;
+    realtimeSyncStarted = true;
+
+    const { db, ref, onValue } = window.FB;
+
+    // 1. BAN
+    const banRef = ref(db, "bans/" + state.uid);
+    realtimeBanListener = onValue(banRef, (snap) => {
+        const overlay = document.getElementById("ban-overlay");
+        if (snap.exists()) {
+            const d = snap.val();
+            if (d.until && Date.now() < d.until) {
+                showBanOverlay(
+                    d.until,
+                    d.reason || "Banni par un administrateur",
+                );
+                if (autoRollActive) toggleAutoRoll();
+                return;
+            }
+        }
+        if (overlay) {
+            overlay.classList.add("hidden");
+            clearInterval(banTimerInterval);
+        }
+    });
+
+    // 2. FREEZE
+    const freezeRef = ref(db, "frozen/" + state.uid);
+    realtimeFreezeListener = onValue(freezeRef, (snap) => {
+        const frozen = snap.exists() && snap.val() === true;
+        document.body.classList.toggle("is-frozen", frozen);
+        if (frozen) {
+            if (autoRollActive) toggleAutoRoll();
+            showToast("🧊 Ton compte a été gelé par un administrateur.");
+        } else {
+            showToast("🔥 Ton compte n'est plus gelé.");
+        }
+    });
+
+    // 3. SAVE
+    const saveRef = ref(db, "saves/" + state.uid);
+    let firstSaveLoad = true;
+    realtimeSaveListener = onValue(saveRef, (snap) => {
+        if (!snap.exists()) return;
+        const cloud = snap.val();
+        if (!cloud) return;
+        if (firstSaveLoad) {
+            firstSaveLoad = false;
+            return;
+        }
+        let changed = false;
+
+        if (typeof cloud.coins === "number" && cloud.coins !== state.coins) {
+            const diff = cloud.coins - state.coins;
+            state.coins = cloud.coins;
+            changed = true;
+            if (diff > 0)
+                showToast(
+                    `💰 +${diff.toLocaleString("fr-FR")} pièces reçues !`,
+                );
+            else if (diff < 0)
+                showToast(
+                    `💰 ${Math.abs(diff).toLocaleString("fr-FR")} pièces retirées.`,
+                );
+        }
+        if (
+            typeof cloud.totalRolls === "number" &&
+            cloud.totalRolls !== state.totalRolls
+        ) {
+            const diff = cloud.totalRolls - state.totalRolls;
+            state.totalRolls = cloud.totalRolls;
+            changed = true;
+            if (diff < 0) showToast(`🎲 ${Math.abs(diff)} rolls retirés.`);
+        }
+        if (
+            typeof cloud.adminLuckBonus === "number" &&
+            cloud.adminLuckBonus !== state.adminLuckBonus
+        ) {
+            state.adminLuckBonus = cloud.adminLuckBonus;
+            changed = true;
+            showToast(
+                `🍀 Bonus de chance admin appliqué : +${(cloud.adminLuckBonus * 100).toFixed(1)}%`,
+            );
+        }
+        if (cloud.inventory && typeof cloud.inventory === "object") {
+            const localKeys = Object.keys(state.inventory);
+            for (const key of localKeys) {
+                if (state.inventory[key] > 0 && !cloud.inventory[key]) {
+                    state.inventory[key] = 0;
+                    const aura = AURA_BY_ID[key];
+                    if (aura)
+                        showToast(
+                            `✦ L'aura [${aura.name}] t'a été retirée par un admin.`,
+                        );
+                    changed = true;
+                }
+            }
+        }
+        if (changed) {
+            renderUI();
+            try {
+                localStorage.setItem(getSaveKey(), JSON.stringify(state));
+            } catch (e) {}
+        }
+    });
+
+    // 4. PLAYER
+    const playerRef = ref(db, "players/" + state.uid);
+    let firstPlayerLoad = true;
+    realtimePlayerListener = onValue(playerRef, (snap) => {
+        if (!snap.exists()) return;
+        const cloud = snap.val();
+        if (!cloud) return;
+        if (firstPlayerLoad) {
+            firstPlayerLoad = false;
+            return;
+        }
+        if (typeof cloud.level === "number" && cloud.level !== state.level) {
+            state.level = cloud.level;
+            renderUI();
+            showToast(`🎖️ Niveau mis à jour : ${cloud.level}`);
+        }
+    });
+
+    const kickRef = ref(db, "kicked/" + state.uid);
+    onValue(kickRef, (snap) => {
+        if (snap.exists()) {
+            const d = snap.val();
+            if (d.ts && Date.now() - d.ts < 10000) {
+                // 🔥 KICK immédiat
+                console.warn("🚫 Tu as été kické !");
+                const until = d.until || Date.now() + 60000;
+                const reason = d.reason || "Banni par un administrateur";
+
+                // Affiche l'overlay AVANT tout
+                showBanOverlay(until, reason);
+
+                // Arrête toutes les boucles
+                if (autoRollActive) toggleAutoRoll();
+                if (rollLock) rollLock = false;
+
+                // Désactive tous les boutons
+                document.querySelectorAll("button").forEach((b) => {
+                    if (
+                        b.id !== "payment-error-close" &&
+                        b.id !== "logout-btn"
+                    ) {
+                        b.disabled = true;
+                    }
+                });
+            }
+        }
+    });
+
+    console.log("⚡ Sync temps réel activée");
+}
+
+function stopRealtimeSync() {
+    if (!window.FB) return;
+    const { db, ref, off } = window.FB;
+    if (realtimeBanListener) {
+        off(ref(db, "bans/" + state.uid));
+        realtimeBanListener = null;
+    }
+    if (realtimeFreezeListener) {
+        off(ref(db, "frozen/" + state.uid));
+        realtimeFreezeListener = null;
+    }
+    if (realtimeSaveListener) {
+        off(ref(db, "saves/" + state.uid));
+        realtimeSaveListener = null;
+    }
+    if (realtimePlayerListener) {
+        off(ref(db, "players/" + state.uid));
+        realtimePlayerListener = null;
+    }
+    if (realtimeKickListener) {
+        off(ref(db, "kicked/" + state.uid));
+        realtimeKickListener = null;
+    }
+    realtimeSyncStarted = false;
 }
 
 function initAuth() {
@@ -3108,17 +3209,20 @@ function initAuth() {
     }
     showAuthModal(true);
     setAuthMode("login");
-
     FB.onAuthStateChanged(FB.auth, async (user) => {
         if (user) {
-            showAuthLoading(true, "Chargement de ta progression...");
+            showAuthLoading(true, "Chargement...");
+            if (window.__auraOriginalConsole) {
+                const o = window.__auraOriginalConsole;
+                console.log = o.log;
+                console.warn = o.warn;
+                console.error = o.error;
+            }
             state = createDefaultState();
             state.uid = user.uid;
             lastRolledAura = null;
-
             const username = await resolveUsername(user);
             state.username = username;
-
             const loadedFromCloud = await loadGameFromCloud();
             if (!loadedFromCloud) {
                 loadGame();
@@ -3131,7 +3235,7 @@ function initAuth() {
             state.uid = user.uid;
             state.username = username;
             state._uid = user.uid;
-
+            state._connectedAt = Date.now();
             if (!Array.isArray(state.unlockedTitles)) state.unlockedTitles = [];
             if (!state.level || state.level < 1) state.level = 1;
             if (!state.xp || state.xp < 0) state.xp = 0;
@@ -3143,13 +3247,11 @@ function initAuth() {
                     state.unlockedTitles.push(t.id);
             });
             applySkin(state.equippedSkin);
-
             document.getElementById("stat-username").textContent =
                 state.username;
             showAuthLoading(false);
             showAuthModal(false);
             renderUI();
-
             pushToLeaderboard();
             initLeaderboard();
             startAnnouncementsListener();
@@ -3159,6 +3261,15 @@ function initAuth() {
             updateSocialBonus();
             startFriendsActivityListener();
             localStorage.removeItem(LS_PENDING_PSEUDO);
+
+            // ✅ LOT 5 : checks post-login
+            setTimeout(() => {
+                if (!window.__auraConsoleHooked) detectConsoleInput();
+            }, 2000);
+            postLoginChecks();
+
+            // ⚡ Sync temps réel : ban/freeze/coins/rolls/auras instantanés
+            setTimeout(() => startRealtimeSync(), 1500);
         } else {
             state = createDefaultState();
             lastRolledAura = null;
@@ -3176,6 +3287,7 @@ function initAuth() {
             }
             stopPlayTimeTracker();
             stopBiomeParticles();
+            stopRealtimeSync();
         }
     });
 }
@@ -3185,8 +3297,8 @@ function getPlayerName() {
 }
 
 function pushToLeaderboard() {
-    const name = getPlayerName();
-    const uid = state.uid;
+    const name = getPlayerName(),
+        uid = state.uid;
     if (!name || !uid || !window.FB) return;
     const { db, ref, update } = window.FB;
     const playerRef = ref(db, "players/" + uid);
@@ -3217,7 +3329,7 @@ function pushToLeaderboard() {
         level: state.level || 1,
         xp: state.xp || 0,
         updatedAt: Date.now(),
-    }).catch((e) => console.warn("Erreur sync classement :", e));
+    }).catch(() => {});
 }
 
 function fetchLeaderboard(type, callback) {
@@ -3237,9 +3349,9 @@ function fetchLeaderboard(type, callback) {
     }
     const q = query(ref(db, "players"), orderByChild(config), limitToLast(20));
     get(q)
-        .then((snapshot) => {
+        .then((snap) => {
             const results = [];
-            snapshot.forEach((child) => {
+            snap.forEach((child) => {
                 const val = child.val();
                 if (!val) return;
                 if (!val.name || val.name === "Joueur") return;
@@ -3254,18 +3366,17 @@ function fetchLeaderboard(type, callback) {
             callback({ players: results, error: null });
         })
         .catch((e) => {
-            console.warn("Erreur classement :", e);
             const msg =
                 e.code === "PERMISSION_DENIED"
-                    ? "Accès refusé — vérifie les règles Firebase."
-                    : e.message || "Erreur inconnue.";
+                    ? "Accès refusé."
+                    : e.message || "Erreur.";
             callback({ players: [], error: msg });
         });
 }
 
 function renderLeaderboard(type, silent = false) {
-    const container = $("#lb-content");
-    const status = $("#lb-status");
+    const container = $("#lb-content"),
+        status = $("#lb-status");
     currentLeaderboardTab = type;
     if (!silent) {
         status.textContent = "Chargement...";
@@ -3280,7 +3391,7 @@ function renderLeaderboard(type, silent = false) {
             return;
         }
         if (!players || players.length === 0) {
-            status.textContent = "Aucun joueur pour le moment.";
+            status.textContent = "Aucun joueur.";
             status.style.color = "";
             container.innerHTML = "";
             return;
@@ -3292,11 +3403,11 @@ function renderLeaderboard(type, silent = false) {
             minute: "2-digit",
             second: "2-digit",
         });
-        status.textContent = `Top ${players.length} joueurs · actualisé à ${timeStr}`;
+        status.textContent = `Top ${players.length} · actualisé à ${timeStr}`;
         container.innerHTML = "";
         players.forEach((p, index) => {
-            const rank = index + 1;
-            const isMe = myName && p.name === myName;
+            const rank = index + 1,
+                isMe = myName && p.name === myName;
             let displayValue = "",
                 subValue = "",
                 valueColor = "#4ade80";
@@ -3324,14 +3435,7 @@ function renderLeaderboard(type, silent = false) {
                       : rank === 3
                         ? " top3"
                         : "";
-            row.innerHTML = `
-                <div class="lb-rank${rankClass}">${rank}</div>
-                <div class="lb-name">
-                    ${p.name || "Anonyme"}${isMe ? ' <span style="opacity:.6">(toi)</span>' : ""}
-                    ${subValue ? `<span class="lb-sub" style="color:${valueColor}">${subValue}</span>` : ""}
-                </div>
-                <div class="lb-value" style="color:${valueColor}">${displayValue}</div>
-            `;
+            row.innerHTML = `<div class="lb-rank${rankClass}">${rank}</div><div class="lb-name">${p.name || "Anonyme"}${isMe ? ' <span style="opacity:.6">(toi)</span>' : ""}${subValue ? `<span class="lb-sub" style="color:${valueColor}">${subValue}</span>` : ""}</div><div class="lb-value" style="color:${valueColor}">${displayValue}</div>`;
             container.appendChild(row);
         });
     });
@@ -3367,9 +3471,8 @@ async function cleanGhostPlayers() {
                 !val.name ||
                 val.name === "Joueur" ||
                 (val.totalRolls === 0 && val.bestAuraName === "Aucune")
-            ) {
+            )
                 deletions.push(remove(ref(db, "players/" + uid)));
-            }
         });
         if (deletions.length > 0) await Promise.all(deletions);
         return { removed: deletions.length };
@@ -3382,14 +3485,13 @@ async function cleanGhostPlayers() {
 
 const TAB_ID = Math.random().toString(36).slice(2, 10);
 const TAB_HEARTBEAT_KEY = "auraRng_activeTab";
-const TAB_HEARTBEAT_INTERVAL = 5000;
-const TAB_STALE_MS = 10000;
-
-let playTimeTickInterval = null;
-let heartbeatInterval = null;
-let lastTickAt = 0;
-let isPrimaryTab = false;
-let tabChannel = null;
+const TAB_HEARTBEAT_INTERVAL = 5000,
+    TAB_STALE_MS = 10000;
+let playTimeTickInterval = null,
+    heartbeatInterval = null,
+    lastTickAt = 0,
+    isPrimaryTab = false,
+    tabChannel = null;
 
 function startPlayTimeTracker() {
     try {
@@ -3399,13 +3501,12 @@ function startPlayTimeTracker() {
         tabChannel = null;
     }
     electPrimaryTab();
-    if (tabChannel) {
+    if (tabChannel)
         tabChannel.onmessage = (ev) => {
             if (!ev.data) return;
             if (ev.data.type === "iam_primary" && ev.data.tabId !== TAB_ID)
                 isPrimaryTab = false;
         };
-    }
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") {
             lastTickAt = Date.now();
@@ -3425,8 +3526,8 @@ function startPlayTimeTracker() {
     }, TAB_HEARTBEAT_INTERVAL);
     lastTickAt = Date.now();
     playTimeTickInterval = setInterval(() => {
-        const now = Date.now();
-        const delta = (now - lastTickAt) / 1000;
+        const now = Date.now(),
+            delta = (now - lastTickAt) / 1000;
         lastTickAt = now;
         if (!state.uid) return;
         if (document.visibilityState !== "visible") return;
@@ -3439,7 +3540,6 @@ function startPlayTimeTracker() {
         if (afterFloor !== beforeFloor && afterFloor % 60 === 0) saveGame();
     }, 1000);
 }
-
 function stopPlayTimeTracker() {
     if (playTimeTickInterval) {
         clearInterval(playTimeTickInterval);
@@ -3453,13 +3553,11 @@ function stopPlayTimeTracker() {
         localStorage.removeItem(TAB_HEARTBEAT_KEY);
     } catch (e) {}
 }
-
 function flushPlayTime() {
     if (!state.uid) return;
     saveGame();
     flushCloudSave();
 }
-
 function electPrimaryTab() {
     try {
         const raw = localStorage.getItem(TAB_HEARTBEAT_KEY);
@@ -3482,8 +3580,8 @@ function electPrimaryTab() {
 
 let bannerTimeout = null;
 function showGlobalBanner(data) {
-    const banner = document.getElementById("global-banner");
-    const text = document.getElementById("global-banner-text");
+    const banner = document.getElementById("global-banner"),
+        text = document.getElementById("global-banner-text");
     if (!banner || !text) return;
     const rarity = data.auraRarity || "mythic";
     text.innerHTML = `⚡ <strong>${data.name}</strong> vient d'obtenir <strong>[${data.auraName}]</strong> — ${data.chance || "?"}`;
@@ -3514,11 +3612,8 @@ async function publishAnnouncement(aura) {
             ts: serverTimestamp(),
         });
         setTimeout(cleanOldAnnouncements, 3000);
-    } catch (e) {
-        console.warn("Impossible de publier l'annonce :", e);
-    }
+    } catch (e) {}
 }
-
 async function cleanOldAnnouncements() {
     if (!window.FB) return;
     try {
@@ -3526,14 +3621,14 @@ async function cleanOldAnnouncements() {
         const snap = await get(ref(db, "announcements"));
         if (!snap.exists()) return;
         const now = Date.now();
-        const deletions = [];
-        snap.forEach((child) => {
-            const v = child.val();
+        const dels = [];
+        snap.forEach((c) => {
+            const v = c.val();
             if (!v || !v.ts) return;
             if (now - v.ts > 10 * 60 * 1000)
-                deletions.push(remove(ref(db, "announcements/" + child.key)));
+                dels.push(remove(ref(db, "announcements/" + c.key)));
         });
-        if (deletions.length) await Promise.all(deletions);
+        if (dels.length) await Promise.all(dels);
     } catch (e) {}
 }
 
@@ -3561,16 +3656,16 @@ function startAnnouncementsListener() {
 const _lastValues = new WeakMap();
 function animateNumber(el, newValue, options = {}) {
     if (!el) return;
-    const duration = options.duration || 700;
-    const prefix = options.prefix || "";
-    const suffix = options.suffix || "";
-    const locale = options.locale || "fr-FR";
-    const flash = options.flash !== false;
-    const prev = _lastValues.get(el);
-    const from = typeof prev === "number" ? prev : newValue;
+    const duration = options.duration || 700,
+        prefix = options.prefix || "",
+        suffix = options.suffix || "",
+        locale = options.locale || "fr-FR",
+        flash = options.flash !== false;
+    const prev = _lastValues.get(el),
+        from = typeof prev === "number" ? prev : newValue;
     _lastValues.set(el, newValue);
-    const start = performance.now();
-    const diff = newValue - from;
+    const start = performance.now(),
+        diff = newValue - from;
     function tick(now) {
         const t = Math.min(1, (now - start) / duration);
         const eased = 1 - Math.pow(1 - t, 3);
@@ -3609,10 +3704,8 @@ const BIOME_PARTICLE_CONFIG = {
         colors: ["#c084fc", "#67e8f9", "#a855f7", "#818cf8", "#f0abfc"],
     },
 };
-
-let particleSpawnInterval = null;
-let currentBiomeParticleType = null;
-
+let particleSpawnInterval = null,
+    currentBiomeParticleType = null;
 function startBiomeParticles() {
     const box = document.getElementById("biome-particles");
     if (!box) return;
@@ -3669,7 +3762,6 @@ function startBiomeParticles() {
     for (let i = 0; i < config.count; i++) setTimeout(spawnOne, i * 120);
     particleSpawnInterval = setInterval(spawnOne, config.spawnRate);
 }
-
 function stopBiomeParticles() {
     if (particleSpawnInterval) {
         clearInterval(particleSpawnInterval);
@@ -3682,9 +3774,8 @@ function stopBiomeParticles() {
 
 /* ---------- 10. CHAT ---------- */
 
-let chatListenerStarted = false;
-let chatMessages = [];
-
+let chatListenerStarted = false,
+    chatMessages = [];
 function startChatListener() {
     if (!window.FB || chatListenerStarted) return;
     chatListenerStarted = true;
@@ -3705,7 +3796,6 @@ function startChatListener() {
     });
     setTimeout(cleanOldChat, 5000);
 }
-
 function appendChatMessage(msg) {
     const box = document.getElementById("chat-messages");
     if (!box) return;
@@ -3717,17 +3807,12 @@ function appendChatMessage(msg) {
         hour: "2-digit",
         minute: "2-digit",
     });
-    el.innerHTML = `
-        <span class="chat-author" style="color:${color}">${escapeHtml(msg.name)}</span>
-        <span class="chat-text">${escapeHtml(msg.text)}</span>
-        <span class="chat-time">${time}</span>
-    `;
+    el.innerHTML = `<span class="chat-author" style="color:${color}">${escapeHtml(msg.name)}</span><span class="chat-text">${escapeHtml(msg.text)}</span><span class="chat-time">${time}</span>`;
     const wasAtBottom =
         box.scrollHeight - box.scrollTop - box.clientHeight < 50;
     box.appendChild(el);
     if (wasAtBottom) box.scrollTop = box.scrollHeight;
 }
-
 function escapeHtml(s) {
     return String(s)
         .replace(/&/g, "&amp;")
@@ -3736,7 +3821,6 @@ function escapeHtml(s) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
 }
-
 function getPlayerDisplayColor(name) {
     if (name === state.username && state.bestAura) {
         const aura = AURA_BY_ID[state.bestAura];
@@ -3748,23 +3832,22 @@ function getPlayerDisplayColor(name) {
     const hues = [260, 290, 320, 200, 170, 40, 15];
     return `hsl(${hues[Math.abs(hash) % hues.length]}, 70%, 65%)`;
 }
-
 async function sendChatMessage() {
     const input = document.getElementById("chat-input");
     if (!input) return;
     const text = input.value.trim();
     if (!text) return;
     if (text.length > 200) {
-        showToast("❌ Message trop long.");
+        showToast("❌ Trop long.");
         return;
     }
     if (!state.uid || !state.username) {
-        showToast("❌ Connecte-toi d'abord.");
+        showToast("❌ Connecte-toi.");
         return;
     }
     const now = Date.now();
     if (state._lastChatAt && now - state._lastChatAt < 2000) {
-        showToast("⏳ Attends un peu.");
+        showToast("⏳ Attends.");
         return;
     }
     state._lastChatAt = now;
@@ -3779,11 +3862,9 @@ async function sendChatMessage() {
         });
         input.value = "";
     } catch (e) {
-        console.warn("Erreur envoi chat :", e);
-        showToast("❌ Impossible d'envoyer.");
+        showToast("❌ Erreur d'envoi.");
     }
 }
-
 async function cleanOldChat() {
     if (!window.FB) return;
     try {
@@ -3791,22 +3872,22 @@ async function cleanOldChat() {
         const snap = await get(ref(db, "chat"));
         if (!snap.exists()) return;
         const now = Date.now();
-        const deletions = [];
-        snap.forEach((child) => {
-            const v = child.val();
+        const dels = [];
+        snap.forEach((c) => {
+            const v = c.val();
             if (!v || !v.ts) return;
             if (now - v.ts > CHAT_MAX_AGE_MS)
-                deletions.push(remove(ref(db, "chat/" + child.key)));
+                dels.push(remove(ref(db, "chat/" + c.key)));
         });
-        if (deletions.length) await Promise.all(deletions);
+        if (dels.length) await Promise.all(dels);
     } catch (e) {}
 }
 
-/* ---------- 11. AMIS / ACTIVITÉ ---------- */
+/* ---------- 11. AMIS ---------- */
 
-let friendsCurrentTab = "following";
-let friendsUnreadCount = 0;
-let friendsActivityListenerStarted = false;
+let friendsCurrentTab = "following",
+    friendsUnreadCount = 0,
+    friendsActivityListenerStarted = false;
 
 async function loadFriendsLists() {
     if (!window.FB || !state.uid) return;
@@ -3821,11 +3902,8 @@ async function loadFriendsLists() {
         const data = snap.val();
         state._following = data.following || {};
         state._followers = data.followers || {};
-    } catch (e) {
-        console.warn("Erreur chargement amis :", e);
-    }
+    } catch (e) {}
 }
-
 async function fetchPlayerInfo(uid) {
     if (!window.FB) return null;
     try {
@@ -3844,7 +3922,7 @@ async function renderFollowingTab() {
     container.innerHTML = `<p class="hint">Chargement...</p>`;
     const uids = Object.keys(state._following);
     if (uids.length === 0) {
-        container.innerHTML = `<p class="hint">Tu ne suis personne. Va dans "Rechercher".</p>`;
+        container.innerHTML = `<p class="hint">Tu ne suis personne.</p>`;
         return;
     }
     const players = await Promise.all(uids.map((uid) => fetchPlayerInfo(uid)));
@@ -3853,16 +3931,15 @@ async function renderFollowingTab() {
         .filter(Boolean)
         .forEach((p) => container.appendChild(buildFriendCard(p, "following")));
     if (container.children.length === 0)
-        container.innerHTML = `<p class="hint">Aucun profil trouvé.</p>`;
+        container.innerHTML = `<p class="hint">Aucun profil.</p>`;
 }
-
 async function renderFollowersTab() {
     const container = document.getElementById("friends-content");
     if (!container) return;
     container.innerHTML = `<p class="hint">Chargement...</p>`;
     const uids = Object.keys(state._followers);
     if (uids.length === 0) {
-        container.innerHTML = `<p class="hint">Personne ne te suit pour le moment.</p>`;
+        container.innerHTML = `<p class="hint">Aucun abonné.</p>`;
         return;
     }
     const players = await Promise.all(uids.map((uid) => fetchPlayerInfo(uid)));
@@ -3871,9 +3948,8 @@ async function renderFollowersTab() {
         .filter(Boolean)
         .forEach((p) => container.appendChild(buildFriendCard(p, "followers")));
     if (container.children.length === 0)
-        container.innerHTML = `<p class="hint">Aucun profil trouvé.</p>`;
+        container.innerHTML = `<p class="hint">Aucun profil.</p>`;
 }
-
 function buildFriendCard(player, mode) {
     const card = document.createElement("div");
     card.className = "friend-card";
@@ -3885,24 +3961,20 @@ function buildFriendCard(player, mode) {
     avatar.textContent = initial;
     const info = document.createElement("div");
     info.className = "friend-info";
-    const lastUpd = player.updatedAt || 0;
-    const isOnline = Date.now() - lastUpd < FRIENDS_ONLINE_WINDOW_MS;
+    const lastUpd = player.updatedAt || 0,
+        isOnline = Date.now() - lastUpd < FRIENDS_ONLINE_WINDOW_MS;
     const onlineHtml = isOnline
         ? `<span class="friend-online"></span>En ligne`
         : `<span class="friend-offline"></span>${formatLastSeen(lastUpd)}`;
     const bestAuraTxt =
         player.bestAuraName && player.bestAuraName !== "Aucune"
             ? `⭐ ${player.bestAuraName} (${player.bestAuraRarity})`
-            : "⭐ Aucune aura";
-    info.innerHTML = `
-        <div class="friend-name">${escapeHtml(player.name || "Anonyme")}</div>
-        <div class="friend-sub">🎖️ Niv. ${player.level || 1} · ${bestAuraTxt}</div>
-        <div class="friend-sub">${onlineHtml}</div>
-    `;
+            : "⭐ Aucune";
+    info.innerHTML = `<div class="friend-name">${escapeHtml(player.name || "Anonyme")}</div><div class="friend-sub">🎖️ Niv. ${player.level || 1} · ${bestAuraTxt}</div><div class="friend-sub">${onlineHtml}</div>`;
     const actions = document.createElement("div");
     actions.className = "friend-actions";
-    const iFollow = !!state._following[player.uid];
-    const theyFollow = !!state._followers[player.uid];
+    const iFollow = !!state._following[player.uid],
+        theyFollow = !!state._followers[player.uid];
     if (mode === "following") {
         const btn = document.createElement("button");
         btn.className = "unfollow-btn";
@@ -3952,19 +4024,17 @@ function buildFriendCard(player, mode) {
     card.appendChild(actions);
     return card;
 }
-
 function hashStringHue(s) {
     let h = 0;
     for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i);
     return Math.abs(h) % 360;
 }
-
 function formatLastSeen(ts) {
     if (!ts) return "Jamais connecté";
     const diff = Date.now() - ts;
-    const min = Math.floor(diff / 60000);
-    const h = Math.floor(diff / 3600000);
-    const d = Math.floor(diff / 86400000);
+    const min = Math.floor(diff / 60000),
+        h = Math.floor(diff / 3600000),
+        d = Math.floor(diff / 86400000);
     if (min < 1) return "À l'instant";
     if (min < 60) return `Il y a ${min} min`;
     if (h < 24) return `Il y a ${h} h`;
@@ -3975,29 +4045,22 @@ function formatLastSeen(ts) {
 function renderSearchTab() {
     const container = document.getElementById("friends-content");
     if (!container) return;
-    container.innerHTML = `
-        <div class="friends-search">
-            <input type="text" id="friends-search-input" placeholder="Pseudo exact..." maxlength="20" autocomplete="off" />
-            <button id="friends-search-btn">Chercher</button>
-        </div>
-        <div id="friends-search-results"></div>
-    `;
-    const input = document.getElementById("friends-search-input");
-    const btn = document.getElementById("friends-search-btn");
+    container.innerHTML = `<div class="friends-search"><input type="text" id="friends-search-input" placeholder="Pseudo exact..." maxlength="20" autocomplete="off" /><button id="friends-search-btn">Chercher</button></div><div id="friends-search-results"></div>`;
+    const input = document.getElementById("friends-search-input"),
+        btn = document.getElementById("friends-search-btn");
     const doSearch = () => searchPlayers(input.value.trim());
     btn.addEventListener("click", doSearch);
     input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") doSearch();
     });
 }
-
 async function searchPlayers(query) {
-    const resultsBox = document.getElementById("friends-search-results");
-    const btn = document.getElementById("friends-search-btn");
+    const resultsBox = document.getElementById("friends-search-results"),
+        btn = document.getElementById("friends-search-btn");
     if (!resultsBox) return;
     resultsBox.innerHTML = "";
     if (!query || query.length < 3) {
-        resultsBox.innerHTML = `<p class="hint">Tape au moins 3 caractères.</p>`;
+        resultsBox.innerHTML = `<p class="hint">Tape 3 caractères min.</p>`;
         return;
     }
     btn.disabled = true;
@@ -4008,7 +4071,7 @@ async function searchPlayers(query) {
         const snap = await get(ref(db, "usernames/" + query.toLowerCase()));
         resultsBox.innerHTML = "";
         if (!snap.exists()) {
-            resultsBox.innerHTML = `<p class="hint">Aucun joueur trouvé.</p>`;
+            resultsBox.innerHTML = `<p class="hint">Aucun joueur.</p>`;
             return;
         }
         const uid = snap.val().uid;
@@ -4029,7 +4092,6 @@ async function searchPlayers(query) {
         btn.textContent = "Chercher";
     }
 }
-
 async function followPlayer(targetUid, targetName) {
     if (!window.FB || !state.uid || targetUid === state.uid) return;
     try {
@@ -4044,16 +4106,14 @@ async function followPlayer(targetUid, targetName) {
             since: now,
         });
         state._following[targetUid] = { name: targetName, since: now };
-        showToast(`✅ Tu suis maintenant ${targetName}`);
+        showToast(`✅ Tu suis ${targetName}`);
         renderFriendsStats();
         refreshFriendsTab();
         updateSocialBonus();
     } catch (e) {
-        console.warn(e);
-        showToast("❌ Impossible de suivre.");
+        showToast("❌ Impossible.");
     }
 }
-
 async function unfollowPlayer(targetUid, targetName) {
     if (!window.FB || !state.uid) return;
     if (!confirm(`Ne plus suivre ${targetName} ?`)) return;
@@ -4062,32 +4122,25 @@ async function unfollowPlayer(targetUid, targetName) {
         await remove(ref(db, `friends/${state.uid}/following/${targetUid}`));
         await remove(ref(db, `friends/${targetUid}/followers/${state.uid}`));
         delete state._following[targetUid];
-        showToast(`👋 Tu ne suis plus ${targetName}`);
+        showToast(`👋 ${targetName} retiré`);
         renderFriendsStats();
         refreshFriendsTab();
         updateSocialBonus();
     } catch (e) {
-        console.warn(e);
-        showToast("❌ Impossible de se désabonner.");
+        showToast("❌ Erreur.");
     }
 }
-
 function renderFriendsStats() {
     const el = document.getElementById("friends-stats");
     if (!el) return;
-    const f = Object.keys(state._following || {}).length;
-    const fo = Object.keys(state._followers || {}).length;
+    const f = Object.keys(state._following || {}).length,
+        fo = Object.keys(state._followers || {}).length;
     el.textContent = `${f} abonnement${f > 1 ? "s" : ""} · ${fo} abonné${fo > 1 ? "s" : ""}`;
 }
-
 function refreshFriendsTab() {
     if (friendsCurrentTab === "following") renderFollowingTab();
     else if (friendsCurrentTab === "followers") renderFollowersTab();
-    else if (friendsCurrentTab === "search") {
-        /* rien */
-    }
 }
-
 function updateSocialBonus() {
     const el = document.getElementById("stat-social-bonus");
     if (el) el.textContent = "+" + (getSocialBonus() * 100).toFixed(0) + "%";
@@ -4116,11 +4169,8 @@ async function publishActivity(aura) {
             ts: serverTimestamp(),
         });
         setTimeout(cleanOldActivity, 3000);
-    } catch (e) {
-        /* skip */
-    }
+    } catch (e) {}
 }
-
 async function cleanOldActivity() {
     if (!window.FB || !state.uid) return;
     try {
@@ -4128,27 +4178,26 @@ async function cleanOldActivity() {
         const snap = await get(ref(db, "activity/" + state.uid));
         if (!snap.exists()) return;
         const list = [];
-        snap.forEach((child) => {
-            const v = child.val();
-            if (v && v.ts) list.push({ key: child.key, ts: v.ts });
+        snap.forEach((c) => {
+            const v = c.val();
+            if (v && v.ts) list.push({ key: c.key, ts: v.ts });
         });
         list.sort((a, b) => b.ts - a.ts);
-        const toDelete = list.slice(FRIENDS_MAX_ACTIVITY_PER_PLAYER);
+        const toDel = list.slice(FRIENDS_MAX_ACTIVITY_PER_PLAYER);
         await Promise.all(
-            toDelete.map((e) =>
+            toDel.map((e) =>
                 remove(ref(db, "activity/" + state.uid + "/" + e.key)),
             ),
         );
     } catch (e) {}
 }
-
 async function loadFriendsFeed() {
     if (!window.FB || !state.uid) return;
     const feedBox = document.getElementById("friends-feed");
     if (!feedBox) return;
     const uids = Object.keys(state._following);
     if (uids.length === 0) {
-        feedBox.innerHTML = `<p class="hint">Suis des joueurs pour voir leur activité.</p>`;
+        feedBox.innerHTML = `<p class="hint">Suis des joueurs pour voir l'activité.</p>`;
         return;
     }
     feedBox.innerHTML = `<p class="hint">Chargement...</p>`;
@@ -4160,8 +4209,8 @@ async function loadFriendsFeed() {
                 try {
                     const snap = await get(ref(db, "activity/" + uid));
                     if (!snap.exists()) return;
-                    snap.forEach((child) => {
-                        const v = child.val();
+                    snap.forEach((c) => {
+                        const v = c.val();
                         if (v && v.ts) allEvents.push({ uid, ...v });
                     });
                 } catch (e) {}
@@ -4171,28 +4220,20 @@ async function loadFriendsFeed() {
         const recent = allEvents.slice(0, 20);
         feedBox.innerHTML = "";
         if (recent.length === 0) {
-            feedBox.innerHTML = `<p class="hint">Aucune activité récente.</p>`;
+            feedBox.innerHTML = `<p class="hint">Aucune activité.</p>`;
             return;
         }
         recent.forEach((evt) => {
             const followingName = state._following[evt.uid]?.name || "Ami";
             const item = document.createElement("div");
             item.className = "feed-item feed-" + (evt.auraRarity || "common");
-            item.innerHTML = `
-                <span class="feed-icon">⚡</span>
-                <span class="feed-text">
-                    <span class="feed-author">${escapeHtml(followingName)}</span>
-                    a obtenu <strong>[${escapeHtml(evt.auraName)}]</strong> — ${escapeHtml(evt.chance || "?")}
-                    <span class="feed-time">${formatLastSeen(evt.ts)}</span>
-                </span>
-            `;
+            item.innerHTML = `<span class="feed-icon">⚡</span><span class="feed-text"><span class="feed-author">${escapeHtml(followingName)}</span> a obtenu <strong>[${escapeHtml(evt.auraName)}]</strong> — ${escapeHtml(evt.chance || "?")} <span class="feed-time">${formatLastSeen(evt.ts)}</span></span>`;
             feedBox.appendChild(item);
         });
     } catch (e) {
-        feedBox.innerHTML = `<p class="hint">Erreur de chargement.</p>`;
+        feedBox.innerHTML = `<p class="hint">Erreur.</p>`;
     }
 }
-
 function startFriendsActivityListener() {
     if (!window.FB || friendsActivityListenerStarted) return;
     friendsActivityListenerStarted = true;
@@ -4212,14 +4253,12 @@ function startFriendsActivityListener() {
             ["mythic", "divine", "celestial", "cosmic", "secret"].includes(
                 data.auraRarity,
             )
-        ) {
+        )
             showToast(`⚡ ${friendName} vient d'obtenir [${data.auraName}] !`);
-        }
         friendsUnreadCount++;
         updateFriendsBadge();
     });
 }
-
 function updateFriendsBadge() {
     const badge = document.getElementById("friends-badge");
     if (!badge) return;
@@ -4227,12 +4266,711 @@ function updateFriendsBadge() {
         badge.classList.remove("hidden");
         badge.textContent =
             friendsUnreadCount > 99 ? "99+" : friendsUnreadCount;
-    } else {
-        badge.classList.add("hidden");
+    } else badge.classList.add("hidden");
+}
+
+/* ---------- 12. LOT 5 : BAN + ADMIN ---------- */
+
+function ipToKey(ip) {
+    return String(ip).replace(/[^a-zA-Z0-9]/g, "_");
+}
+async function getUserIP() {
+    try {
+        const res = await fetch("https://api.ipify.org?format=json", {
+            cache: "no-store",
+        });
+        const data = await res.json();
+        return data.ip || null;
+    } catch (e) {
+        return null;
     }
 }
 
-/* ---------- 12. ÉVÉNEMENTS ---------- */
+function triggerAutoBan(reason) {
+    if (isAdminUser) return;
+    if (!state.uid || !window.FB) return;
+    if (
+        window.__auraBanCooldown &&
+        Date.now() - window.__auraBanCooldown < 5000
+    )
+        return;
+    window.__auraBanCooldown = Date.now();
+
+    getUserIP().then((ip) => {
+        const count =
+            (parseInt(localStorage.getItem(BAN_COUNT_KEY) || "0", 10) || 0) + 1;
+        localStorage.setItem(BAN_COUNT_KEY, String(count));
+        let duration = BAN_DURATIONS.first;
+        if (count === 2) duration = BAN_DURATIONS.second;
+        else if (count === 3) duration = BAN_DURATIONS.third;
+        else if (count >= 4) duration = BAN_DURATIONS.fourth;
+        const until = Date.now() + duration;
+        const banData = {
+            until,
+            reason,
+            count,
+            name: state.username || "?",
+            uid: state.uid || null,
+            ip: ip || null,
+            ts: Date.now(),
+        };
+        try {
+            localStorage.setItem(
+                "auraRng_localBan",
+                JSON.stringify({ until, reason }),
+            );
+        } catch (e) {}
+        if (window.FB) {
+            try {
+                const { db, ref, set } = window.FB;
+                if (state.uid)
+                    set(ref(db, "bans/" + state.uid), banData).catch(() => {});
+                if (ip)
+                    set(ref(db, "ip_bans/" + ipToKey(ip)), banData).catch(
+                        () => {},
+                    );
+            } catch (e) {}
+        }
+        if (window.__auraOriginalConsole) {
+            window.__auraOriginalConsole.warn(
+                "🚨 Ban :",
+                reason,
+                "→",
+                duration / 1000 + "s",
+            );
+        }
+        showBanOverlay(until, reason);
+    });
+}
+
+function showBanOverlay(until, reason) {
+    const overlay = document.getElementById("ban-overlay");
+    if (!overlay) return;
+    if (overlay.dataset.activeUntil === String(until)) return;
+    overlay.dataset.activeUntil = String(until);
+    document.getElementById("ban-reason-text").textContent =
+        reason || CONSOLE_BAN_REASON;
+    overlay.classList.remove("hidden");
+    if (autoRollActive) toggleAutoRoll();
+    const rollBtn = document.getElementById("roll-btn");
+    if (rollBtn) rollBtn.disabled = true;
+    clearInterval(banTimerInterval);
+    const tick = () => {
+        const remaining = Math.max(0, until - Date.now());
+        const totalSec = Math.ceil(remaining / 1000);
+        const min = Math.floor(totalSec / 60),
+            sec = totalSec % 60;
+        const el = document.getElementById("ban-timer");
+        if (el)
+            el.textContent = `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+        if (remaining <= 0) {
+            clearInterval(banTimerInterval);
+            try {
+                localStorage.removeItem("auraRng_localBan");
+            } catch (e) {}
+            overlay.classList.add("hidden");
+            delete overlay.dataset.activeUntil;
+            if (rollBtn) rollBtn.disabled = false;
+        }
+    };
+    tick();
+    banTimerInterval = setInterval(tick, 1000);
+}
+
+function checkLocalBan() {
+    try {
+        const raw = localStorage.getItem("auraRng_localBan");
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data || !data.until) return false;
+        if (Date.now() < data.until) {
+            showBanOverlay(data.until, data.reason);
+            return true;
+        }
+        localStorage.removeItem("auraRng_localBan");
+        return false;
+    } catch (e) {
+        return false;
+    }
+}
+
+async function checkBanned() {
+    if (!window.FB) return false;
+    if (state.uid) {
+        try {
+            const snap = await window.FB.get(
+                window.FB.ref(window.FB.db, "bans/" + state.uid),
+            );
+            if (snap.exists()) {
+                const d = snap.val();
+                if (d.until && Date.now() < d.until) {
+                    showBanOverlay(d.until, d.reason);
+                    return true;
+                }
+            }
+        } catch (e) {}
+    }
+    const ip = await getUserIP();
+    if (ip) {
+        try {
+            const snap = await window.FB.get(
+                window.FB.ref(window.FB.db, "ip_bans/" + ipToKey(ip)),
+            );
+            if (snap.exists()) {
+                const d = snap.val();
+                if (d.until && Date.now() < d.until) {
+                    showBanOverlay(d.until, d.reason);
+                    return true;
+                }
+            }
+        } catch (e) {}
+    }
+    return false;
+}
+
+function detectConsoleInput() {
+    if (window.__auraConsoleHooked) return;
+    window.__auraConsoleHooked = true;
+
+    const origLog = console.log.bind(console);
+    const origWarn = console.warn.bind(console);
+    const origError = console.error.bind(console);
+
+    window.__auraOriginalConsole = {
+        log: origLog,
+        warn: origWarn,
+        error: origError,
+    };
+
+    const SUSPICIOUS = [
+        "state.coins",
+        "state.totalRolls",
+        "state.level",
+        "state.xp",
+        "state.bestAura",
+        "state.inventory",
+        "state.discovered",
+        "performRoll(",
+        "registerAura(",
+        "pushToLeaderboard(",
+        "getTotalLuckMultiplier",
+        "Object.defineProperty",
+        "delete state",
+    ];
+
+    let inspecting = false;
+    function inspect(args) {
+        if (isAdminUser) return;
+        if (inspecting) return;
+        if (!state.uid) return;
+        if (Date.now() - (state._connectedAt || 0) < 5000) return;
+        inspecting = true;
+        try {
+            const txt = args
+                .map((a) => {
+                    if (typeof a === "string") return a;
+                    try {
+                        return JSON.stringify(a);
+                    } catch (e) {
+                        return String(a);
+                    }
+                })
+                .join(" ");
+            for (const k of SUSPICIOUS) {
+                if (txt.includes(k)) {
+                    triggerAutoBan("Code suspect : " + k);
+                    break;
+                }
+            }
+        } catch (e) {
+        } finally {
+            inspecting = false;
+        }
+    }
+
+    function isFirebaseMessage(args) {
+        try {
+            const s = args
+                .map((a) => (typeof a === "string" ? a : ""))
+                .join(" ");
+            return (
+                s.includes("@firebase/") ||
+                s.includes("firebase") ||
+                s.includes("Auth (")
+            );
+        } catch (e) {
+            return false;
+        }
+    }
+
+    console.log = function (...a) {
+        if (!isFirebaseMessage(a)) inspect(a);
+        return origLog(...a);
+    };
+    console.warn = function (...a) {
+        if (!isFirebaseMessage(a)) inspect(a);
+        return origWarn(...a);
+    };
+    console.error = function (...a) {
+        if (!isFirebaseMessage(a)) inspect(a);
+        return origError(...a);
+    };
+
+    setTimeout(() => {
+        if (!state || typeof state !== "object") return;
+        const protectedProps = [
+            "coins",
+            "totalRolls",
+            "level",
+            "xp",
+            "bestAura",
+            "inventory",
+            "discovered",
+        ];
+        protectedProps.forEach((prop) => {
+            try {
+                let currentVal = state[prop];
+                Object.defineProperty(state, prop, {
+                    get() {
+                        return currentVal;
+                    },
+                    set(newVal) {
+                        if (
+                            window.__auraInternalWrite ||
+                            isAdminUser ||
+                            !state.uid
+                        ) {
+                            currentVal = newVal;
+                            return;
+                        }
+                        if (
+                            typeof newVal === "number" &&
+                            typeof currentVal === "number" &&
+                            newVal <= currentVal
+                        ) {
+                            currentVal = newVal;
+                            return;
+                        }
+                        if (
+                            window.__auraBanCooldown &&
+                            Date.now() - window.__auraBanCooldown < 5000
+                        ) {
+                            currentVal = newVal;
+                            return;
+                        }
+                        if (Date.now() - (state._connectedAt || 0) < 5000) {
+                            currentVal = newVal;
+                            return;
+                        }
+                        triggerAutoBan(`Modification de state.${prop}`);
+                    },
+                    configurable: false,
+                });
+            } catch (e) {}
+        });
+    }, 500);
+}
+
+async function checkFrozen() {
+    if (!window.FB || !state.uid) return false;
+    try {
+        const snap = await window.FB.get(
+            window.FB.ref(window.FB.db, "frozen/" + state.uid),
+        );
+        const frozen = snap.exists() && snap.val() === true;
+        document.body.classList.toggle("is-frozen", frozen);
+        return frozen;
+    } catch (e) {
+        return false;
+    }
+}
+
+async function registerPlayerIP() {
+    if (!window.FB || !state.uid) return;
+    const ip = await getUserIP();
+    if (!ip) return;
+    try {
+        await window.FB.update(
+            window.FB.ref(window.FB.db, "players/" + state.uid),
+            { lastIp: ip },
+        );
+    } catch (e) {}
+}
+
+async function checkAdminStatus() {
+    isAdminUser = false;
+    const btn = document.getElementById("admin-toggle");
+    if (btn) btn.classList.add("hidden");
+    if (
+        !state.username ||
+        state.username.toLowerCase() !== ADMIN_USERNAME.toLowerCase()
+    )
+        return;
+    if (!window.FB || !state.uid) return;
+    try {
+        const snap = await window.FB.get(
+            window.FB.ref(window.FB.db, "admins/" + state.uid),
+        );
+        if (snap.exists() && snap.val() === true) {
+            isAdminUser = true;
+            if (btn) btn.classList.remove("hidden");
+            console.log("👑 Mode admin activé.");
+        }
+    } catch (e) {}
+}
+
+async function postLoginChecks() {
+    await checkBanned();
+    await registerPlayerIP();
+    await checkAdminStatus();
+    await checkFrozen();
+}
+
+async function openAdminPanel() {
+    if (!isAdminUser) {
+        showToast("❌ Accès refusé.");
+        return;
+    }
+    const modal = document.getElementById("admin-modal");
+    if (modal) modal.classList.remove("hidden");
+    loadAdminBanList();
+}
+
+async function loadAdminBanList() {
+    if (!isAdminUser) return;
+    const box = document.getElementById("admin-ban-list");
+    if (!box) return;
+    box.innerHTML = `<p class="hint">Chargement...</p>`;
+    try {
+        const snap = await window.FB.get(window.FB.ref(window.FB.db, "bans"));
+        box.innerHTML = "";
+        if (!snap.exists()) {
+            box.innerHTML = `<p class="hint">Aucun ban actif.</p>`;
+            return;
+        }
+        const now = Date.now();
+        let count = 0;
+        snap.forEach((child) => {
+            const d = child.val();
+            if (!d || !d.until || d.until <= now) return;
+            count++;
+            const remaining = Math.ceil((d.until - now) / 60000);
+            const item = document.createElement("div");
+            item.className = "admin-ban-item";
+            item.innerHTML = `<span class="admin-ban-name">${escapeHtml(d.name || "?")}</span><span class="admin-ban-time">⏱️ ${remaining} min</span><span class="admin-ban-reason">${escapeHtml(d.reason || "")}</span><button class="small-btn" data-unban="${child.key}">Débannir</button>`;
+            box.appendChild(item);
+        });
+        if (count === 0) box.innerHTML = `<p class="hint">Aucun ban actif.</p>`;
+        box.querySelectorAll("[data-unban]").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+                const uid = btn.dataset.unban;
+                try {
+                    await window.FB.remove(
+                        window.FB.ref(window.FB.db, "bans/" + uid),
+                    );
+                    showToast("✅ Ban retiré.");
+                    loadAdminBanList();
+                } catch (e) {
+                    showToast("❌ Erreur.");
+                }
+            });
+        });
+    } catch (e) {
+        box.innerHTML = `<p class="hint">Erreur.</p>`;
+    }
+}
+
+async function adminSearchPlayer(query) {
+    if (!isAdminUser) return;
+    const info = document.getElementById("admin-player-info"),
+        status = document.getElementById("admin-status");
+    if (!query || query.length < 3) {
+        showToast("❌ Pseudo trop court.");
+        return;
+    }
+    status.textContent = "";
+    info.classList.add("hidden");
+    try {
+        const snap = await window.FB.get(
+            window.FB.ref(window.FB.db, "usernames/" + query.toLowerCase()),
+        );
+        if (!snap.exists()) {
+            showToast("❌ Introuvable.");
+            return;
+        }
+        const uid = snap.val().uid;
+        const playerSnap = await window.FB.get(
+            window.FB.ref(window.FB.db, "players/" + uid),
+        );
+        const player = playerSnap.exists() ? playerSnap.val() : { name: query };
+        const frozenSnap = await window.FB.get(
+            window.FB.ref(window.FB.db, "frozen/" + uid),
+        );
+        const isFrozen = frozenSnap.exists() && frozenSnap.val() === true;
+        const banSnap = await window.FB.get(
+            window.FB.ref(window.FB.db, "bans/" + uid),
+        );
+        const isBanned = banSnap.exists() && banSnap.val().until > Date.now();
+        currentAdminTarget = { uid, name: player.name || query };
+        document.getElementById("admin-player-name").textContent =
+            player.name || query;
+        document.getElementById("admin-player-uid").textContent = "UID: " + uid;
+        document.getElementById("admin-freeze-btn").textContent = isFrozen
+            ? "🔥 Unfreeze"
+            : "🧊 Freeze";
+        document.getElementById("admin-ban-btn").textContent = isBanned
+            ? "🚫 Rebannir (IP)"
+            : "🚫 Bannir (IP)";
+        info.classList.remove("hidden");
+    } catch (e) {
+        showToast("❌ Erreur.");
+    }
+}
+
+async function adminFreezeToggle() {
+    if (!isAdminUser || !currentAdminTarget) return;
+    try {
+        const snap = await window.FB.get(
+            window.FB.ref(window.FB.db, "frozen/" + currentAdminTarget.uid),
+        );
+        const frozen = snap.exists() && snap.val() === true;
+        if (frozen) {
+            await window.FB.remove(
+                window.FB.ref(window.FB.db, "frozen/" + currentAdminTarget.uid),
+            );
+            showToast(`🔥 ${currentAdminTarget.name} unfreeze.`);
+        } else {
+            await window.FB.set(
+                window.FB.ref(window.FB.db, "frozen/" + currentAdminTarget.uid),
+                true,
+            );
+            showToast(`🧊 ${currentAdminTarget.name} freeze.`);
+        }
+        adminSearchPlayer(currentAdminTarget.name);
+    } catch (e) {
+        showToast("❌ Erreur.");
+    }
+}
+async function adminResetRolls() {
+    if (!isAdminUser || !currentAdminTarget) return;
+    const amount = parseInt(prompt("Nombre de rolls à retirer ?", "100"), 10);
+    if (isNaN(amount) || amount <= 0) return;
+    try {
+        const snap = await window.FB.get(
+            window.FB.ref(window.FB.db, "players/" + currentAdminTarget.uid),
+        );
+        if (!snap.exists()) {
+            showToast("❌ Introuvable.");
+            return;
+        }
+        const p = snap.val();
+        const newRolls = Math.max(0, (p.totalRolls || 0) - amount);
+        await window.FB.update(
+            window.FB.ref(window.FB.db, "players/" + currentAdminTarget.uid),
+            { totalRolls: newRolls },
+        );
+        try {
+            const sSnap = await window.FB.get(
+                window.FB.ref(window.FB.db, "saves/" + currentAdminTarget.uid),
+            );
+            if (sSnap.exists())
+                await window.FB.update(
+                    window.FB.ref(
+                        window.FB.db,
+                        "saves/" + currentAdminTarget.uid,
+                    ),
+                    { totalRolls: newRolls },
+                );
+        } catch (e) {}
+        showToast(`🎲 ${amount} rolls retirés.`);
+        adminSearchPlayer(currentAdminTarget.name);
+    } catch (e) {
+        showToast("❌ Erreur.");
+    }
+}
+async function adminResetCoins() {
+    if (!isAdminUser || !currentAdminTarget) return;
+    const amount = parseInt(prompt("Pièces à retirer ?", "1000"), 10);
+    if (isNaN(amount) || amount <= 0) return;
+    try {
+        const sSnap = await window.FB.get(
+            window.FB.ref(window.FB.db, "saves/" + currentAdminTarget.uid),
+        );
+        if (sSnap.exists()) {
+            const s = sSnap.val();
+            const newCoins = Math.max(0, (s.coins || 0) - amount);
+            await window.FB.update(
+                window.FB.ref(window.FB.db, "saves/" + currentAdminTarget.uid),
+                { coins: newCoins },
+            );
+        }
+        showToast(`💰 ${amount} pièces retirées.`);
+        adminSearchPlayer(currentAdminTarget.name);
+    } catch (e) {
+        showToast("❌ Erreur.");
+    }
+}
+async function adminGiveCoins() {
+    if (!isAdminUser || !currentAdminTarget) return;
+    const amount = parseInt(prompt("Pièces à donner ?", "1000"), 10);
+    if (isNaN(amount) || amount <= 0) return;
+    try {
+        const sSnap = await window.FB.get(
+            window.FB.ref(window.FB.db, "saves/" + currentAdminTarget.uid),
+        );
+        if (sSnap.exists()) {
+            const s = sSnap.val();
+            await window.FB.update(
+                window.FB.ref(window.FB.db, "saves/" + currentAdminTarget.uid),
+                { coins: (s.coins || 0) + amount },
+            );
+        } else {
+            await window.FB.set(
+                window.FB.ref(window.FB.db, "saves/" + currentAdminTarget.uid),
+                { coins: amount },
+            );
+        }
+        showToast(`💰 ${amount} pièces données.`);
+    } catch (e) {
+        showToast("❌ Erreur.");
+    }
+}
+async function adminGiveLuck() {
+    if (!isAdminUser || !currentAdminTarget) return;
+    const pct = parseInt(prompt("Bonus chance en % (ex: 50) ?", "50"), 10);
+    if (isNaN(pct) || pct === 0) return;
+    try {
+        const sSnap = await window.FB.get(
+            window.FB.ref(window.FB.db, "saves/" + currentAdminTarget.uid),
+        );
+        const s = sSnap.exists() ? sSnap.val() : {};
+        const newBonus = (s.adminLuckBonus || 0) + pct / 100;
+        await window.FB.update(
+            window.FB.ref(window.FB.db, "saves/" + currentAdminTarget.uid),
+            { adminLuckBonus: newBonus },
+        );
+        showToast(`🍀 +${pct}% chance données.`);
+    } catch (e) {
+        showToast("❌ Erreur.");
+    }
+}
+async function adminRemoveAura() {
+    if (!isAdminUser || !currentAdminTarget) return;
+    const auraId = prompt("ID de l'aura (ex: a108) :", "");
+    if (!auraId) return;
+    if (!AURA_BY_ID[auraId]) {
+        showToast("❌ Aura inconnue.");
+        return;
+    }
+    try {
+        const sSnap = await window.FB.get(
+            window.FB.ref(window.FB.db, "saves/" + currentAdminTarget.uid),
+        );
+        if (!sSnap.exists()) {
+            showToast("❌ Pas de save.");
+            return;
+        }
+        const s = sSnap.val();
+        const inventory = s.inventory || {};
+        if (!inventory[auraId]) {
+            showToast("❌ Aura absente.");
+            return;
+        }
+        delete inventory[auraId];
+        await window.FB.update(
+            window.FB.ref(window.FB.db, "saves/" + currentAdminTarget.uid),
+            { inventory },
+        );
+        showToast(`✦ ${AURA_BY_ID[auraId].name} retirée.`);
+    } catch (e) {
+        showToast("❌ Erreur.");
+    }
+}
+async function adminBan() {
+    if (!isAdminUser || !currentAdminTarget) return;
+    const durationMin = parseInt(prompt("Durée (minutes) ?", "60"), 10);
+    if (isNaN(durationMin) || durationMin <= 0) return;
+    const reason = prompt("Raison ?", "Banni par admin") || "Banni par admin";
+    const until = Date.now() + durationMin * 60 * 1000;
+    try {
+        const pSnap = await window.FB.get(
+            window.FB.ref(window.FB.db, "players/" + currentAdminTarget.uid),
+        );
+        const player = pSnap.exists() ? pSnap.val() : {};
+        const targetIp = player.lastIp || null;
+        const banData = {
+            until,
+            reason,
+            ts: Date.now(),
+            name: currentAdminTarget.name,
+            by: state.username,
+            ip: targetIp,
+        };
+
+        // ✅ Ban UID
+        await window.FB.set(
+            window.FB.ref(window.FB.db, "bans/" + currentAdminTarget.uid),
+            banData,
+        );
+
+        // ✅ Ban IP
+        if (targetIp)
+            await window.FB.set(
+                window.FB.ref(window.FB.db, "ip_bans/" + ipToKey(targetIp)),
+                banData,
+            );
+
+        // ✅ Force la déconnexion immédiate (envoie un signal "kick")
+        await window.FB.set(
+            window.FB.ref(window.FB.db, "kicked/" + currentAdminTarget.uid),
+            {
+                ts: Date.now(),
+                reason: reason,
+                until: until,
+            },
+        );
+
+        showToast(
+            `🚫 ${currentAdminTarget.name} banni ${durationMin} min${targetIp ? " (IP)" : ""}.`,
+        );
+        adminSearchPlayer(currentAdminTarget.name);
+        loadAdminBanList();
+    } catch (e) {
+        console.warn(e);
+        showToast("❌ Erreur.");
+    }
+}
+async function adminUnban() {
+    if (!isAdminUser || !currentAdminTarget) return;
+    try {
+        await window.FB.remove(
+            window.FB.ref(window.FB.db, "bans/" + currentAdminTarget.uid),
+        );
+        try {
+            const pSnap = await window.FB.get(
+                window.FB.ref(
+                    window.FB.db,
+                    "players/" + currentAdminTarget.uid,
+                ),
+            );
+            const player = pSnap.exists() ? pSnap.val() : {};
+            if (player.lastIp)
+                await window.FB.remove(
+                    window.FB.ref(
+                        window.FB.db,
+                        "ip_bans/" + ipToKey(player.lastIp),
+                    ),
+                );
+        } catch (e) {}
+        showToast(`✅ ${currentAdminTarget.name} débanni.`);
+        adminSearchPlayer(currentAdminTarget.name);
+        loadAdminBanList();
+    } catch (e) {
+        showToast("❌ Erreur.");
+    }
+}
+
+/* ---------- 13. ÉVÉNEMENTS ---------- */
 
 function handleAuraReveal(aura) {
     if (REVEAL_RARITIES.includes(aura.rarity) && !state.settings.reduceAnim)
@@ -4257,7 +4995,6 @@ $("#roll-btn").addEventListener("click", () => {
             displayAura(aura);
             saveGame();
         } catch (e) {
-            console.warn("Erreur roll manuel :", e);
         } finally {
             rollLock = false;
             if (!autoRollActive) $("#roll-btn").disabled = false;
@@ -4272,7 +5009,6 @@ $("#auto-roll-btn").addEventListener("click", () => {
     }
     toggleAutoRoll();
 });
-
 function toggleAutoRoll() {
     if (!state.autoRollUnlocked) return;
     autoRollActive = !autoRollActive;
@@ -4288,7 +5024,6 @@ function toggleAutoRoll() {
         if (!rollLock) $("#roll-btn").disabled = false;
     }
 }
-
 function runAutoRollLoop() {
     if (!autoRollActive) return;
     if (rollLock) {
@@ -4313,7 +5048,6 @@ function runAutoRollLoop() {
         displayAura(aura);
         saveGame();
     } catch (e) {
-        console.warn("Erreur auto-roll :", e);
     } finally {
         rollLock = false;
         if (!autoRollActive) $("#roll-btn").disabled = false;
@@ -4330,8 +5064,8 @@ function runAutoRollLoop() {
 function openAutoRollPaywall() {
     state.autoRollPaywallOpenCount++;
     saveGame();
-    const modal = document.getElementById("autoroll-paywall");
-    const secretBox = document.getElementById("paywall-secret");
+    const modal = document.getElementById("autoroll-paywall"),
+        secretBox = document.getElementById("paywall-secret");
     document.getElementById("paywall-status").textContent = "";
     if (state.autoRollPaywallOpenCount >= AUTOROLL_SECRET_UNLOCK_AT)
         secretBox.classList.remove("hidden");
@@ -4362,7 +5096,6 @@ document.querySelectorAll(".pay-btn").forEach((btn) => {
         attachFakePaymentHandler(method);
     });
 });
-
 function showFakePayment(formId) {
     document.getElementById("fake-payment").classList.remove("hidden");
     document
@@ -4370,7 +5103,6 @@ function showFakePayment(formId) {
         .forEach((el) => el.classList.add("hidden"));
     document.getElementById(formId).classList.remove("hidden");
 }
-
 function attachFakePaymentHandler(method) {
     const sel = PAYMENT_BUTTONS[method];
     if (!sel) return;
@@ -4385,13 +5117,12 @@ function attachFakePaymentHandler(method) {
     if (method === "Apple Pay") {
         const cancel = document.querySelector(".ap-cancel");
         if (cancel) {
-            const freshCancel = cancel.cloneNode(true);
-            cancel.parentNode.replaceChild(freshCancel, cancel);
-            freshCancel.addEventListener("click", closeFakePayment);
+            const fc = cancel.cloneNode(true);
+            cancel.parentNode.replaceChild(fc, cancel);
+            fc.addEventListener("click", closeFakePayment);
         }
     }
 }
-
 function startFakePaymentProcess(method) {
     document
         .querySelectorAll("#fake-payment .payment-screen")
@@ -4424,7 +5155,7 @@ function startFakePaymentProcess(method) {
             },
             {
                 title: "Erreur inconnue",
-                msg: `Code : TROLL-${Math.floor(Math.random() * 9000) + 1000}`,
+                msg: `Code TROLL-${Math.floor(Math.random() * 9000) + 1000}`,
             },
             {
                 title: "Compte introuvable",
@@ -4445,14 +5176,12 @@ function startFakePaymentProcess(method) {
         document.getElementById("payment-error").classList.remove("hidden");
     }, 2500);
 }
-
 function closeFakePayment() {
     document.getElementById("fake-payment").classList.add("hidden");
     document
         .querySelectorAll("#fake-payment .payment-screen")
         .forEach((el) => el.classList.add("hidden"));
 }
-
 document
     .getElementById("payment-error-close")
     .addEventListener("click", () => closeFakePayment());
@@ -4478,7 +5207,6 @@ document.querySelectorAll("[data-close]").forEach((btn) => {
         document.getElementById(btn.dataset.close).classList.add("hidden"),
     );
 });
-
 function openModal(id) {
     document.getElementById(id).classList.remove("hidden");
 }
@@ -4629,37 +5357,35 @@ $("#opt-hide-common").addEventListener("change", (e) => {
 });
 
 const resetAtBtn = document.getElementById("reset-antitamper-btn");
-if (resetAtBtn) {
+if (resetAtBtn)
     resetAtBtn.addEventListener("click", () => {
         if (window.__auraAntiTamper) {
             window.__auraAntiTamper.violations.reset();
             showToast("✅ Violations réinitialisées");
         }
     });
-}
 
 document.getElementById("clean-lb-btn").addEventListener("click", async () => {
-    if (!confirm("Supprimer toutes les entrées 'Joueur' du classement ?"))
-        return;
+    if (!confirm("Supprimer les entrées 'Joueur' ?")) return;
     const btn = document.getElementById("clean-lb-btn");
     btn.disabled = true;
     btn.textContent = "🧹 Nettoyage...";
     const result = await cleanGhostPlayers();
     btn.disabled = false;
     btn.textContent = "🧹 Nettoyer le classement (fantômes)";
-    if (result.error) showToast("❌ Erreur : " + result.error);
-    else if (result.removed === 0) showToast("✅ Aucun fantôme trouvé");
-    else showToast(`✅ ${result.removed} entrée(s) supprimée(s)`);
+    if (result.error) showToast("❌ " + result.error);
+    else if (result.removed === 0) showToast("✅ Aucun fantôme");
+    else showToast(`✅ ${result.removed} supprimé(s)`);
 });
 
 $("#reset-save-btn").addEventListener("click", () => {
-    if (!confirm("⚠️ Effacer toute la progression ? Irréversible.")) return;
+    if (!confirm("⚠️ Effacer toute la progression ?")) return;
     localStorage.removeItem(getSaveKey());
-    const uid = state.uid;
-    const username = state.username;
+    const uid = state.uid,
+        username = state.username;
     if (uid && window.FB) {
         window.FB.set(window.FB.ref(window.FB.db, "saves/" + uid), null).catch(
-            (e) => console.warn("Erreur reset cloud :", e),
+            () => {},
         );
     }
     state = createDefaultState();
@@ -4670,7 +5396,35 @@ $("#reset-save-btn").addEventListener("click", () => {
     location.reload();
 });
 
-/* ---------- 13. AUDIO ---------- */
+document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("admin-toggle");
+    if (btn) btn.addEventListener("click", openAdminPanel);
+    const searchBtn = document.getElementById("admin-search-btn"),
+        searchInput = document.getElementById("admin-search-input");
+    if (searchBtn)
+        searchBtn.addEventListener("click", () =>
+            adminSearchPlayer(searchInput.value.trim()),
+        );
+    if (searchInput)
+        searchInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") adminSearchPlayer(searchInput.value.trim());
+        });
+    const bind = (id, fn) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("click", fn);
+    };
+    bind("admin-freeze-btn", adminFreezeToggle);
+    bind("admin-reset-rolls-btn", adminResetRolls);
+    bind("admin-reset-coins-btn", adminResetCoins);
+    bind("admin-give-coins-btn", adminGiveCoins);
+    bind("admin-give-luck-btn", adminGiveLuck);
+    bind("admin-remove-aura-btn", adminRemoveAura);
+    bind("admin-ban-btn", adminBan);
+    bind("admin-unban-btn", adminUnban);
+    detectConsoleInput();
+});
+
+/* ---------- 14. AUDIO ---------- */
 
 let audioCtx = null;
 function playSound(type) {
@@ -4682,8 +5436,8 @@ function playSound(type) {
             return;
         }
     }
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    const osc = audioCtx.createOscillator(),
+        gain = audioCtx.createGain();
     osc.connect(gain);
     gain.connect(audioCtx.destination);
     let freq = 440,
@@ -4732,8 +5486,8 @@ function playSound(type) {
     osc.start();
     osc.stop(audioCtx.currentTime + dur);
     if (type.startsWith("reveal-")) {
-        const osc2 = audioCtx.createOscillator();
-        const gain2 = audioCtx.createGain();
+        const osc2 = audioCtx.createOscillator(),
+            gain2 = audioCtx.createGain();
         osc2.connect(gain2);
         gain2.connect(audioCtx.destination);
         osc2.frequency.value = freq * 1.5;
@@ -4748,7 +5502,7 @@ function playSound(type) {
     }
 }
 
-/* ---------- 14. INIT ---------- */
+/* ---------- 15. INIT ---------- */
 
 function init() {
     const raritySelect = $("#inv-filter-rarity");
@@ -4758,12 +5512,9 @@ function init() {
         opt.textContent = r;
         raritySelect.appendChild(opt);
     });
-
     showAuthModal(true);
     setAuthMode("login");
-
     setInterval(renderEffectsBar, 1000);
-
     window.addEventListener("beforeunload", () => {
         if (state.uid) {
             saveGame();
@@ -4774,29 +5525,36 @@ function init() {
         if (document.visibilityState === "hidden" && state.uid)
             flushCloudSave();
     });
-
     if (!authInitialized) {
         authInitialized = true;
         initAuth();
     }
-
     startPlayTimeTracker();
     startBiomeParticles();
     setTimeout(cleanOldAnnouncements, 5000);
-
     console.log("🎮 Aura RNG prêt !");
 }
 
-if (window.FB) {
-    init();
-} else {
-    window.addEventListener("fb-ready", init, { once: true });
-    setTimeout(() => {
-        if (!authInitialized && window.FB) init();
-    }, 500);
+if (checkLocalBan()) {
+    document.addEventListener("DOMContentLoaded", () => {
+        document.body.innerHTML = "";
+    });
 }
 
-/* ---------- 15. EXPOSE POUR ANTI-TRICHE ---------- */
+function waitForFB(cb, attempt = 0) {
+    if (window.FB) return cb();
+    if (attempt > 50) {
+        console.warn("⚠️ Firebase n'a pas répondu après 5s");
+        return;
+    }
+    setTimeout(() => waitForFB(cb, attempt + 1), 100);
+}
+
+waitForFB(() => {
+    init();
+});
+
+/* ---------- 16. EXPOSE POUR ANTI-TRICHE ---------- */
 
 window.performRoll = performRoll;
 window.registerAura = registerAura;
@@ -4813,15 +5571,7 @@ setTimeout(() => {
             const integrity = window.__auraAntiTamper.checkIntegrity();
             if (!integrity.ok) {
                 console.warn("🚨", integrity.reason);
-                document.body.innerHTML = `
-                    <div style="color:#fff;background:#1a0000;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;text-align:center;padding:40px;">
-                        <div>
-                            <h1 style="color:#f87171;">🚫 Triche détectée</h1>
-                            <p style="margin-top:20px;opacity:.8;">${integrity.reason}</p>
-                            <p style="margin-top:20px;opacity:.6;">Recharge la page.</p>
-                        </div>
-                    </div>
-                `;
+                document.body.innerHTML = `<div style="color:#fff;background:#1a0000;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;text-align:center;padding:40px;"><div><h1 style="color:#f87171;">🚫 Triche détectée</h1><p style="margin-top:20px;opacity:.8;">${integrity.reason}</p><p style="margin-top:20px;opacity:.6;">Recharge la page.</p></div></div>`;
             }
         }, 5000);
     }

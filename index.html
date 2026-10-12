@@ -29,6 +29,7 @@
                 limitToLast,
                 onChildAdded,
                 onValue,
+                off,
                 serverTimestamp,
             } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
@@ -67,6 +68,7 @@
                 limitToLast,
                 onChildAdded,
                 onValue,
+                off,
                 serverTimestamp,
             };
 
@@ -74,6 +76,22 @@
         </script>
     </head>
     <body class="not-logged">
+        <!-- Overlay de ban -->
+        <div id="ban-overlay" class="hidden">
+            <div class="ban-box">
+                <div class="ban-icon">🚫</div>
+                <h1 class="ban-title">Tu as été banni</h1>
+                <p class="ban-reason" id="ban-reason-text">—</p>
+                <p class="ban-time">
+                    Reviens dans <span id="ban-timer">--:--</span>
+                </p>
+                <p class="ban-hint">
+                    Si tu penses qu'il s'agit d'une erreur, contacte un
+                    administrateur.
+                </p>
+            </div>
+        </div>
+
         <div id="global-banner" class="hidden">
             <div id="global-banner-text"></div>
         </div>
@@ -84,13 +102,13 @@
         </div>
 
         <header id="top-bar">
-            <div class="stat-box" title="Nombre total de rolls effectués">
+            <div class="stat-box" title="Rolls totaux">
                 🎲 <span id="stat-rolls">0</span>
             </div>
             <div class="stat-box" title="Chance actuelle">
                 🍀 <span id="stat-luck">x1.00</span>
             </div>
-            <div class="stat-box" title="Meilleure aura découverte">
+            <div class="stat-box" title="Meilleure aura">
                 ⭐ <span id="stat-best">Aucune</span>
             </div>
             <div class="stat-box" title="Monnaie">
@@ -99,7 +117,7 @@
             <div class="stat-box" id="stat-social" title="Bonus social">
                 👥 <span id="stat-social-bonus">+0%</span>
             </div>
-            <div class="stat-box" id="stat-user" title="Joueur connecté">
+            <div class="stat-box" id="stat-user" title="Joueur">
                 👤 <span id="stat-username">—</span>
                 <span id="stat-level-badge" class="level-badge hidden"
                     >🎖️ Niv. <span id="stat-level">1</span></span
@@ -207,8 +225,7 @@
                     </button>
 
                     <p class="auth-hint">
-                        ℹ️ Le pseudo est unique. Ton mot de passe doit faire au
-                        moins 6 caractères.<br />
+                        ℹ️ Le pseudo est unique. Mot de passe : 6 car. min.<br />
                         ☁️ Ta progression est sauvegardée dans le cloud.
                     </p>
                 </div>
@@ -228,7 +245,6 @@
                 </button>
                 <h2>Inventaire</h2>
                 <p id="collection-progress">Collection : 0 / 0 (0%)</p>
-
                 <div class="filters">
                     <input
                         type="text"
@@ -248,7 +264,6 @@
                         non découvertes</label
                     >
                 </div>
-
                 <div id="inventory-grid" class="grid"></div>
             </div>
         </div>
@@ -308,10 +323,7 @@
             <div class="modal-content">
                 <button class="close-btn" data-close="skins-modal">✕</button>
                 <h2>🎨 Skins</h2>
-                <p class="hint">
-                    Choisis un thème visuel. Les skins débloqués restent
-                    disponibles.
-                </p>
+                <p class="hint">Choisis un thème visuel.</p>
                 <div id="skins-grid" class="grid"></div>
             </div>
         </div>
@@ -353,7 +365,6 @@
                 <button class="close-btn" data-close="friends-modal">✕</button>
                 <h2>👥 Amis</h2>
                 <p id="friends-stats" class="hint">— abonnements · — abonnés</p>
-
                 <div class="friends-tabs">
                     <button class="friends-tab active" data-friends="following">
                         Mes amis
@@ -365,11 +376,8 @@
                         Rechercher
                     </button>
                 </div>
-
                 <div id="friends-content"></div>
-
                 <hr class="friends-hr" />
-
                 <h3 style="margin-bottom: 8px">📜 Activité récente</h3>
                 <div id="friends-feed" class="friends-feed">
                     <p class="hint">Aucune activité récente.</p>
@@ -385,7 +393,6 @@
                 </button>
                 <h2>🏆 Classement mondial</h2>
                 <p id="lb-status" class="hint">Chargement...</p>
-
                 <div class="lb-tabs">
                     <button class="lb-tab active" data-lb="bestAura">
                         🌟 Meilleure aura
@@ -397,7 +404,6 @@
                         ⏱️ Temps de jeu
                     </button>
                 </div>
-
                 <div id="lb-content" class="lb-content"></div>
             </div>
         </div>
@@ -436,7 +442,7 @@
                 >
                 <label
                     ><input type="checkbox" id="opt-hide-common" /> Masquer les
-                    annonces d'auras communes</label
+                    annonces communes</label
                 >
                 <hr />
                 <button
@@ -444,14 +450,14 @@
                     class="small-btn"
                     style="margin-top: 10px; width: 100%"
                 >
-                    🛡️ Réinitialiser les violations anti-triche
+                    🛡️ Réinitialiser les violations
                 </button>
                 <button
                     id="clean-lb-btn"
                     class="small-btn"
                     style="margin-top: 10px; width: 100%"
                 >
-                    🧹 Nettoyer le classement (fantômes)
+                    🧹 Nettoyer le classement
                 </button>
                 <button
                     id="reset-save-btn"
@@ -467,9 +473,7 @@
                 >
                     Se déconnecter
                 </button>
-                <p class="hint">
-                    ☁️ Ta progression est synchronisée avec le cloud Firebase.
-                </p>
+                <p class="hint">☁️ Synchronisé avec le cloud Firebase.</p>
             </div>
         </div>
 
@@ -483,12 +487,10 @@
                 <p class="paywall-sub">
                     Débloque les tirages automatiques illimités !
                 </p>
-
                 <div class="paywall-price">
                     <span class="paywall-amount">5,00 €</span>
                     <span class="paywall-once">paiement unique</span>
                 </div>
-
                 <div class="paywall-methods">
                     <button class="pay-btn pay-paypal" data-method="PayPal">
                         <span class="pay-icon">🅿️</span> PayPal
@@ -503,9 +505,7 @@
                         <span class="pay-icon">💳</span> Carte bancaire
                     </button>
                 </div>
-
                 <p id="paywall-status" class="paywall-status"></p>
-
                 <div id="paywall-secret" class="hidden">
                     <hr class="paywall-hr" />
                     <p class="paywall-secret-text">
@@ -515,10 +515,7 @@
                         💰 Acheter l'Auto Roll pour 1500 pièces
                     </button>
                 </div>
-
-                <p class="paywall-footer">
-                    <small>Paiement sécurisé — 100% </small>
-                </p>
+                <p class="paywall-footer"><small>Paiement sécurisé</small></p>
             </div>
         </div>
 
@@ -528,7 +525,6 @@
                 <div class="payment-spinner"></div>
                 <p id="payment-loading-text">Connexion sécurisée...</p>
             </div>
-
             <div id="payment-error" class="payment-screen hidden">
                 <div class="payment-error-icon">⚠️</div>
                 <h2 id="payment-error-title">Paiement refusé</h2>
@@ -537,7 +533,6 @@
                     Retour
                 </button>
             </div>
-
             <div id="form-paypal" class="payment-screen hidden">
                 <div class="pp-header">
                     <span class="pp-logo"
@@ -567,7 +562,6 @@
                     <p class="pp-secure">🔒 Connexion sécurisée</p>
                 </div>
             </div>
-
             <div id="form-apple" class="payment-screen hidden">
                 <div class="ap-header"><span class="ap-logo"></span>Pay</div>
                 <div class="ap-body">
@@ -587,7 +581,6 @@
                     <p class="ap-cancel">Annuler</p>
                 </div>
             </div>
-
             <div id="form-google" class="payment-screen hidden">
                 <div class="gp-header"><span class="gp-logo">G</span> Pay</div>
                 <div class="gp-body">
@@ -609,7 +602,6 @@
                     <button class="gp-btn">Payer 5,00 €</button>
                 </div>
             </div>
-
             <div id="form-cb" class="payment-screen hidden">
                 <div class="cb-header">
                     <span class="cb-logo">💳</span> Paiement sécurisé
@@ -651,6 +643,7 @@
             </div>
         </div>
 
+        <!-- Révélation -->
         <div id="reveal-overlay" class="hidden">
             <div id="reveal-rays"></div>
             <div id="reveal-particles"></div>
@@ -658,6 +651,89 @@
                 <div id="reveal-rarity-tag"></div>
                 <div id="reveal-text"></div>
                 <div id="reveal-chance"></div>
+            </div>
+        </div>
+
+        <!-- Bouton Admin (visible seulement pour ks_l9) -->
+        <button id="admin-toggle" class="hidden" title="Panel Admin">🛡️</button>
+
+        <!-- Panel Admin -->
+        <div id="admin-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="admin-modal">✕</button>
+                <h2>🛡️ Panel Admin</h2>
+                <p class="hint">Réservé à l'administrateur.</p>
+
+                <div class="admin-search">
+                    <input
+                        type="text"
+                        id="admin-search-input"
+                        placeholder="Pseudo exact du joueur..."
+                        maxlength="20"
+                    />
+                    <button id="admin-search-btn">Chercher</button>
+                </div>
+
+                <div id="admin-player-info" class="hidden">
+                    <h3 id="admin-player-name">—</h3>
+                    <p id="admin-player-uid" class="hint">—</p>
+
+                    <div class="admin-actions">
+                        <button
+                            id="admin-freeze-btn"
+                            class="admin-btn admin-freeze"
+                        >
+                            🧊 Freeze / Unfreeze
+                        </button>
+                        <button
+                            id="admin-reset-rolls-btn"
+                            class="admin-btn admin-reset"
+                        >
+                            🎲 Retirer des rolls
+                        </button>
+                        <button
+                            id="admin-reset-coins-btn"
+                            class="admin-btn admin-reset"
+                        >
+                            💰 Retirer des pièces
+                        </button>
+                        <button
+                            id="admin-give-coins-btn"
+                            class="admin-btn admin-give"
+                        >
+                            💰 Donner des pièces
+                        </button>
+                        <button
+                            id="admin-give-luck-btn"
+                            class="admin-btn admin-give"
+                        >
+                            🍀 Donner de la chance
+                        </button>
+                        <button
+                            id="admin-remove-aura-btn"
+                            class="admin-btn admin-reset"
+                        >
+                            ✦ Retirer une aura
+                        </button>
+                        <button id="admin-ban-btn" class="admin-btn admin-ban">
+                            🚫 Bannir (IP)
+                        </button>
+                        <button
+                            id="admin-unban-btn"
+                            class="admin-btn admin-unban"
+                        >
+                            ✅ Débannir
+                        </button>
+                    </div>
+
+                    <div id="admin-status" class="hint"></div>
+                </div>
+
+                <hr style="margin: 20px 0; opacity: 0.2" />
+                <h3>📋 Bans actifs</h3>
+                <div id="admin-ban-list" class="admin-ban-list">
+                    <p class="hint">Chargement...</p>
+                </div>
             </div>
         </div>
 

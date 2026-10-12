@@ -1,6 +1,6 @@
 /* =========================================================
    AURA RNG — style.css
-   Lots 1 + 2 + 3 + 4
+   Lots 1 + 2 + 3 + 4 + 5
    ========================================================= */
 
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Outfit:wght@400;500;600;700&display=swap");
@@ -78,6 +78,108 @@ button:disabled {
 }
 ::-webkit-scrollbar-track {
     background: transparent;
+}
+
+/* ===== BAN OVERLAY ===== */
+#ban-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 40%, #1a0000, #0a0000 70%);
+    backdrop-filter: blur(20px);
+    animation: fadeIn 0.4s ease;
+}
+.ban-box {
+    text-align: center;
+    padding: 42px 34px;
+    max-width: 500px;
+    border-radius: 24px;
+    border: 2px solid rgba(239, 68, 68, 0.5);
+    background: linear-gradient(
+        180deg,
+        rgba(30, 8, 8, 0.95),
+        rgba(15, 3, 3, 0.98)
+    );
+    box-shadow:
+        0 0 60px rgba(239, 68, 68, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    animation: banPulse 2.5s ease-in-out infinite;
+}
+@keyframes banPulse {
+    0%,
+    100% {
+        box-shadow:
+            0 0 60px rgba(239, 68, 68, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+    50% {
+        box-shadow:
+            0 0 90px rgba(239, 68, 68, 0.7),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+}
+.ban-icon {
+    font-size: 80px;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 0 20px #ef4444);
+    animation: banIconShake 0.6s ease-in-out;
+}
+@keyframes banIconShake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    20% {
+        transform: translateX(-12px);
+    }
+    40% {
+        transform: translateX(12px);
+    }
+    60% {
+        transform: translateX(-8px);
+    }
+    80% {
+        transform: translateX(8px);
+    }
+}
+.ban-title {
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 34px;
+    font-weight: 900;
+    color: #f87171;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 30px rgba(239, 68, 68, 0.8);
+    margin-bottom: 16px;
+}
+.ban-reason {
+    font-size: 15px;
+    color: #fca5a5;
+    margin-bottom: 22px;
+    line-height: 1.5;
+}
+.ban-time {
+    font-size: 17px;
+    color: #fff;
+    font-weight: 700;
+    padding: 14px 22px;
+    border-radius: 12px;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    margin-bottom: 20px;
+}
+#ban-timer {
+    font-family: "Courier New", monospace;
+    font-size: 22px;
+    color: #fca5a5;
+    font-weight: 900;
+}
+.ban-hint {
+    font-size: 12px;
+    opacity: 0.6;
+    line-height: 1.5;
 }
 
 /* ===== BANDEAU GLOBAL ===== */
@@ -1004,6 +1106,14 @@ button:disabled {
     filter: saturate(0.75);
     transform: none;
     cursor: wait;
+}
+
+body.is-frozen #roll-btn,
+body.is-frozen #auto-roll-btn {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    filter: grayscale(1);
 }
 
 /* ===== CONTROLS ===== */
@@ -2934,8 +3044,7 @@ body.screen-shake {
 }
 .skill-benefits li {
     font-size: 12px;
-    padding: 5px 0;
-    padding-left: 18px;
+    padding: 5px 0 5px 18px;
     position: relative;
     color: var(--text);
     opacity: 0.9;
@@ -3045,7 +3154,6 @@ body.screen-shake {
         transform: scale(1.15);
     }
 }
-
 .friends-tabs {
     display: flex;
     gap: 4px;
@@ -3290,6 +3398,187 @@ body.screen-shake {
     opacity: 0.7;
 }
 
+/* ===== ADMIN PANEL ===== */
+#admin-toggle {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 300;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #dc2626, #991b1b);
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    font-size: 20px;
+    box-shadow: 0 4px 16px rgba(220, 38, 38, 0.5);
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease;
+}
+#admin-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 24px rgba(220, 38, 38, 0.8);
+}
+#admin-toggle:active {
+    transform: scale(0.95);
+}
+
+.admin-search {
+    display: flex;
+    gap: 8px;
+    margin: 16px 0;
+}
+.admin-search input {
+    flex: 1;
+    min-width: 0;
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+}
+.admin-search input:focus {
+    outline: none;
+    border-color: #ef4444;
+    background: rgba(255, 255, 255, 0.08);
+}
+.admin-search button {
+    padding: 11px 20px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #dc2626, #991b1b);
+    font-weight: 700;
+    font-size: 14px;
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    transition:
+        transform 0.15s ease,
+        filter 0.15s ease;
+}
+.admin-search button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.12);
+}
+.admin-search button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+#admin-player-info {
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.05);
+    margin-bottom: 16px;
+}
+#admin-player-name {
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 20px;
+    color: #fca5a5;
+    margin-bottom: 4px;
+}
+#admin-player-uid {
+    font-size: 11px;
+    opacity: 0.5;
+    margin-bottom: 16px;
+    font-family: "Courier New", monospace;
+    overflow-wrap: anywhere;
+}
+.admin-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+    margin: 14px 0;
+}
+.admin-btn {
+    padding: 11px 14px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 13px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.06);
+    text-align: left;
+    transition:
+        transform 0.15s ease,
+        filter 0.15s ease,
+        background 0.15s ease;
+}
+.admin-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.15);
+    background: rgba(255, 255, 255, 0.12);
+}
+.admin-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.admin-freeze {
+    border-color: rgba(34, 211, 238, 0.5);
+    color: #a5f3fc;
+}
+.admin-reset {
+    border-color: rgba(251, 191, 36, 0.5);
+    color: #fcd34d;
+}
+.admin-give {
+    border-color: rgba(34, 197, 94, 0.5);
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.08);
+}
+.admin-ban {
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.1);
+}
+.admin-unban {
+    border-color: rgba(34, 197, 94, 0.5);
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.08);
+}
+
+#admin-status {
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #a7f3d0;
+    font-size: 13px;
+    margin-top: 10px;
+}
+#admin-status:empty {
+    display: none;
+}
+
+.admin-ban-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+.admin-ban-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+.admin-ban-name {
+    font-weight: 700;
+    color: #fca5a5;
+    min-width: 100px;
+}
+.admin-ban-time {
+    font-family: "Courier New", monospace;
+    color: #fff;
+}
+.admin-ban-reason {
+    flex: 1;
+    color: var(--muted);
+    font-size: 12px;
+}
+
 /* ===== THÈMES ===== */
 body[data-skin="halloween"] {
     --accent: #f97316;
@@ -3489,6 +3778,9 @@ body[data-skin="sakura"] .main-btn {
     }
     .friend-actions button {
         flex: 1;
+    }
+    .admin-actions {
+        grid-template-columns: 1fr;
     }
 }
 @media (max-width: 360px) {

@@ -1,17 +1,14 @@
 /* =========================================================
    AURA RNG — antitamper.js
-   Protections côté client contre la triche via la console.
    ========================================================= */
 (function () {
     "use strict";
-
     const LIMITS = {
         rollsPerSecond: 5,
         rollsPerMinute: 300,
         rollsPerHour: 10000,
         minRollIntervalMs: 60,
     };
-
     const RATE_KEY = "auraRng_rollRate";
     const VIOLATION_KEY = "auraRng_violations";
 
@@ -51,29 +48,28 @@
         const now = Date.now();
         const v = getViolations();
         if (v.until && now < v.until) {
-            const secsLeft = Math.ceil((v.until - now) / 1000);
-            return { ok: false, reason: `Quarantaine (${secsLeft}s)` };
+            const s = Math.ceil((v.until - now) / 1000);
+            return { ok: false, reason: `Quarantaine (${s}s)` };
         }
         const rate = loadRate();
         const last = rate.hits[rate.hits.length - 1] || 0;
         if (now - last < LIMITS.minRollIntervalMs) {
-            registerViolation("Trop rapide entre deux rolls.");
+            registerViolation("Trop rapide.");
             return { ok: false, reason: "Trop rapide." };
         }
         const inLastSec = rate.hits.filter((t) => now - t < 1000).length;
         if (inLastSec >= LIMITS.rollsPerSecond) {
-            registerViolation("Plus de 5 rolls en 1s.");
-            return { ok: false, reason: "Trop de rolls par seconde." };
+            registerViolation("Plus de 5 rolls/s.");
+            return { ok: false, reason: "Trop de rolls/s." };
         }
         const inLastMin = rate.hits.filter((t) => now - t < 60000).length;
         if (inLastMin >= LIMITS.rollsPerMinute) {
-            registerViolation("Plus de 300 rolls en 1min.");
-            return { ok: false, reason: "Trop de rolls par minute." };
+            registerViolation("Plus de 300 rolls/min.");
+            return { ok: false, reason: "Trop de rolls/min." };
         }
-        const inLastHour = rate.hits.length;
-        if (inLastHour >= LIMITS.rollsPerHour) {
-            registerViolation("Plus de 10 000 rolls en 1h.");
-            return { ok: false, reason: "Trop de rolls par heure." };
+        if (rate.hits.length >= LIMITS.rollsPerHour) {
+            registerViolation("Plus de 10000 rolls/h.");
+            return { ok: false, reason: "Trop de rolls/h." };
         }
         rate.hits.push(now);
         saveRate(rate);
@@ -83,11 +79,14 @@
     function registerViolation(msg) {
         const v = getViolations();
         v.count = (v.count || 0) + 1;
-        let delayMs = 0;
-        if (v.count === 1) delayMs = 5000;
-        else if (v.count === 2) delayMs = 30000;
-        else if (v.count === 3) delayMs = 5 * 60 * 1000;
-        else delayMs = 60 * 60 * 1000;
+        let delayMs =
+            v.count === 1
+                ? 5000
+                : v.count === 2
+                  ? 30000
+                  : v.count === 3
+                    ? 5 * 60 * 1000
+                    : 60 * 60 * 1000;
         v.until = Date.now() + delayMs;
         setViolations(v);
         console.warn(`🚨 Violation : ${msg} → quarantaine ${delayMs / 1000}s`);
@@ -114,7 +113,6 @@
         "getTotalLuckMultiplier",
     ];
     const FUNCTION_HASHES = new Map();
-
     function hashFn(fn) {
         try {
             return fn.toString().slice(0, 200);
@@ -129,58 +127,58 @@
             if (typeof fn === "function") FUNCTION_HASHES.set(name, hashFn(fn));
         });
     };
-
     window.__auraCheckIntegrity = function () {
         for (const name of CRITICAL_FUNCS) {
             const fn = window[name];
             if (typeof fn !== "function")
-                return { ok: false, reason: `${name} supprimée ou remplacée.` };
+                return { ok: false, reason: `${name} supprimée.` };
             const original = FUNCTION_HASHES.get(name);
             if (original && hashFn(fn) !== original)
-                return { ok: false, reason: `${name} a été modifiée.` };
+                return { ok: false, reason: `${name} modifiée.` };
         }
         return { ok: true };
     };
-
     window.__auraCheckScripts = function () {
         const initialCount = window.__auraInitialScriptCount || 0;
         if (document.scripts.length > initialCount)
             return { ok: false, reason: "Script injecté." };
         return { ok: true };
     };
-
     window.__auraLockState = function () {
         try {
-            let lastCoins = null;
-            let lastRolls = null;
+            let lastCoins = null,
+                lastRolls = null;
             setInterval(() => {
                 if (!window.state) return;
                 const s = window.state;
+                // ✅ Utilise __auraInternalWrite pour ne pas déclencher les traps de script.js
+                const restore = (prop, val) => {
+                    window.__auraInternalWrite = true;
+                    try {
+                        s[prop] = val;
+                    } catch (e) {}
+                    window.__auraInternalWrite = false;
+                };
                 if (typeof s.coins === "number") {
                     if (lastCoins !== null && s.coins - lastCoins > 500000) {
-                        console.warn("🚨 Augmentation anormale de pièces.");
-                        registerViolation("Pièces modifiées brutalement.");
-                        s.coins = lastCoins;
+                        registerViolation("Pièces modifiées.");
+                        restore("coins", lastCoins);
                     } else lastCoins = s.coins;
                 }
                 if (typeof s.totalRolls === "number") {
                     if (lastRolls !== null && s.totalRolls - lastRolls > 500) {
-                        console.warn("🚨 Augmentation anormale de rolls.");
-                        registerViolation("Rolls modifiés brutalement.");
-                        s.totalRolls = lastRolls;
+                        registerViolation("Rolls modifiés.");
+                        restore("totalRolls", lastRolls);
                     } else lastRolls = s.totalRolls;
                 }
             }, 500);
-        } catch (e) {
-            console.warn("Impossible de verrouiller state :", e);
-        }
+        } catch (e) {}
     };
-
     function reportEvent(event) {
         if (!event || !event.type) return;
-        console.warn(`🛡️ Événement anti-triche [${event.type}]`, event.payload);
+        console.warn(`🛡️ [${event.type}]`, event.payload);
         if (event.type === "script-injected")
-            registerViolation("Script injecté dans la page.");
+            registerViolation("Script injecté.");
     }
 
     window.__auraAntiTamper = {
@@ -196,8 +194,6 @@
             reset: () => setViolations({ count: 0, until: 0 }),
         },
     };
-
     window.__auraInitialScriptCount = document.scripts.length;
-
     console.log("🛡️ AntiTamper chargé.");
 })();
