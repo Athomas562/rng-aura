@@ -2445,3 +2445,381 @@ body.reduce-anim #reveal-rays {
         transition-duration: 0.001s !important;
     }
 }
+
+/* =========================================================
+   LOT 1 — BANDEAU GLOBAL / BMC / NUMÉROS ANIMÉS / PARTICULES
+   ========================================================= */
+
+/* ---------- BANDEAU GLOBAL (annonces mythic+) ---------- */
+#global-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 250;
+    padding: 14px 20px;
+    text-align: center;
+    font-family: "Cinzel", Georgia, serif;
+    font-size: clamp(14px, 1.8vw, 18px);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #fff;
+    background: linear-gradient(
+        90deg,
+        rgba(15, 18, 38, 0.96),
+        rgba(60, 20, 80, 0.96),
+        rgba(15, 18, 38, 0.96)
+    );
+    border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+    box-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.6),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    transform: translateY(-100%);
+    opacity: 0;
+    transition:
+        transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+        opacity 0.4s ease;
+    pointer-events: none;
+}
+#global-banner.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+#global-banner-text {
+    text-shadow:
+        0 0 20px currentColor,
+        0 0 40px currentColor;
+    display: inline-block;
+    padding: 0 12px;
+}
+
+/* Couleur selon la rareté (data-rarity) */
+#global-banner[data-rarity="mythic"] #global-banner-text {
+    color: #fda4af;
+}
+#global-banner[data-rarity="divine"] #global-banner-text {
+    color: #fef08a;
+}
+#global-banner[data-rarity="celestial"] #global-banner-text {
+    color: #67e8f9;
+}
+#global-banner[data-rarity="cosmic"] #global-banner-text {
+    color: #c084fc;
+}
+#global-banner[data-rarity="secret"] #global-banner-text {
+    background: linear-gradient(
+        90deg,
+        #ff0000,
+        #ff7700,
+        #ffff00,
+        #00ff00,
+        #00ffff,
+        #0088ff,
+        #aa00ff,
+        #ff00ff,
+        #ff0000
+    );
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: bmcRainbow 2s linear infinite;
+    filter: drop-shadow(0 0 15px rgba(255, 0, 255, 0.8));
+}
+@keyframes bmcRainbow {
+    from {
+        background-position: 0% 50%;
+    }
+    to {
+        background-position: 300% 50%;
+    }
+}
+
+/* Petite pulsation d'entrée */
+#global-banner.show #global-banner-text {
+    animation: bannerPulse 0.6s ease-out;
+}
+@keyframes bannerPulse {
+    0% {
+        transform: scale(0.85);
+    }
+    50% {
+        transform: scale(1.08);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* ---------- BOUTON BUY ME A COFFEE ---------- */
+#bmc-btn {
+    position: fixed;
+    bottom: 18px;
+    left: 18px;
+    z-index: 150;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 50px;
+    background: linear-gradient(135deg, #ffdd00, #ffb300);
+    color: #1a1200;
+    text-decoration: none;
+    font-family: "Outfit", system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    box-shadow:
+        0 6px 18px rgba(255, 179, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        filter 0.18s ease;
+}
+#bmc-btn:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow:
+        0 10px 26px rgba(255, 179, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    filter: brightness(1.08);
+}
+#bmc-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+#bmc-btn .bmc-icon {
+    font-size: 16px;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.3));
+}
+#bmc-btn .bmc-text {
+    white-space: nowrap;
+}
+@media (max-width: 600px) {
+    #bmc-btn {
+        bottom: 12px;
+        left: 12px;
+        padding: 9px 12px;
+        font-size: 12px;
+    }
+    #bmc-btn .bmc-text {
+        display: none;
+    }
+    #bmc-btn .bmc-icon {
+        font-size: 20px;
+    }
+}
+
+/* ---------- NUMÉROS ANIMÉS ---------- */
+.num-flash {
+    animation: numFlash 0.5s ease-out;
+    color: #fff !important;
+}
+@keyframes numFlash {
+    0% {
+        transform: scale(1);
+        text-shadow: none;
+    }
+    30% {
+        transform: scale(1.25);
+        text-shadow: 0 0 12px currentColor;
+    }
+    100% {
+        transform: scale(1);
+        text-shadow: none;
+    }
+}
+.num-up {
+    color: #4ade80 !important;
+    text-shadow: 0 0 8px rgba(74, 222, 128, 0.8) !important;
+}
+.num-down {
+    color: #f87171 !important;
+    text-shadow: 0 0 8px rgba(248, 113, 113, 0.8) !important;
+}
+
+/* ---------- PARTICULES PAR BIOME ---------- */
+#biome-particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.biome-particle {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    will-change: transform, opacity;
+    animation-fill-mode: forwards;
+}
+
+/* Plaines : pétales flottants */
+.particle-plains {
+    width: 6px;
+    height: 6px;
+    background: radial-gradient(circle, #a5f3fc, transparent 70%);
+    border-radius: 50%;
+    animation: particleFallPlains linear forwards;
+}
+@keyframes particleFallPlains {
+    0% {
+        transform: translate(0, -20px) rotate(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 0.7;
+    }
+    90% {
+        opacity: 0.7;
+    }
+    100% {
+        transform: translate(var(--dx), 110vh) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* Forêt : feuilles */
+.particle-forest {
+    width: 10px;
+    height: 10px;
+    background: #4ade80;
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    animation: particleFallForest linear forwards;
+    opacity: 0.8;
+}
+@keyframes particleFallForest {
+    0% {
+        transform: translate(0, -20px) rotate(0deg) rotateY(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 0.85;
+    }
+    50% {
+        transform: translate(calc(var(--dx) * 0.5), 55vh) rotate(180deg)
+            rotateY(180deg);
+    }
+    100% {
+        transform: translate(var(--dx), 110vh) rotate(360deg) rotateY(360deg);
+        opacity: 0;
+    }
+}
+
+/* Désert : grains de sable */
+.particle-desert {
+    width: 3px;
+    height: 3px;
+    background: #fcd34d;
+    border-radius: 50%;
+    box-shadow: 0 0 4px #fcd34d;
+    animation: particleBlow linear forwards;
+}
+@keyframes particleBlow {
+    0% {
+        transform: translate(-10vw, var(--dy));
+        opacity: 0;
+    }
+    15% {
+        opacity: 0.9;
+    }
+    85% {
+        opacity: 0.9;
+    }
+    100% {
+        transform: translate(110vw, calc(var(--dy) - 20px));
+        opacity: 0;
+    }
+}
+
+/* Océan : bulles qui montent */
+.particle-ocean {
+    width: 8px;
+    height: 8px;
+    border: 2px solid #67e8f9;
+    border-radius: 50%;
+    background: rgba(103, 232, 249, 0.2);
+    box-shadow: 0 0 10px rgba(103, 232, 249, 0.6);
+    animation: particleBubble linear forwards;
+}
+@keyframes particleBubble {
+    0% {
+        transform: translate(0, 110vh) scale(0.3);
+        opacity: 0;
+    }
+    10% {
+        opacity: 0.9;
+    }
+    90% {
+        opacity: 0.9;
+    }
+    100% {
+        transform: translate(var(--dx), -20vh) scale(1);
+        opacity: 0;
+    }
+}
+
+/* Espace : étoiles filantes */
+.particle-space {
+    width: 3px;
+    height: 3px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow:
+        0 0 8px #fff,
+        0 0 16px #818cf8;
+    animation: particleShootingStar linear forwards;
+}
+@keyframes particleShootingStar {
+    0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0;
+    }
+    5% {
+        opacity: 1;
+    }
+    95% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(var(--dx), var(--dy)) scale(0.3);
+        opacity: 0;
+    }
+}
+
+/* Cosmique : particules arc-en-ciel */
+.particle-cosmic {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    box-shadow: 0 0 12px currentColor;
+    background: currentColor;
+    animation: particleCosmicFloat linear forwards;
+}
+@keyframes particleCosmicFloat {
+    0% {
+        transform: translate(0, 0) scale(0.5);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(var(--dx), var(--dy)) scale(1.3);
+        opacity: 0;
+    }
+}
+
+/* Respect des préférences */
+body.reduce-anim .biome-particle {
+    display: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    .biome-particle {
+        display: none !important;
+    }
+}

@@ -1,6 +1,7 @@
 /* =========================================================
    AURA RNG — script.js
-   v3 : leaderboard fiable + playTime multi-onglets
+   v4 : Lot 1 (bandeau global, BMC, numéros animés, particules)
+        + fix double roll (auto + manuel simultanés)
    ========================================================= */
 
 /* ---------- 1. CONFIGURATION ---------- */
@@ -1313,12 +1314,10 @@ NEW_AURAS_RAW.forEach(([id, name, rarity, oneIn, color, desc]) => {
 
 const AURA_BY_ID = Object.fromEntries(AURAS.map((a) => [a.id, a]));
 
-// Couleur principale d'une aura
 function auraColor(aura) {
     return aura.color || RARITY_COLORS[aura.rarity];
 }
 
-// ✅ Poids de référence d'une aura (nombre de 1 sur N)
 function auraWeight(aura) {
     if (!aura) return Infinity;
     if (aura.oneIn) return aura.oneIn;
@@ -1545,6 +1544,9 @@ const REVEAL_RARITIES = ["divine", "celestial", "cosmic", "secret"];
 const SHAKE_RARITIES = ["secret"];
 const PARTICLE_RARITIES = ["cosmic", "secret"];
 
+// Raretés qui déclenchent une annonce globale
+const ANNOUNCE_RARITIES = ["mythic", "divine", "celestial", "cosmic", "secret"];
+
 const AUTOROLL_PRICE_COINS = 1500;
 const AUTOROLL_SECRET_UNLOCK_AT = 10;
 const AUTOROLL_MIN_INTERVAL = 150;
@@ -1553,7 +1555,6 @@ const SAVE_KEY = "auraRng_save_v1";
 const SAVE_VERSION = 1;
 const FB_EMAIL_DOMAIN = "@aurarng.local";
 
-// ✅ Dernière aura rollée
 let lastRolledAura = null;
 
 /* ---------- 2. ÉTAT + SAUVEGARDE ---------- */
@@ -1797,7 +1798,6 @@ function registerAura(aura) {
     state.discovered[aura.id] = true;
     if (quantity === 2) showToast("✨ Aura doublée !");
 
-    // ✅ Meilleure aura : on compare D'ABORD par rareté, puis par poids (1 sur N)
     const currentBest = state.bestAura ? AURA_BY_ID[state.bestAura] : null;
     if (!currentBest) {
         state.bestAura = aura.id;
@@ -1809,7 +1809,7 @@ function registerAura(aura) {
 
         if (
             newR > oldR ||
-            (newR === oldR && newW > oldW) || // ✅ poids plus grand = plus rare
+            (newR === oldR && newW > oldW) ||
             (newR === oldR && newW === oldW && aura.id < currentBest.id)
         ) {
             state.bestAura = aura.id;
@@ -1840,6 +1840,11 @@ function registerAura(aura) {
             showToast(`🌍 Biome débloqué : ${b.name}`);
         }
     });
+
+    // ✅ Annonce globale pour mythic+
+    if (ANNOUNCE_RARITIES.includes(aura.rarity)) {
+        publishAnnouncement(aura);
+    }
 
     if (state.totalRolls % 10 === 0) pushToLeaderboard();
     saveGame();
@@ -1969,12 +1974,13 @@ function renderEffectsBar() {
 function renderBiomeBackground() {
     const biome = BIOMES.find((b) => b.id === state.currentBiome) || BIOMES[0];
     $("#background-layer").className = biome.className;
+    startBiomeParticles();
 }
 
 function renderUI() {
-    $("#stat-rolls").textContent = state.totalRolls.toLocaleString("fr-FR");
+    animateNumber($("#stat-rolls"), state.totalRolls);
+    animateNumber($("#stat-coins"), state.coins);
     $("#stat-luck").textContent = "x" + getTotalLuckMultiplier().toFixed(2);
-    $("#stat-coins").textContent = state.coins.toLocaleString("fr-FR");
     $("#stat-best").textContent = state.bestAura
         ? AURA_BY_ID[state.bestAura].name
         : "Aucune";
@@ -2591,9 +2597,9 @@ function initAuth() {
             showAuthModal(false);
             renderUI();
 
-            // ✅ Sync classement (y compris bestAuraScore pour les anciens comptes)
             pushToLeaderboard();
             initLeaderboard();
+            startAnnouncementsListener();
             localStorage.removeItem(LS_PENDING_PSEUDO);
         } else {
             state = createDefaultState();
@@ -2611,6 +2617,7 @@ function initAuth() {
                 leaderboardRefreshInterval = null;
             }
             stopPlayTimeTracker();
+            stopBiomeParticles();
         }
     });
 }
@@ -2619,7 +2626,6 @@ function getPlayerName() {
     return state.username;
 }
 
-// ✅ Push : bestAuraScore POSITIF et proportionnel à la rareté
 function pushToLeaderboard() {
     const name = getPlayerName();
     const uid = state.uid;
@@ -2630,9 +2636,6 @@ function pushToLeaderboard() {
 
     const bestAura = state.bestAura ? AURA_BY_ID[state.bestAura] : null;
 
-    // Formule : (rarityIndex + 1) × 10^12 + poids
-    // - Rareté domine toujours le poids
-    // - À rareté égale, l'aura la plus rare (poids le plus grand) gagne
     let bestAuraScore = 0;
     let bestAuraName = "Aucune";
     let bestAuraRarity = "none";
@@ -2680,8 +2683,6 @@ function fetchLeaderboard(type, callback) {
         return;
     }
 
-    // limitToLast(20) sur un tri ASC prend les 20 plus grands scores
-    // → reverse() les met dans le bon ordre (meilleur en premier)
     const q = query(ref(db, "players"), orderByChild(config), limitToLast(20));
 
     get(q)
@@ -2842,7 +2843,7 @@ async function cleanGhostPlayers() {
     }
 }
 
-/* ---------- 7. PLAYTIME TRACKER (multi-onglets + arrière-plan) ---------- */
+/* ---------- 7. PLAYTIME TRACKER ---------- */
 
 const TAB_ID = Math.random().toString(36).slice(2, 10);
 const TAB_HEARTBEAT_KEY = "auraRng_activeTab";
@@ -2904,7 +2905,7 @@ function startPlayTimeTracker() {
         if (!state.uid) return;
         if (document.visibilityState !== "visible") return;
         if (!isPrimaryTab) return;
-        if (delta > 10) return; // throttle navigateur → ignore
+        if (delta > 10) return;
 
         const beforeFloor = Math.floor(state.playTime);
         state.playTime += delta;
@@ -2953,9 +2954,249 @@ function electPrimaryTab() {
     }
 }
 
-/* ---------- 8. ÉVÉNEMENTS ---------- */
+/* ---------- 8. LOT 1 — BANDEAU / NUMÉROS / PARTICULES ---------- */
 
-let rollInProgress = false;
+let bannerTimeout = null;
+
+function showGlobalBanner(data) {
+    const banner = document.getElementById("global-banner");
+    const text = document.getElementById("global-banner-text");
+    if (!banner || !text) return;
+
+    const rarity = data.auraRarity || "mythic";
+    const parts = [
+        "⚡",
+        `<strong>${data.name}</strong>`,
+        "vient d'obtenir",
+        `<strong>[${data.auraName}]</strong>`,
+        `— ${data.chance || "?"}`,
+    ];
+    text.innerHTML = parts.join(" ");
+
+    banner.setAttribute("data-rarity", rarity);
+    banner.classList.remove("hidden");
+    void banner.offsetWidth;
+    banner.classList.add("show");
+
+    clearTimeout(bannerTimeout);
+    const duration =
+        rarity === "secret" ? 7000 : rarity === "cosmic" ? 6000 : 5000;
+    bannerTimeout = setTimeout(() => {
+        banner.classList.remove("show");
+        setTimeout(() => banner.classList.add("hidden"), 500);
+    }, duration);
+}
+
+async function publishAnnouncement(aura) {
+    if (!window.FB || !state.uid || !state.username) return;
+    if (!ANNOUNCE_RARITIES.includes(aura.rarity)) return;
+
+    try {
+        const { db, ref, push, set, serverTimestamp } = window.FB;
+        const annRef = push(ref(db, "announcements"));
+        await set(annRef, {
+            name: state.username,
+            auraName: aura.name,
+            auraRarity: aura.rarity,
+            chance: formatChance(aura),
+            ts: serverTimestamp(),
+        });
+        setTimeout(cleanOldAnnouncements, 3000);
+    } catch (e) {
+        console.warn("Impossible de publier l'annonce :", e);
+    }
+}
+
+async function cleanOldAnnouncements() {
+    if (!window.FB) return;
+    try {
+        const { db, ref, get, remove } = window.FB;
+        const snap = await get(ref(db, "announcements"));
+        if (!snap.exists()) return;
+        const now = Date.now();
+        const deletions = [];
+        snap.forEach((child) => {
+            const v = child.val();
+            if (!v || !v.ts) return;
+            if (now - v.ts > 10 * 60 * 1000) {
+                deletions.push(remove(ref(db, "announcements/" + child.key)));
+            }
+        });
+        if (deletions.length) await Promise.all(deletions);
+    } catch (e) {}
+}
+
+let announcementsListenerStarted = false;
+function startAnnouncementsListener() {
+    if (!window.FB || announcementsListenerStarted) return;
+    announcementsListenerStarted = true;
+
+    const { db, ref, query, orderByChild, limitToLast, onChildAdded } =
+        window.FB;
+    const q = query(
+        ref(db, "announcements"),
+        orderByChild("ts"),
+        limitToLast(5),
+    );
+
+    const startTs = Date.now();
+
+    onChildAdded(q, (snap) => {
+        const data = snap.val();
+        if (!data) return;
+        if (data.ts && startTs - data.ts > 30000) return;
+        if (data.name === state.username) return;
+        showGlobalBanner(data);
+    });
+}
+
+/* Numéros animés */
+const _lastValues = new WeakMap();
+
+function animateNumber(el, newValue, options = {}) {
+    if (!el) return;
+    const duration = options.duration || 700;
+    const prefix = options.prefix || "";
+    const suffix = options.suffix || "";
+    const locale = options.locale || "fr-FR";
+    const flash = options.flash !== false;
+
+    const prev = _lastValues.get(el);
+    const from = typeof prev === "number" ? prev : newValue;
+    _lastValues.set(el, newValue);
+
+    const start = performance.now();
+    const diff = newValue - from;
+
+    function tick(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const current = Math.round(from + diff * eased);
+        el.textContent = prefix + current.toLocaleString(locale) + suffix;
+        if (t < 1) requestAnimationFrame(tick);
+        else el.textContent = prefix + newValue.toLocaleString(locale) + suffix;
+    }
+    requestAnimationFrame(tick);
+
+    if (flash && diff !== 0) {
+        el.classList.remove("num-up", "num-down", "num-flash");
+        void el.offsetWidth;
+        el.classList.add(diff > 0 ? "num-up" : "num-down", "num-flash");
+        setTimeout(
+            () => el.classList.remove("num-up", "num-down", "num-flash"),
+            800,
+        );
+    }
+}
+
+/* Particules par biome */
+const BIOME_PARTICLE_CONFIG = {
+    plains: { cls: "particle-plains", count: 18, spawnRate: 500 },
+    forest: {
+        cls: "particle-forest",
+        count: 22,
+        spawnRate: 450,
+        colors: ["#4ade80", "#86efac", "#34d399"],
+    },
+    desert: { cls: "particle-desert", count: 30, spawnRate: 200 },
+    ocean: { cls: "particle-ocean", count: 14, spawnRate: 600 },
+    space: { cls: "particle-space", count: 12, spawnRate: 900 },
+    cosmic: {
+        cls: "particle-cosmic",
+        count: 20,
+        spawnRate: 500,
+        colors: ["#c084fc", "#67e8f9", "#a855f7", "#818cf8", "#f0abfc"],
+    },
+};
+
+let particleSpawnInterval = null;
+let currentBiomeParticleType = null;
+
+function startBiomeParticles() {
+    const box = document.getElementById("biome-particles");
+    if (!box) return;
+
+    const biomeId = state.currentBiome;
+    if (currentBiomeParticleType === biomeId && particleSpawnInterval) return;
+    currentBiomeParticleType = biomeId;
+
+    if (particleSpawnInterval) {
+        clearInterval(particleSpawnInterval);
+        particleSpawnInterval = null;
+    }
+    box.innerHTML = "";
+
+    if (state.settings.reduceAnim) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const config =
+        BIOME_PARTICLE_CONFIG[biomeId] || BIOME_PARTICLE_CONFIG.plains;
+
+    function spawnOne() {
+        if (!document.body.contains(box)) return;
+        const el = document.createElement("div");
+        el.className = "biome-particle " + config.cls;
+
+        if (biomeId === "desert") {
+            el.style.left = "-5%";
+            el.style.top = Math.random() * 100 + "%";
+            el.style.setProperty("--dy", Math.random() * 100 + "%");
+        } else if (biomeId === "ocean") {
+            el.style.left = Math.random() * 100 + "%";
+            el.style.top = "100%";
+            el.style.setProperty("--dx", Math.random() * 60 - 30 + "px");
+        } else if (biomeId === "space") {
+            el.style.left = Math.random() * 100 + "%";
+            el.style.top = "-2%";
+            el.style.setProperty("--dx", Math.random() * 400 - 200 + "px");
+            el.style.setProperty("--dy", Math.random() * 60 + 30 + "vh");
+        } else if (biomeId === "cosmic") {
+            el.style.left = Math.random() * 100 + "%";
+            el.style.top = Math.random() * 100 + "%";
+            el.style.setProperty("--dx", Math.random() * 200 - 100 + "px");
+            el.style.setProperty("--dy", Math.random() * 200 - 100 + "px");
+        } else {
+            el.style.left = Math.random() * 100 + "%";
+            el.style.top = "-2%";
+            el.style.setProperty("--dx", Math.random() * 200 - 100 + "px");
+        }
+
+        if (config.colors && config.colors.length) {
+            const c =
+                config.colors[Math.floor(Math.random() * config.colors.length)];
+            el.style.color = c;
+            if (biomeId === "forest") el.style.background = c;
+        }
+
+        const dur = 6 + Math.random() * 6;
+        el.style.animationDuration = dur + "s";
+        box.appendChild(el);
+
+        setTimeout(() => el.remove(), (dur + 0.5) * 1000);
+    }
+
+    for (let i = 0; i < config.count; i++) {
+        setTimeout(spawnOne, i * 120);
+    }
+
+    particleSpawnInterval = setInterval(spawnOne, config.spawnRate);
+}
+
+function stopBiomeParticles() {
+    if (particleSpawnInterval) {
+        clearInterval(particleSpawnInterval);
+        particleSpawnInterval = null;
+    }
+    const box = document.getElementById("biome-particles");
+    if (box) box.innerHTML = "";
+    currentBiomeParticleType = null;
+}
+
+/* ---------- 9. ÉVÉNEMENTS ---------- */
+
+// ✅ VERROU UNIQUE : garantit qu'un seul roll peut être en cours
+//    (auto OU manuel), et le relâche dans tous les cas.
+let rollLock = false;
 let autoRollActive = false;
 let autoRollTimer = null;
 
@@ -2967,22 +3208,30 @@ function handleAuraReveal(aura) {
     }
 }
 
+/* ---------- Roll manuel : prend le verrou, ignore si déjà pris ---------- */
 $("#roll-btn").addEventListener("click", () => {
-    if (rollInProgress) return;
-    rollInProgress = true;
+    // ✅ Verrou atomique : si un roll (auto ou manuel) tourne déjà, on ignore
+    if (rollLock) return;
+    rollLock = true;
     $("#roll-btn").disabled = true;
 
     const delay = state.settings.reduceAnim ? 0 : 300;
     setTimeout(() => {
-        const aura = performRoll();
-        handleAuraReveal(aura);
-        playSound("roll");
-        if (REVEAL_RARITIES.includes(aura.rarity)) playSound("rare");
-        renderUI();
-        displayAura(aura);
-        saveGame();
-        rollInProgress = false;
-        $("#roll-btn").disabled = false;
+        try {
+            const aura = performRoll();
+            handleAuraReveal(aura);
+            playSound("roll");
+            if (REVEAL_RARITIES.includes(aura.rarity)) playSound("rare");
+            renderUI();
+            displayAura(aura);
+            saveGame();
+        } catch (e) {
+            console.warn("Erreur roll manuel :", e);
+        } finally {
+            rollLock = false;
+            // Ne réactive le bouton QUE si l'auto-roll n'est pas actif
+            if (!autoRollActive) $("#roll-btn").disabled = false;
+        }
     }, delay);
 });
 
@@ -3006,24 +3255,38 @@ function toggleAutoRoll() {
         btn.textContent = "Auto Roll : OFF";
         btn.classList.remove("active");
         clearTimeout(autoRollTimer);
+        // Réactive le bouton manuel si aucun roll n'est en cours
+        if (!rollLock) $("#roll-btn").disabled = false;
     }
 }
 
 function runAutoRollLoop() {
     if (!autoRollActive) return;
-    if (rollInProgress) {
+
+    // ✅ Si un roll est déjà en cours (manuel), on attend et on réessaie
+    if (rollLock) {
         autoRollTimer = setTimeout(runAutoRollLoop, 100);
         return;
     }
-    rollInProgress = true;
 
-    const aura = performRoll();
-    handleAuraReveal(aura);
-    playSound("roll");
-    renderUI();
-    displayAura(aura);
-    saveGame();
-    rollInProgress = false;
+    rollLock = true;
+    // Désactive le bouton manuel pendant l'auto-roll
+    $("#roll-btn").disabled = true;
+
+    try {
+        const aura = performRoll();
+        handleAuraReveal(aura);
+        playSound("roll");
+        renderUI();
+        displayAura(aura);
+        saveGame();
+    } catch (e) {
+        console.warn("Erreur auto-roll :", e);
+    } finally {
+        rollLock = false;
+        // Le bouton reste désactivé si l'auto-roll tourne encore
+        if (!autoRollActive) $("#roll-btn").disabled = false;
+    }
 
     let interval = 600;
     const speedEffect = state.activeEffects.find((e) => e.speed);
@@ -3122,11 +3385,11 @@ function startFakePaymentProcess(method) {
         const trolls = [
             {
                 title: "Paiement refusé",
-                msg: `${method} a détecté une anomalie `,
+                msg: `${method} a détecté une anomalie 😏`,
             },
             {
                 title: "Fonds insuffisants",
-                msg: `Ton compte ${method} est vide `,
+                msg: `Ton compte ${method} est vide 😂`,
             },
             {
                 title: "Erreur inconnue",
@@ -3134,12 +3397,12 @@ function startFakePaymentProcess(method) {
             },
             {
                 title: "Compte introuvable",
-                msg: `Aucun compte ${method} associé `,
+                msg: `Aucun compte ${method} associé 🤷`,
             },
-            { title: "Vérification échouée", msg: `Identité refusée ` },
-            { title: "Serveur surchargé", msg: `Serveur en pause café ` },
-            { title: "Session expirée", msg: `Session expirée ` },
-            { title: "Paiement suspect", msg: `Trop beau pour être vrai ` },
+            { title: "Vérification échouée", msg: `Identité refusée 🎣` },
+            { title: "Serveur surchargé", msg: `Serveur en pause café ☕` },
+            { title: "Session expirée", msg: `Session expirée 🕵️` },
+            { title: "Paiement suspect", msg: `Trop beau pour être vrai 😎` },
         ];
         const troll = trolls[Math.floor(Math.random() * trolls.length)];
         document.getElementById("payment-error-title").textContent =
@@ -3306,7 +3569,7 @@ $("#reset-save-btn").addEventListener("click", () => {
     location.reload();
 });
 
-/* ---------- 9. AUDIO ---------- */
+/* ---------- 10. AUDIO ---------- */
 
 let audioCtx = null;
 function playSound(type) {
@@ -3388,7 +3651,7 @@ function playSound(type) {
     }
 }
 
-/* ---------- 10. INIT ---------- */
+/* ---------- 11. INIT ---------- */
 
 function init() {
     const raritySelect = $("#inv-filter-rarity");
@@ -3420,9 +3683,9 @@ function init() {
         initAuth();
     }
 
-    // Démarre le tracker de temps dès qu'un utilisateur est connecté
-    // (le tracker vérifie lui-même state.uid à chaque tick)
     startPlayTimeTracker();
+    startBiomeParticles();
+    setTimeout(cleanOldAnnouncements, 5000);
 
     console.log("🎮 Aura RNG prêt !");
 }

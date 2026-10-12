@@ -22,9 +22,13 @@
                 set,
                 get,
                 update,
+                push,
+                remove,
                 query,
                 orderByChild,
                 limitToLast,
+                onChildAdded,
+                serverTimestamp,
             } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
             const firebaseConfig = {
@@ -55,17 +59,27 @@
                 set,
                 get,
                 update,
+                push,
+                remove,
                 query,
                 orderByChild,
                 limitToLast,
+                onChildAdded,
+                serverTimestamp,
             };
 
             window.dispatchEvent(new Event("fb-ready"));
         </script>
     </head>
     <body class="not-logged">
+        <!-- Bandeau global d'annonces -->
+        <div id="global-banner" class="hidden">
+            <div id="global-banner-text"></div>
+        </div>
+
         <div id="background-layer" class="bg-plains">
             <div class="bg-particles"></div>
+            <div id="biome-particles"></div>
         </div>
 
         <header id="top-bar">
@@ -527,6 +541,18 @@
         </div>
 
         <div id="toast" class="hidden"></div>
+
+        <!-- ✅ Bouton Buy Me a Coffee (fixe en bas à gauche) -->
+        <a
+            id="bmc-btn"
+            href="https://www.buymeacoffee.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Soutenir le jeu"
+        >
+            <span class="bmc-icon">☕</span>
+            <span class="bmc-text">Soutenir</span>
+        </a>
 
         <script src="script.js"></script>
     </body>
