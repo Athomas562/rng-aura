@@ -1,5 +1,6 @@
 /* =========================================================
    AURA RNG — script.js
+   v2 : +63 auras, chance recalibrée, upgrades/boutique rééquilibrés
    ========================================================= */
 
 /* ---------- 1. CONFIGURATION ---------- */
@@ -16,6 +17,7 @@ const RARITIES = [
     "cosmic",
     "secret",
 ];
+const RARITY_INDEX = Object.fromEntries(RARITIES.map((r, i) => [r, i]));
 
 const RARITY_COLORS = {
     common: "#9aa5b1",
@@ -30,7 +32,7 @@ const RARITY_COLORS = {
     secret: "#ff00ff",
 };
 
-/* ===== 108 AURAS ===== */
+/* ===== AURAS D'ORIGINE (108) — inchangées ===== */
 const AURAS = [
     {
         id: "a01",
@@ -799,8 +801,541 @@ const AURAS = [
     },
 ];
 
+/* ===== 63 NOUVELLES AURAS =====
+   Format : [id, nom, rareté, "1 sur N", couleur, description]
+   La chance affichée ("1 sur N") est EXACTE : le poids de chaque nouvelle
+   aura est calculé au chargement pour que sa probabilité réelle soit 1/N.
+   Les anciennes auras gardent leurs poids relatifs (leur chance baisse
+   légèrement car les nouvelles auras prennent aussi une part des tirages). */
+const NEW_AURAS_RAW = [
+    // Communes
+    [
+        "a109",
+        "Murmure",
+        "common",
+        24,
+        "#a3b1c6",
+        "Un chuchotement porté par le vent.",
+    ],
+    [
+        "a110",
+        "Mousse",
+        "common",
+        28,
+        "#86b08c",
+        "Un tapis vert, doux et humide.",
+    ],
+    // Peu communes
+    [
+        "a111",
+        "Orchidée nocturne",
+        "uncommon",
+        70,
+        "#f0abfc",
+        "Une fleur qui s'ouvre sous la lune.",
+    ],
+    [
+        "a112",
+        "Torrent",
+        "uncommon",
+        85,
+        "#2dd4bf",
+        "Une rivière qui ne dort jamais.",
+    ],
+    [
+        "a113",
+        "Dune chantante",
+        "uncommon",
+        105,
+        "#e0b25a",
+        "Le sable murmure en s'effondrant.",
+    ],
+    [
+        "a114",
+        "Lucioles",
+        "uncommon",
+        130,
+        "#bef264",
+        "Une danse de petites lumières.",
+    ],
+    // Rares
+    [
+        "a115",
+        "Aube glacée",
+        "rare",
+        280,
+        "#7dd3fc",
+        "Le premier rayon sur un lac gelé.",
+    ],
+    [
+        "a116",
+        "Cendres ardentes",
+        "rare",
+        330,
+        "#fb923c",
+        "Elles brûlent encore, très loin.",
+    ],
+    [
+        "a117",
+        "Sentinelle",
+        "rare",
+        390,
+        "#94a3b8",
+        "Une silhouette qui veille en silence.",
+    ],
+    [
+        "a118",
+        "Lotus d'argent",
+        "rare",
+        460,
+        "#e2e8f0",
+        "Il flotte sur un étang sans fond.",
+    ],
+    [
+        "a119",
+        "Corail vif",
+        "rare",
+        540,
+        "#fb7185",
+        "Un récif qui pulse comme un cœur.",
+    ],
+    [
+        "a120",
+        "Lost Signal",
+        "rare",
+        640,
+        "#22c55e",
+        "Un message sans émetteur.",
+    ],
+    [
+        "a121",
+        "Orage lointain",
+        "rare",
+        740,
+        "#818cf8",
+        "Le tonnerre gronde au-delà de l'horizon.",
+    ],
+    [
+        "a122",
+        "Forêt murmurante",
+        "rare",
+        850,
+        "#34d399",
+        "Chaque arbre connaît ton nom.",
+    ],
+    // Épiques
+    [
+        "a123",
+        "Absolute Zero",
+        "epic",
+        1400,
+        "#bae6fd",
+        "Le froid où plus rien ne bouge.",
+    ],
+    ["a124", "Inferno", "epic", 1700, "#f97316", "Une fournaise sans fin."],
+    ["a125", "The Observer", "epic", 2000, "#a78bfa", "Il te regardait déjà."],
+    [
+        "a126",
+        "Fallen Angel",
+        "epic",
+        2400,
+        "#a5b4fc",
+        "Des ailes brisées, une lumière têtue.",
+    ],
+    [
+        "a127",
+        "Thunder God",
+        "epic",
+        2800,
+        "#facc15",
+        "La foudre obéit à sa voix.",
+    ],
+    [
+        "a128",
+        "Forgotten",
+        "epic",
+        3100,
+        "#7c8cff",
+        "Même son nom s'est effacé.",
+    ],
+    [
+        "a129",
+        "Obsidienne",
+        "epic",
+        3400,
+        "#c026d3",
+        "Un éclat noir qui boit la lumière.",
+    ],
+    [
+        "a130",
+        "Mer de cristal",
+        "epic",
+        3700,
+        "#22d3ee",
+        "Des vagues figées en pleine course.",
+    ],
+    [
+        "a131",
+        "Reliquaire",
+        "epic",
+        4000,
+        "#fcd34d",
+        "Un trésor que nul n'ose ouvrir.",
+    ],
+    [
+        "a132",
+        "Spirale ardente",
+        "epic",
+        4300,
+        "#fb7185",
+        "Une flamme qui tourne sur elle-même.",
+    ],
+    // Légendaires
+    [
+        "a133",
+        "Phoenix King",
+        "legendary",
+        5500,
+        "#ff7a1a",
+        "Le roi des renaissances.",
+    ],
+    [
+        "a134",
+        "Dragon Sovereign",
+        "legendary",
+        7000,
+        "#ef4444",
+        "Les cieux plient devant son souffle.",
+    ],
+    [
+        "a135",
+        "Eternal Storm",
+        "legendary",
+        8500,
+        "#60a5fa",
+        "Une tempête qui ne s'est jamais calmée.",
+    ],
+    [
+        "a136",
+        "Shadow Reaper",
+        "legendary",
+        10000,
+        "#9333ea",
+        "Il fauche ce que la lumière oublie.",
+    ],
+    [
+        "a137",
+        "Time Fracture",
+        "legendary",
+        12000,
+        "#5eead4",
+        "Une faille dans l'écoulement du temps.",
+    ],
+    [
+        "a138",
+        "Eternal Hour",
+        "legendary",
+        14000,
+        "#fde68a",
+        "Une heure qui ne finit jamais.",
+    ],
+    [
+        "a139",
+        "Couronne brisée",
+        "legendary",
+        16000,
+        "#f59e0b",
+        "Un règne éteint, un éclat intact.",
+    ],
+    [
+        "a140",
+        "Abyssal King",
+        "legendary",
+        18500,
+        "#0891b2",
+        "Il règne là où le sonar se tait.",
+    ],
+    [
+        "a141",
+        "Serpent d'étoiles",
+        "legendary",
+        20500,
+        "#4ade80",
+        "Il s'enroule autour des constellations.",
+    ],
+    [
+        "a142",
+        "Gardien du seuil",
+        "legendary",
+        22500,
+        "#f472b6",
+        "Nul ne passe sans son accord.",
+    ],
+    // Mythiques
+    [
+        "a143",
+        "Cosmic Rift",
+        "mythic",
+        26000,
+        "#d946ef",
+        "Une déchirure dans le tissu du ciel.",
+    ],
+    [
+        "a144",
+        "Event Horizon",
+        "mythic",
+        36000,
+        "#fb923c",
+        "Au-delà, rien ne revient.",
+    ],
+    [
+        "a145",
+        "Void Emperor",
+        "mythic",
+        48000,
+        "#8b5cf6",
+        "Il règne sur le vide entre les mondes.",
+    ],
+    [
+        "a146",
+        "Null Entity",
+        "mythic",
+        62000,
+        "#cbd5e1",
+        "Une présence qui n'existe pas.",
+    ],
+    [
+        "a147",
+        "Morrigan",
+        "mythic",
+        78000,
+        "#be123c",
+        "Corbeau de guerre, présage de fin.",
+    ],
+    [
+        "a148",
+        "Quetzalcoatl",
+        "mythic",
+        98000,
+        "#10b981",
+        "Le serpent à plumes survole les âges.",
+    ],
+    [
+        "a149",
+        "Ra l'Éternel",
+        "mythic",
+        120000,
+        "#ffb703",
+        "Le soleil lui-même s'incline.",
+    ],
+    [
+        "a150",
+        "Fenrir",
+        "mythic",
+        145000,
+        "#93c5fd",
+        "Le loup qui dévorera les dieux.",
+    ],
+    [
+        "a151",
+        "Amaterasu",
+        "mythic",
+        180000,
+        "#fda4af",
+        "La lumière sortie de sa grotte.",
+    ],
+    // Divines
+    [
+        "a152",
+        "Celestial Crown",
+        "divine",
+        260000,
+        "#fde047",
+        "Une couronne tissée de lumière pure.",
+    ],
+    [
+        "a153",
+        "Divine Judgment",
+        "divine",
+        340000,
+        "#fef9c3",
+        "Le verdict tombe, sans appel.",
+    ],
+    [
+        "a154",
+        "Eternal Light",
+        "divine",
+        420000,
+        "#fff7ae",
+        "Elle brillait avant le premier matin.",
+    ],
+    [
+        "a155",
+        "Sérénité absolue",
+        "divine",
+        500000,
+        "#bbf7d0",
+        "Le calme de toutes les choses finies.",
+    ],
+    [
+        "a156",
+        "Archange",
+        "divine",
+        580000,
+        "#e0f2fe",
+        "Six ailes, un seul serment.",
+    ],
+    [
+        "a157",
+        "Ordre primordial",
+        "divine",
+        680000,
+        "#fcd34d",
+        "La loi qui précède l'univers.",
+    ],
+    [
+        "a158",
+        "Sceau de l'aube",
+        "divine",
+        780000,
+        "#fed7aa",
+        "Il scelle la frontière du jour.",
+    ],
+    // Célestes
+    [
+        "a159",
+        "Nébuleuse mère",
+        "celestial",
+        1000000,
+        "#a5f3fc",
+        "Le berceau de mille étoiles.",
+    ],
+    [
+        "a160",
+        "Anneaux stellaires",
+        "celestial",
+        1200000,
+        "#7dd3fc",
+        "Des cercles de glace autour d'un astre.",
+    ],
+    [
+        "a161",
+        "Comète éternelle",
+        "celestial",
+        1400000,
+        "#bae6fd",
+        "Elle passe, et ne repart jamais.",
+    ],
+    [
+        "a162",
+        "Trou blanc",
+        "celestial",
+        1600000,
+        "#f8fafc",
+        "Tout en jaillit, rien n'y entre.",
+    ],
+    [
+        "a163",
+        "Constellation vivante",
+        "celestial",
+        1900000,
+        "#99f6e4",
+        "Elle te suit du regard.",
+    ],
+    // Cosmiques
+    [
+        "a164",
+        "Fracture du cosmos",
+        "cosmic",
+        2600000,
+        "#e879f9",
+        "L'espace se plie, puis se brise.",
+    ],
+    [
+        "a165",
+        "Âme de l'univers",
+        "cosmic",
+        3800000,
+        "#c4b5fd",
+        "Le souffle qui anime chaque étoile.",
+    ],
+    [
+        "a166",
+        "Entropie",
+        "cosmic",
+        5200000,
+        "#a78bfa",
+        "Tout s'éteint, doucement.",
+    ],
+    [
+        "a167",
+        "Horloge cosmique",
+        "cosmic",
+        7000000,
+        "#818cf8",
+        "Elle compte les âges de l'univers.",
+    ],
+    // Secrètes
+    [
+        "a168",
+        "Unknown",
+        "secret",
+        12000000,
+        "#ff66ff",
+        "Aucune donnée. Aucun témoin.",
+    ],
+    [
+        "a169",
+        "Écho de l'Alpha",
+        "secret",
+        22000000,
+        "#ff2bd6",
+        "Le tout premier battement, rejoué.",
+    ],
+    [
+        "a170",
+        "Le Dernier Rêveur",
+        "secret",
+        45000000,
+        "#f0abfc",
+        "S'il se réveille, tout s'arrête.",
+    ],
+    [
+        "a171",
+        "Aura sans nom",
+        "secret",
+        80000000,
+        "#ff3d9a",
+        "Elle n'a jamais eu besoin d'un nom.",
+    ],
+];
+
+// Poids des nouvelles auras : on veut P(aura) = 1/N exactement.
+// Avec T = poids total final et T0 = poids des auras d'origine :
+//   T = T0 / (1 - Σ 1/N)   puis   poids(aura) = T / N
+const BASE_WEIGHT_TOTAL = AURAS.reduce((s, a) => s + a.weight, 0);
+const NEW_AURA_MASS = NEW_AURAS_RAW.reduce((s, r) => s + 1 / r[3], 0);
+const TOTAL_WEIGHT = BASE_WEIGHT_TOTAL / (1 - NEW_AURA_MASS);
+NEW_AURAS_RAW.forEach(([id, name, rarity, oneIn, color, desc]) => {
+    AURAS.push({
+        id,
+        name,
+        rarity,
+        weight: TOTAL_WEIGHT / oneIn,
+        oneIn,
+        color,
+        desc,
+    });
+});
+
 const AURA_BY_ID = Object.fromEntries(AURAS.map((a) => [a.id, a]));
 
+// Couleur principale d'une aura (couleur propre si définie, sinon celle de la rareté)
+function auraColor(aura) {
+    return aura.color || RARITY_COLORS[aura.rarity];
+}
+
+/* ===== BIOMES : bonus de chance PERMANENTS (additifs : x1.04 = +4 %) ===== */
 const BIOMES = [
     {
         id: "plains",
@@ -815,7 +1350,7 @@ const BIOMES = [
         name: "Forêt",
         className: "bg-forest",
         unlockRolls: 100,
-        luckBonus: 1.05,
+        luckBonus: 1.02,
         desc: "Débloqué après 100 rolls.",
     },
     {
@@ -823,7 +1358,7 @@ const BIOMES = [
         name: "Désert",
         className: "bg-desert",
         unlockRolls: 500,
-        luckBonus: 1.1,
+        luckBonus: 1.04,
         desc: "Débloqué après 500 rolls.",
     },
     {
@@ -831,7 +1366,7 @@ const BIOMES = [
         name: "Océan",
         className: "bg-ocean",
         unlockRolls: 2000,
-        luckBonus: 1.2,
+        luckBonus: 1.07,
         desc: "Débloqué après 2000 rolls.",
     },
     {
@@ -839,7 +1374,7 @@ const BIOMES = [
         name: "Espace",
         className: "bg-space",
         unlockRolls: 10000,
-        luckBonus: 1.35,
+        luckBonus: 1.1,
         desc: "Débloqué après 10 000 rolls.",
     },
     {
@@ -847,62 +1382,65 @@ const BIOMES = [
         name: "Dimension cosmique",
         className: "bg-cosmic",
         unlockRolls: 50000,
-        luckBonus: 1.5,
+        luckBonus: 1.15,
         desc: "Débloqué après 50 000 rolls.",
     },
 ];
 
+/* ===== POTIONS : bonus de chance TEMPORAIRES (non cumulables entre elles :
+   seule la meilleure potion de chance active compte) ===== */
 const POTIONS = [
     {
         id: "p_luck1",
         name: "Potion de chance I",
-        price: 250,
-        bonus: 1.25,
+        price: 300,
+        bonus: 1.1,
         duration: 60,
-        desc: "Chance x1.25 pendant 1 minute.",
+        desc: "Temporaire : chance x1.10 pendant 1 minute.",
     },
     {
         id: "p_luck2",
         name: "Potion de chance II",
         price: 1200,
-        bonus: 1.75,
+        bonus: 1.2,
         duration: 120,
-        desc: "Chance x1.75 pendant 2 minutes.",
+        desc: "Temporaire : chance x1.20 pendant 2 minutes.",
     },
     {
         id: "p_luck3",
         name: "Élixir de chance",
-        price: 5000,
-        bonus: 3.0,
+        price: 6000,
+        bonus: 1.35,
         duration: 90,
-        desc: "Chance x3 pendant 1 min 30.",
+        desc: "Temporaire : chance x1.35 pendant 1 min 30.",
     },
     {
         id: "p_speed",
         name: "Potion de vitesse",
         price: 800,
-        speed: 0.5,
+        speed: 0.35,
         duration: 60,
-        desc: "Auto Roll 2x plus rapide pendant 1 min.",
+        desc: "Temporaire : Auto Roll 35 % plus rapide pendant 1 min.",
     },
 ];
 
+/* ===== BOUTIQUE : objets PERMANENTS (achat unique) et ressources ===== */
 const SHOP_ITEMS = [
     {
         id: "i_lucky_charm",
         name: "Talisman porte-bonheur",
-        price: 3000,
-        luckBonus: 0.05,
+        price: 6000,
+        luckBonus: 0.03,
         perm: true,
-        desc: "+5% de chance en permanence.",
+        desc: "Permanent : +3 % de chance (achat unique).",
     },
     {
         id: "i_crystal",
         name: "Cristal de chance",
-        price: 15000,
-        luckBonus: 0.15,
+        price: 45000,
+        luckBonus: 0.06,
         perm: true,
-        desc: "+15% de chance en permanence.",
+        desc: "Permanent : +6 % de chance (achat unique).",
     },
     {
         id: "i_essence",
@@ -924,15 +1462,15 @@ const RECIPES = [
     {
         id: "r_luck_potion",
         result: { id: "p_luck2", qty: 1 },
-        ingredients: [{ id: "i_essence", qty: 3 }],
+        ingredients: [{ id: "i_essence", qty: 4 }],
         desc: "Craft une Potion de chance II.",
     },
     {
         id: "r_crystal",
         result: { id: "i_crystal", qty: 1 },
         ingredients: [
-            { id: "i_essence", qty: 10 },
-            { id: "i_shard", qty: 2 },
+            { id: "i_essence", qty: 40 },
+            { id: "i_shard", qty: 12 },
         ],
         desc: "Craft un Cristal de chance.",
     },
@@ -947,58 +1485,63 @@ const RECIPES = [
     },
 ];
 
+/* ===== AMÉLIORATIONS : petits gains progressifs, coûts très croissants =====
+   costs[i]   = prix du niveau i+1
+   effects[i] = bonus ajouté en passant au niveau i+1 (le total est cumulé) */
 const UPGRADES = [
     {
         id: "up_luck",
         name: "Maîtrise de la chance",
-        desc: "Augmente définitivement la chance globale.",
+        desc: "Augmente la chance de façon permanente (+66 % au niveau max).",
         maxLevel: 10,
-        baseCost: 500,
-        costMultiplier: 2.2,
-        effectPerLevel: 0.05,
+        costs: [100, 250, 600, 1500, 4000, 10000, 25000, 60000, 150000, 400000],
+        effects: [0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.12],
         effectType: "luck",
     },
     {
         id: "up_speed",
         name: "Réflexes affûtés",
-        desc: "Réduit le délai entre deux Auto Rolls.",
-        maxLevel: 8,
-        baseCost: 800,
-        costMultiplier: 2.0,
-        effectPerLevel: 0.08,
+        desc: "Réduit le délai entre deux Auto Rolls (-33 % au niveau max).",
+        maxLevel: 6,
+        costs: [300, 900, 2500, 7000, 20000, 55000],
+        effects: [0.03, 0.04, 0.05, 0.06, 0.07, 0.08],
         effectType: "speed",
     },
     {
         id: "up_coins",
         name: "Marchand chanceux",
-        desc: "Augmente les gains de monnaie.",
+        desc: "Augmente les gains de monnaie (+45 % au niveau max).",
         maxLevel: 10,
-        baseCost: 400,
-        costMultiplier: 2.1,
-        effectPerLevel: 0.1,
+        costs: [150, 400, 900, 2200, 5500, 13000, 32000, 80000, 200000, 500000],
+        effects: [0.02, 0.03, 0.03, 0.04, 0.04, 0.05, 0.05, 0.06, 0.06, 0.07],
         effectType: "coins",
     },
     {
         id: "up_double",
         name: "Écho du destin",
-        desc: "Chance de dupliquer une aura obtenue.",
+        desc: "Chance de dupliquer une aura obtenue (10 % au niveau max).",
         maxLevel: 5,
-        baseCost: 5000,
-        costMultiplier: 3.0,
-        effectPerLevel: 0.02,
+        costs: [3000, 10000, 35000, 120000, 400000],
+        effects: [0.01, 0.015, 0.02, 0.025, 0.03],
         effectType: "double",
     },
     {
         id: "up_potion",
         name: "Alchimiste expert",
-        desc: "Réduit le prix des potions.",
+        desc: "Réduit le prix des potions (-25 % au niveau max).",
         maxLevel: 5,
-        baseCost: 1000,
-        costMultiplier: 2.4,
-        effectPerLevel: 0.05,
+        costs: [600, 2000, 6500, 20000, 60000],
+        effects: [0.03, 0.04, 0.05, 0.06, 0.07],
         effectType: "potionDiscount",
     },
 ];
+
+/* ===== PLAFONDS DE CHANCE =====
+   Chance totale = (1 + bonus permanents) x meilleure potion active,
+   puis rendements décroissants au-delà de x2.00 et plafond dur à x3.50. */
+const LUCK_SOFT_CAP = 2.0;
+const LUCK_HARD_CAP = 3.5;
+const POTION_LUCK_MAX = 1.35;
 
 const COIN_REWARDS = {
     common: 1,
@@ -1019,6 +1562,7 @@ const PARTICLE_RARITIES = ["cosmic", "secret"];
 
 const AUTOROLL_PRICE_COINS = 1500;
 const AUTOROLL_SECRET_UNLOCK_AT = 10;
+const AUTOROLL_MIN_INTERVAL = 150;
 
 const SAVE_KEY = "auraRng_save_v1";
 const SAVE_VERSION = 1;
@@ -1153,23 +1697,29 @@ function flushCloudSave() {
 
 /* ---------- 3. ROLLS & CHANCE ---------- */
 
+// Niveau acheté (plafonné au niveau max actuel : compatible avec d'anciennes sauvegardes)
 function getUpgradeLevel(id) {
-    return state.upgrades[id] || 0;
+    const up = UPGRADES.find((u) => u.id === id);
+    const lvl = state.upgrades[id] || 0;
+    return up ? Math.min(lvl, up.maxLevel) : lvl;
 }
 
 function getUpgradeCost(upgrade) {
     const level = getUpgradeLevel(upgrade.id);
     if (level >= upgrade.maxLevel) return null;
-    return Math.round(
-        upgrade.baseCost * Math.pow(upgrade.costMultiplier, level),
-    );
+    return upgrade.costs[level];
+}
+
+// Bonus cumulé d'une amélioration pour un niveau donné
+function getUpgradeTotalEffect(upgrade, level) {
+    return upgrade.effects.slice(0, level).reduce((a, b) => a + b, 0);
 }
 
 function getUpgradeEffect(effectType) {
     let total = 0;
     UPGRADES.forEach((up) => {
         if (up.effectType === effectType)
-            total += getUpgradeLevel(up.id) * up.effectPerLevel;
+            total += getUpgradeTotalEffect(up, getUpgradeLevel(up.id));
     });
     return total;
 }
@@ -1194,30 +1744,52 @@ function buyUpgrade(upgrade) {
     renderUpgrades();
 }
 
-function getTotalLuckMultiplier() {
-    let mult = 1;
+// Bonus PERMANENTS (additifs) : biome + objets de boutique + améliorations
+function getPermanentLuckBonus() {
+    let bonus = 0;
     const biome = BIOMES.find((b) => b.id === state.currentBiome);
-    if (biome) mult *= biome.luckBonus;
+    if (biome) bonus += biome.luckBonus - 1;
     SHOP_ITEMS.forEach((item) => {
-        if (item.perm && state.ownedItems[item.id] > 0) mult += item.luckBonus;
+        if (item.perm && state.ownedItems[item.id] > 0) bonus += item.luckBonus;
     });
-    mult += getUpgradeEffect("luck");
-    state.activeEffects.forEach((eff) => {
-        if (eff.bonus) mult *= eff.bonus;
-    });
+    bonus += getUpgradeEffect("luck");
     if (state.equipped) {
         const a = AURA_BY_ID[state.equipped];
-        if (a && a.luckBonus) mult *= a.luckBonus;
+        if (a && a.luckBonus) bonus += a.luckBonus - 1;
     }
-    return mult;
+    return bonus;
 }
 
+// Bonus TEMPORAIRE : seule la meilleure potion de chance active compte
+function getTemporaryLuckMultiplier() {
+    const now = Date.now();
+    let best = 1;
+    state.activeEffects.forEach((eff) => {
+        if (eff.bonus && eff.endsAt > now)
+            best = Math.max(best, Math.min(eff.bonus, POTION_LUCK_MAX));
+    });
+    return best;
+}
+
+function applyLuckCap(raw) {
+    if (raw <= LUCK_SOFT_CAP) return raw;
+    return Math.min(LUCK_HARD_CAP, LUCK_SOFT_CAP + (raw - LUCK_SOFT_CAP) * 0.5);
+}
+
+function getTotalLuckMultiplier() {
+    const raw = (1 + getPermanentLuckBonus()) * getTemporaryLuckMultiplier();
+    return applyLuckCap(raw);
+}
+
+/* La chance agit plus fort sur les raretés élevées :
+   poids final = poids x chance ^ (indice de rareté / indice max)
+   -> communes : aucun effet ; secrètes : x chance (au maximum x3.5). */
 function pickAuraByWeight(luckMultiplier) {
+    const luck = Math.max(1, luckMultiplier);
+    const maxIdx = RARITIES.length - 1;
     const effective = AURAS.map((aura) => {
-        const rarityIndex = RARITIES.indexOf(aura.rarity);
-        const dampening = 1 - (rarityIndex / (RARITIES.length - 1)) * 0.85;
-        const bonus = Math.pow(luckMultiplier, dampening);
-        return { aura, weight: aura.weight * bonus };
+        const exponent = RARITY_INDEX[aura.rarity] / maxIdx;
+        return { aura, weight: aura.weight * Math.pow(luck, exponent) };
     });
     const total = effective.reduce((sum, e) => sum + e.weight, 0);
     let r = Math.random() * total;
@@ -1228,9 +1800,9 @@ function pickAuraByWeight(luckMultiplier) {
     return effective[effective.length - 1].aura;
 }
 
+// Chance de base (sans bonus de chance) : correspond exactement à la probabilité de tirage
 function formatChance(aura) {
-    const total = AURAS.reduce((s, a) => s + a.weight, 0);
-    const oneIn = Math.round(total / aura.weight);
+    const oneIn = Math.round(TOTAL_WEIGHT / aura.weight);
     return `1 sur ${oneIn.toLocaleString("fr-FR")}`;
 }
 
@@ -1248,10 +1820,12 @@ function registerAura(aura) {
     state.discovered[aura.id] = true;
     if (quantity === 2) showToast("✨ Aura doublée !");
 
+    // Meilleure aura : rareté la plus haute, puis aura la plus improbable
     const currentBest = state.bestAura ? AURA_BY_ID[state.bestAura] : null;
     if (
         !currentBest ||
-        RARITIES.indexOf(aura.rarity) > RARITIES.indexOf(currentBest.rarity)
+        RARITY_INDEX[aura.rarity] > RARITY_INDEX[currentBest.rarity] ||
+        (aura.rarity === currentBest.rarity && aura.weight < currentBest.weight)
     ) {
         state.bestAura = aura.id;
     }
@@ -1311,9 +1885,9 @@ function showReveal(aura) {
 
     text.textContent = aura.name;
     rarityTag.textContent = aura.rarity;
-    rarityTag.style.color = RARITY_COLORS[aura.rarity];
+    rarityTag.style.color = auraColor(aura);
     chanceEl.textContent = formatChance(aura);
-    chanceEl.style.color = RARITY_COLORS[aura.rarity];
+    chanceEl.style.color = auraColor(aura);
 
     overlay.classList.add("rarity-" + aura.rarity);
 
@@ -1382,14 +1956,17 @@ function spawnParticles(container, count, rarity) {
 }
 
 // ✅ Affiche une aura ET la mémorise
+// (la couleur propre de l'aura remplace celle de la rareté pour le halo et le nom ;
+//  les classes de rareté gardent les effets visuels existants)
 function displayAura(aura) {
     lastRolledAura = aura;
     $("#aura-name").textContent = aura.name;
     $("#aura-rarity").textContent = aura.rarity.toUpperCase();
     $("#aura-chance").textContent = formatChance(aura);
     $("#aura-desc").textContent = aura.desc;
-    $("#aura-name").style.color = RARITY_COLORS[aura.rarity];
+    $("#aura-name").style.color = auraColor(aura);
     $("#aura-visual").className = "rarity-" + aura.rarity;
+    $("#aura-visual").style.color = aura.color || "";
 }
 
 function renderEffectsBar() {
@@ -1433,6 +2010,7 @@ function renderUI() {
             "Lance un roll pour commencer ton aventure !";
         $("#aura-name").style.color = "";
         $("#aura-visual").className = "rarity-common";
+        $("#aura-visual").style.color = "";
     }
 
     const btn = $("#auto-roll-btn");
@@ -1469,9 +2047,12 @@ function renderInventory() {
         return true;
     });
 
+    // Tri par rareté : d'abord la rareté, puis l'aura la plus improbable
     if (sortBy === "rarity")
         list.sort(
-            (a, b) => RARITIES.indexOf(b.rarity) - RARITIES.indexOf(a.rarity),
+            (a, b) =>
+                RARITY_INDEX[b.rarity] - RARITY_INDEX[a.rarity] ||
+                a.weight - b.weight,
         );
     else if (sortBy === "name")
         list.sort((a, b) => a.name.localeCompare(b.name));
@@ -1489,7 +2070,7 @@ function renderInventory() {
             (owned ? "" : " locked") +
             (state.equipped === aura.id ? " equipped" : "");
         card.innerHTML = `
-      <div style="color:${RARITY_COLORS[aura.rarity]}; font-size:24px;">◆</div>
+      <div style="color:${auraColor(aura)}; font-size:24px;">◆</div>
       <div class="card-name">${owned ? aura.name : "???"}</div>
       <span class="rarity-tag tag-${aura.rarity}">${aura.rarity}</span>
       <div class="card-info">${owned ? "x" + state.inventory[aura.id] : "Non découverte"}</div>
@@ -1564,6 +2145,11 @@ function renderShop() {
 }
 
 function buyItem(item) {
+    // Les bonus permanents ne se cumulent pas : inutile de les racheter
+    if (item.perm && (state.ownedItems[item.id] || 0) > 0) {
+        showToast("✅ Déjà possédé : le bonus permanent est actif.");
+        return;
+    }
     if (state.coins < item.price) {
         showToast("❌ Pas assez de monnaie.");
         return;
@@ -1649,6 +2235,16 @@ function craftRecipe(recipe) {
         showToast("❌ Ressources insuffisantes.");
         return;
     }
+    // Un objet permanent déjà possédé ne se cumule pas : on évite de gaspiller les ressources
+    const resultItem = SHOP_ITEMS.find((i) => i.id === recipe.result.id);
+    if (
+        resultItem &&
+        resultItem.perm &&
+        (state.ownedItems[resultItem.id] || 0) > 0
+    ) {
+        showToast("✅ Déjà possédé : le bonus permanent est actif.");
+        return;
+    }
     recipe.ingredients.forEach((ing) => {
         state.ownedItems[ing.id] -= ing.qty;
     });
@@ -1672,7 +2268,7 @@ function renderBiomes() {
         div.innerHTML = `
       <div class="card-name">${unlocked ? b.name : "🔒 " + b.name}</div>
       <div class="card-desc">${b.desc}</div>
-      <div class="card-info">Bonus chance : x${b.luckBonus.toFixed(2)}</div>
+      <div class="card-info">Bonus chance permanent : +${Math.round((b.luckBonus - 1) * 100)} %</div>
       <button class="small-btn" style="margin-top:8px;" ${unlocked ? "" : "disabled"}>
         ${state.currentBiome === b.id ? "Actif" : unlocked ? "Activer" : "Verrouillé"}
       </button>
@@ -1690,6 +2286,11 @@ function renderBiomes() {
     });
 }
 
+// 2 -> "2", 1.5 -> "1.5"
+function fmtPct(x) {
+    return (x * 100).toFixed(1).replace(/\.0$/, "") + "%";
+}
+
 function renderUpgrades() {
     const list = $("#upgrades-list");
     list.innerHTML = "";
@@ -1699,18 +2300,20 @@ function renderUpgrades() {
         const level = getUpgradeLevel(up.id);
         const maxed = level >= up.maxLevel;
         const cost = getUpgradeCost(up);
-        const totalEffect = level * up.effectPerLevel;
+        const totalEffect = getUpgradeTotalEffect(up, level);
+        const next = maxed ? null : up.effects[level];
+        const nextTxt = next ? ` (prochain niveau : +${fmtPct(next)})` : "";
         let effectText = "";
         if (up.effectType === "luck")
-            effectText = `Chance : +${(totalEffect * 100).toFixed(0)}%`;
+            effectText = `Chance : +${fmtPct(totalEffect)}${nextTxt}`;
         if (up.effectType === "speed")
-            effectText = `Vitesse : +${(totalEffect * 100).toFixed(0)}%`;
+            effectText = `Vitesse : +${fmtPct(totalEffect)}${nextTxt}`;
         if (up.effectType === "coins")
-            effectText = `Monnaie : +${(totalEffect * 100).toFixed(0)}%`;
+            effectText = `Monnaie : +${fmtPct(totalEffect)}${nextTxt}`;
         if (up.effectType === "double")
-            effectText = `Double : ${(totalEffect * 100).toFixed(0)}%`;
+            effectText = `Double : ${fmtPct(totalEffect)}${nextTxt}`;
         if (up.effectType === "potionDiscount")
-            effectText = `Réduction : -${(totalEffect * 100).toFixed(0)}%`;
+            effectText = `Réduction : -${fmtPct(totalEffect)}${nextTxt}`;
 
         const card = document.createElement("div");
         card.className = "upgrade-card" + (maxed ? " maxed" : "");
@@ -1741,11 +2344,17 @@ function renderStats() {
         const aura = AURA_BY_ID[id];
         if (aura) byRarity[aura.rarity]++;
     });
+    const totalByRarity = {};
+    RARITIES.forEach((r) => (totalByRarity[r] = 0));
+    AURAS.forEach((a) => totalByRarity[a.rarity]++);
     const minutes = Math.floor(state.playTime / 60);
-    const totalUpgradeLevels = Object.values(state.upgrades).reduce(
-        (a, b) => a + b,
+    const totalUpgradeLevels = UPGRADES.reduce(
+        (sum, up) => sum + getUpgradeLevel(up.id),
         0,
     );
+    const permBonus = getPermanentLuckBonus();
+    const tempMult = getTemporaryLuckMultiplier();
+    const totalLuck = getTotalLuckMultiplier();
 
     $("#stats-content").innerHTML = `
     <p>🎲 Rolls totaux : ${state.totalRolls.toLocaleString("fr-FR")}</p>
@@ -1758,11 +2367,14 @@ function renderStats() {
     <p>🔨 Objets fabriqués : ${state.craftedItems}</p>
     <p>⭐ Améliorations : ${totalUpgradeLevels} niveaux</p>
     <p>🤖 Auto Roll : ${state.autoRollUnlocked ? "Débloqué" : "Verrouillé"}</p>
+    <p>♾️ Chance permanente : +${(permBonus * 100).toFixed(1)}%</p>
+    <p>⏳ Chance temporaire (potion) : +${((tempMult - 1) * 100).toFixed(0)}%</p>
+    <p>🍀 Chance totale : x${totalLuck.toFixed(2)} (plafond x${LUCK_HARD_CAP.toFixed(2)})</p>
     <p>👤 Joueur : ${state.username || "—"}</p>
     <p>📊 Collection : ${pct}%</p>
     <hr style="margin:10px 0; opacity:.2;" />
     <h3>Répartition par rareté</h3>
-    ${RARITIES.map((r) => `<p>${r} : ${byRarity[r]}</p>`).join("")}
+    ${RARITIES.map((r) => `<p>${r} : ${byRarity[r]} / ${totalByRarity[r]}</p>`).join("")}
   `;
 }
 
@@ -2270,11 +2882,13 @@ function runAutoRollLoop() {
     saveGame();
     rollInProgress = false;
 
+    // Délai de base 600 ms, réduit par la potion de vitesse (-35 %) et les
+    // améliorations (-33 % max), avec un plancher de 150 ms.
     let interval = 600;
     const speedEffect = state.activeEffects.find((e) => e.speed);
     if (speedEffect) interval *= 1 - speedEffect.speed;
     interval *= 1 - getUpgradeEffect("speed");
-    interval = Math.max(60, interval);
+    interval = Math.max(AUTOROLL_MIN_INTERVAL, interval);
     autoRollTimer = setTimeout(runAutoRollLoop, interval);
 }
 
