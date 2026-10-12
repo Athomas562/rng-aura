@@ -97,8 +97,20 @@
             </div>
             <div class="stat-box" id="stat-user" title="Joueur connecté">
                 👤 <span id="stat-username">—</span>
+                <span id="stat-level-badge" class="level-badge hidden"
+                    >🎖️ Niv. <span id="stat-level">1</span></span
+                >
+                <span id="stat-title" class="title-badge hidden"></span>
             </div>
         </header>
+
+        <!-- Barre de progression XP -->
+        <div id="xp-bar-container" class="hidden">
+            <div id="xp-bar">
+                <div id="xp-bar-fill"></div>
+                <span id="xp-bar-text">0 / 0 XP</span>
+            </div>
+        </div>
 
         <main id="main-screen">
             <div id="aura-display">
@@ -127,6 +139,7 @@
                 <button id="upgrades-btn" class="small-btn">
                     Améliorations
                 </button>
+                <button id="titles-btn" class="small-btn">🎖️ Titres</button>
                 <button id="leaderboard-btn" class="small-btn">
                     🏆 Classement
                 </button>
@@ -263,6 +276,18 @@
             </div>
         </div>
 
+        <!-- Titres -->
+        <div id="titles-modal" class="modal hidden">
+            <div class="modal-content">
+                <button class="close-btn" data-close="titles-modal">✕</button>
+                <h2>🎖️ Titres</h2>
+                <p class="hint">
+                    Équipe un titre pour l'afficher après ton pseudo.
+                </p>
+                <div id="titles-grid" class="grid"></div>
+            </div>
+        </div>
+
         <!-- Leaderboard -->
         <div id="leaderboard-modal" class="modal hidden">
             <div class="modal-content">
@@ -325,6 +350,13 @@
                     annonces d'auras communes</label
                 >
                 <hr />
+                <button
+                    id="reset-antitamper-btn"
+                    class="small-btn"
+                    style="margin-top: 10px; width: 100%"
+                >
+                    🛡️ Réinitialiser les violations anti-triche
+                </button>
                 <button
                     id="clean-lb-btn"
                     class="small-btn"
@@ -542,7 +574,7 @@
 
         <div id="toast" class="hidden"></div>
 
-        <!-- ✅ Bouton Buy Me a Coffee (fixe en bas à gauche) -->
+        <!-- Bouton Buy Me a Coffee -->
         <a
             id="bmc-btn"
             href="https://www.buymeacoffee.com/"
@@ -553,6 +585,7 @@
             <span class="bmc-icon">☕</span>
             <span class="bmc-text">Soutenir</span>
         </a>
+
         <script src="antitamper.js"></script>
         <script src="devtools-detect.js"></script>
         <script src="script.js"></script>

@@ -1,7 +1,6 @@
 /* =========================================================
    AURA RNG — script.js
-   v4 : Lot 1 (bandeau global, BMC, numéros animés, particules)
-        + fix double roll (auto + manuel simultanés)
+   v5 : Lot 1 + Lot 2 + fix double roll + intégration anti-triche
    ========================================================= */
 
 /* ---------- 1. CONFIGURATION ---------- */
@@ -802,7 +801,6 @@ const AURAS = [
     },
 ];
 
-/* ===== 63 NOUVELLES AURAS ===== */
 const NEW_AURAS_RAW = [
     [
         "a109",
@@ -1296,7 +1294,6 @@ const NEW_AURAS_RAW = [
     ],
 ];
 
-// Poids des nouvelles auras
 const BASE_WEIGHT_TOTAL = AURAS.reduce((s, a) => s + a.weight, 0);
 const NEW_AURA_MASS = NEW_AURAS_RAW.reduce((s, r) => s + 1 / r[3], 0);
 const TOTAL_WEIGHT = BASE_WEIGHT_TOTAL / (1 - NEW_AURA_MASS);
@@ -1317,7 +1314,6 @@ const AURA_BY_ID = Object.fromEntries(AURAS.map((a) => [a.id, a]));
 function auraColor(aura) {
     return aura.color || RARITY_COLORS[aura.rarity];
 }
-
 function auraWeight(aura) {
     if (!aura) return Infinity;
     if (aura.oneIn) return aura.oneIn;
@@ -1522,7 +1518,6 @@ const UPGRADES = [
     },
 ];
 
-/* ===== PLAFONDS DE CHANCE ===== */
 const LUCK_SOFT_CAP = 2.0;
 const LUCK_HARD_CAP = 3.5;
 const POTION_LUCK_MAX = 1.35;
@@ -1543,8 +1538,6 @@ const COIN_REWARDS = {
 const REVEAL_RARITIES = ["divine", "celestial", "cosmic", "secret"];
 const SHAKE_RARITIES = ["secret"];
 const PARTICLE_RARITIES = ["cosmic", "secret"];
-
-// Raretés qui déclenchent une annonce globale
 const ANNOUNCE_RARITIES = ["mythic", "divine", "celestial", "cosmic", "secret"];
 
 const AUTOROLL_PRICE_COINS = 1500;
@@ -1555,7 +1548,141 @@ const SAVE_KEY = "auraRng_save_v1";
 const SAVE_VERSION = 1;
 const FB_EMAIL_DOMAIN = "@aurarng.local";
 
-let lastRolledAura = null;
+/* ===== LOT 2 : XP / NIVEAUX ===== */
+const XP_REWARDS = {
+    common: 1,
+    uncommon: 3,
+    rare: 10,
+    epic: 30,
+    legendary: 120,
+    mythic: 500,
+    divine: 2000,
+    celestial: 5000,
+    cosmic: 15000,
+    secret: 50000,
+};
+const MAX_LEVEL = 100;
+
+function xpForLevel(n) {
+    if (n <= 1) return 0;
+    return Math.round((100 * n * (n - 1)) / 2);
+}
+function xpToNextLevel(n) {
+    if (n >= MAX_LEVEL) return 0;
+    return xpForLevel(n + 1) - xpForLevel(n);
+}
+
+/* ===== LOT 2 : TITRES ===== */
+const TITLES = [
+    {
+        id: "t_rookie",
+        name: "Débutant",
+        icon: "🌱",
+        desc: "Bienvenue dans l'aventure.",
+        check: () => true,
+    },
+    {
+        id: "t_passion",
+        name: "Passionné",
+        icon: "🔥",
+        desc: "Atteins le niveau 10.",
+        check: () => (state.level || 1) >= 10,
+    },
+    {
+        id: "t_veteran",
+        name: "Vétéran",
+        icon: "👑",
+        desc: "Atteins le niveau 30.",
+        check: () => (state.level || 1) >= 30,
+    },
+    {
+        id: "t_legend",
+        name: "Légende",
+        icon: "💎",
+        desc: "Atteins le niveau 50.",
+        check: () => (state.level || 1) >= 50,
+    },
+    {
+        id: "t_supreme",
+        name: "Maître Suprême",
+        icon: "🌟",
+        desc: "Atteins le niveau 100.",
+        check: () => (state.level || 1) >= 100,
+    },
+    {
+        id: "t_rollking",
+        name: "Roi des Rolls",
+        icon: "🎲",
+        desc: "Fais 10 000 rolls.",
+        check: () => (state.totalRolls || 0) >= 10000,
+    },
+    {
+        id: "t_secret",
+        name: "Chasseur de Secrets",
+        icon: "🎯",
+        desc: "Obtiens 1 aura secret.",
+        check: () => hasRarity("secret"),
+    },
+    {
+        id: "t_blessed",
+        name: "Béni des Dieux",
+        icon: "🍀",
+        desc: "Obtiens 1 aura divine ou supérieure.",
+        check: () =>
+            ["divine", "celestial", "cosmic", "secret"].some(hasRarity),
+    },
+    {
+        id: "t_collector",
+        name: "Le Collectionneur",
+        icon: "📚",
+        desc: "Complète 50% de la collection.",
+        check: () => collectionPercent() >= 50,
+    },
+    {
+        id: "t_master",
+        name: "Maître Absolu",
+        icon: "🏆",
+        desc: "Complète 100% de la collection.",
+        check: () => collectionPercent() >= 100,
+    },
+];
+
+function hasRarity(rarity) {
+    return AURAS.some((a) => a.rarity === rarity && state.discovered[a.id]);
+}
+function collectionPercent() {
+    const total = AURAS.length;
+    const found = Object.keys(state.discovered).length;
+    return total > 0 ? (found / total) * 100 : 0;
+}
+
+/* ===== LOT 2 : COLLECTIONS COMPLÈTES ===== */
+const COMPLETE_COLLECTION_BONUSES = {
+    common: 0.02,
+    uncommon: 0.03,
+    rare: 0.05,
+    epic: 0.08,
+    legendary: 0.12,
+    mythic: 0.18,
+    divine: 0.25,
+    celestial: 0.35,
+    cosmic: 0.5,
+    secret: 1.0,
+};
+
+function isRarityComplete(rarity) {
+    return AURAS.filter((a) => a.rarity === rarity).every(
+        (a) => state.discovered[a.id],
+    );
+}
+
+function getCompleteCollectionBonus() {
+    let bonus = 0;
+    RARITIES.forEach((r) => {
+        if (isRarityComplete(r)) bonus += COMPLETE_COLLECTION_BONUSES[r] || 0;
+    });
+    return bonus;
+}
 
 /* ---------- 2. ÉTAT + SAUVEGARDE ---------- */
 
@@ -1582,6 +1709,11 @@ function createDefaultState() {
         autoRollPaywallOpenCount: 0,
         uid: null,
         username: null,
+        // LOT 2
+        xp: 0,
+        level: 1,
+        equippedTitle: null,
+        unlockedTitles: [],
         settings: {
             sound: true,
             volume: 0.5,
@@ -1688,17 +1820,14 @@ function getUpgradeLevel(id) {
     const lvl = state.upgrades[id] || 0;
     return up ? Math.min(lvl, up.maxLevel) : lvl;
 }
-
 function getUpgradeCost(upgrade) {
     const level = getUpgradeLevel(upgrade.id);
     if (level >= upgrade.maxLevel) return null;
     return upgrade.costs[level];
 }
-
 function getUpgradeTotalEffect(upgrade, level) {
     return upgrade.effects.slice(0, level).reduce((a, b) => a + b, 0);
 }
-
 function getUpgradeEffect(effectType) {
     let total = 0;
     UPGRADES.forEach((up) => {
@@ -1740,6 +1869,8 @@ function getPermanentLuckBonus() {
         const a = AURA_BY_ID[state.equipped];
         if (a && a.luckBonus) bonus += a.luckBonus - 1;
     }
+    // ✅ LOT 2 : bonus collections complètes
+    bonus += getCompleteCollectionBonus();
     return bonus;
 }
 
@@ -1785,7 +1916,7 @@ function formatChance(aura) {
 }
 
 function performRoll() {
-    // ✅ Vérifie le rate limit AVANT tout
+    // ✅ Anti-triche : rate limit
     if (window.__auraAntiTamper) {
         const check = window.__auraAntiTamper.rateCheck();
         if (!check.ok) {
@@ -1815,7 +1946,6 @@ function registerAura(aura) {
         const oldR = RARITY_INDEX[currentBest.rarity];
         const newW = auraWeight(aura);
         const oldW = auraWeight(currentBest);
-
         if (
             newR > oldR ||
             (newR === oldR && newW > oldW) ||
@@ -1850,13 +1980,67 @@ function registerAura(aura) {
         }
     });
 
-    // ✅ Annonce globale pour mythic+
-    if (ANNOUNCE_RARITIES.includes(aura.rarity)) {
-        publishAnnouncement(aura);
-    }
+    // Annonce globale mythic+
+    if (ANNOUNCE_RARITIES.includes(aura.rarity)) publishAnnouncement(aura);
+
+    // ✅ LOT 2 : gagne de l'XP
+    gainXP(XP_REWARDS[aura.rarity] || 1);
 
     if (state.totalRolls % 10 === 0) pushToLeaderboard();
     saveGame();
+}
+
+/* ---------- LOT 2 : XP / NIVEAUX / TITRES ---------- */
+
+function gainXP(amount) {
+    if (amount <= 0) return;
+    state.xp = (state.xp || 0) + amount;
+
+    let leveled = false;
+    while (state.level < MAX_LEVEL && state.xp >= xpForLevel(state.level + 1)) {
+        state.level++;
+        leveled = true;
+        const reward = 50 * state.level;
+        state.coins += reward;
+        showToast(
+            `🎉 Niveau ${state.level} atteint ! +${reward.toLocaleString("fr-FR")} 💰`,
+        );
+    }
+
+    TITLES.forEach((t) => {
+        if (!state.unlockedTitles.includes(t.id) && t.check()) {
+            state.unlockedTitles.push(t.id);
+            if (!leveled) showToast(`🎖️ Titre débloqué : ${t.icon} ${t.name}`);
+        }
+    });
+
+    if (leveled) {
+        setTimeout(() => {
+            const badge = document.getElementById("stat-level-badge");
+            if (badge) {
+                badge.classList.add("level-up-anim");
+                setTimeout(() => badge.classList.remove("level-up-anim"), 900);
+            }
+        }, 100);
+    }
+}
+
+function equipTitle(titleId) {
+    if (!titleId) {
+        state.equippedTitle = null;
+        showToast("Titre retiré");
+    } else {
+        if (!state.unlockedTitles.includes(titleId)) {
+            showToast("❌ Titre non débloqué.");
+            return;
+        }
+        state.equippedTitle = titleId;
+        const t = TITLES.find((x) => x.id === titleId);
+        showToast(`🎖️ Titre équipé : ${t.icon} ${t.name}`);
+    }
+    saveGame();
+    renderUI();
+    renderTitles();
 }
 
 /* ---------- 4. UI ---------- */
@@ -1939,7 +2123,6 @@ function spawnParticles(container, count, rarity) {
         const distance = 300 + Math.random() * 500;
         const tx = Math.cos(angle) * distance;
         const ty = Math.sin(angle) * distance;
-
         p.style.setProperty("--tx", tx + "px");
         p.style.setProperty("--ty", ty + "px");
         p.style.left = "50%";
@@ -1950,7 +2133,6 @@ function spawnParticles(container, count, rarity) {
         p.style.animationDelay = Math.random() * 0.4 + "s";
         p.style.width = 6 + Math.random() * 12 + "px";
         p.style.height = p.style.width;
-
         container.appendChild(p);
     }
 }
@@ -1995,11 +2177,33 @@ function renderUI() {
         : "Aucune";
     $("#stat-username").textContent = state.username || "—";
 
-    if (lastRolledAura) {
-        displayAura(lastRolledAura);
-    } else if (state.equipped && AURA_BY_ID[state.equipped]) {
+    // LOT 2 : niveau + titre
+    const levelBadge = document.getElementById("stat-level-badge");
+    const levelNum = document.getElementById("stat-level");
+    if (levelBadge && levelNum) {
+        if (state.uid) {
+            levelBadge.classList.remove("hidden");
+            levelNum.textContent = state.level || 1;
+        } else levelBadge.classList.add("hidden");
+    }
+
+    const titleBadge = document.getElementById("stat-title");
+    if (titleBadge) {
+        if (state.equippedTitle) {
+            const t = TITLES.find((x) => x.id === state.equippedTitle);
+            if (t) {
+                titleBadge.classList.remove("hidden");
+                titleBadge.textContent = `${t.icon} ${t.name}`;
+            } else titleBadge.classList.add("hidden");
+        } else titleBadge.classList.add("hidden");
+    }
+
+    renderXPBar();
+
+    if (lastRolledAura) displayAura(lastRolledAura);
+    else if (state.equipped && AURA_BY_ID[state.equipped])
         displayAura(AURA_BY_ID[state.equipped]);
-    } else {
+    else {
         $("#aura-name").textContent = "Aucune aura";
         $("#aura-rarity").textContent = "—";
         $("#aura-chance").textContent = "—";
@@ -2024,6 +2228,66 @@ function renderUI() {
 
     renderEffectsBar();
     renderBiomeBackground();
+}
+
+/* ===== LOT 2 : RENDU XP / TITRES ===== */
+function renderXPBar() {
+    const container = document.getElementById("xp-bar-container");
+    const fill = document.getElementById("xp-bar-fill");
+    const text = document.getElementById("xp-bar-text");
+    if (!container || !fill || !text) return;
+    if (!state.uid) {
+        container.classList.add("hidden");
+        return;
+    }
+    container.classList.remove("hidden");
+
+    const level = state.level || 1;
+    if (level >= MAX_LEVEL) {
+        fill.style.width = "100%";
+        text.textContent = `Niveau max atteint (${MAX_LEVEL})`;
+        return;
+    }
+
+    const xpThisLevel = state.xp - xpForLevel(level);
+    const xpNeeded = xpToNextLevel(level);
+    const pct =
+        xpNeeded > 0 ? Math.min(100, (xpThisLevel / xpNeeded) * 100) : 0;
+    fill.style.width = pct.toFixed(1) + "%";
+    text.textContent = `${xpThisLevel.toLocaleString("fr-FR")} / ${xpNeeded.toLocaleString("fr-FR")} XP`;
+}
+
+function renderTitles() {
+    const grid = document.getElementById("titles-grid");
+    if (!grid) return;
+    grid.innerHTML = "";
+
+    TITLES.forEach((t) => {
+        if (!state.unlockedTitles.includes(t.id) && t.check())
+            state.unlockedTitles.push(t.id);
+    });
+
+    TITLES.forEach((t) => {
+        const unlocked = state.unlockedTitles.includes(t.id);
+        const equipped = state.equippedTitle === t.id;
+        const card = document.createElement("div");
+        card.className =
+            "title-card" +
+            (unlocked ? "" : " locked") +
+            (equipped ? " equipped" : "");
+        card.innerHTML = `
+            <div class="title-icon">${t.icon}</div>
+            <div class="title-name">${t.name}</div>
+            <div class="title-desc">${unlocked ? t.desc : "🔒 " + t.desc}</div>
+        `;
+        if (unlocked) {
+            card.addEventListener("click", () => {
+                if (equipped) equipTitle(null);
+                else equipTitle(t.id);
+            });
+        }
+        grid.appendChild(card);
+    });
 }
 
 /* ---------- 5. INVENTAIRE / BOUTIQUE / CRAFT / BIOMES / UPGRADES / STATS ---------- */
@@ -2349,6 +2613,20 @@ function renderStats() {
     const tempMult = getTemporaryLuckMultiplier();
     const totalLuck = getTotalLuckMultiplier();
 
+    const level = state.level || 1;
+    const xpThis = state.xp - xpForLevel(level);
+    const xpNext = xpToNextLevel(level);
+    const levelLine =
+        level >= MAX_LEVEL
+            ? `<p>🎖️ Niveau : ${level} (MAX)</p>`
+            : `<p>🎖️ Niveau : ${level} — ${xpThis.toLocaleString("fr-FR")} / ${xpNext.toLocaleString("fr-FR")} XP</p>`;
+    const titleLine = state.equippedTitle
+        ? (() => {
+              const t = TITLES.find((x) => x.id === state.equippedTitle);
+              return t ? `<p>🎖️ Titre équipé : ${t.icon} ${t.name}</p>` : "";
+          })()
+        : "";
+
     $("#stats-content").innerHTML = `
     <p>🎲 Rolls totaux : ${state.totalRolls.toLocaleString("fr-FR")}</p>
     <p>🔍 Auras découvertes : ${discovered} / ${AURAS.length}</p>
@@ -2364,10 +2642,32 @@ function renderStats() {
     <p>⏳ Chance temporaire (potion) : +${((tempMult - 1) * 100).toFixed(0)}%</p>
     <p>🍀 Chance totale : x${totalLuck.toFixed(2)} (plafond x${LUCK_HARD_CAP.toFixed(2)})</p>
     <p>👤 Joueur : ${state.username || "—"}</p>
+    ${levelLine}
+    ${titleLine}
     <p>📊 Collection : ${pct}%</p>
     <hr style="margin:10px 0; opacity:.2;" />
     <h3>Répartition par rareté</h3>
     ${RARITIES.map((r) => `<p>${r} : ${byRarity[r]} / ${totalByRarity[r]}</p>`).join("")}
+    <hr style="margin:10px 0; opacity:.2;" />
+    <h3>Collections complètes</h3>
+    <div class="collections-section">
+        ${RARITIES.map((r) => {
+            const found = byRarity[r];
+            const total = totalByRarity[r];
+            const complete = isRarityComplete(r);
+            const bonus = COMPLETE_COLLECTION_BONUSES[r] || 0;
+            const bonusText = complete
+                ? `✅ +${(bonus * 100).toFixed(0)}% chance active`
+                : `+${(bonus * 100).toFixed(0)}% si complète`;
+            return `
+                <div class="collection-row ${complete ? "complete" : ""}">
+                    <span class="col-rarity">${r}</span>
+                    <span class="col-progress">${found} / ${total}</span>
+                    <span class="col-bonus">${bonusText}</span>
+                </div>
+            `;
+        }).join("")}
+    </div>
   `;
 }
 
@@ -2409,9 +2709,9 @@ function showAuthLoading(show, text) {
 function setAuthMode(mode) {
     authMode = mode;
     showAuthLoading(false);
-    document.querySelectorAll(".auth-tab").forEach((t) => {
-        t.classList.toggle("active", t.dataset.auth === mode);
-    });
+    document
+        .querySelectorAll(".auth-tab")
+        .forEach((t) => t.classList.toggle("active", t.dataset.auth === mode));
     document.getElementById("auth-title").textContent =
         mode === "login" ? "🔐 Connexion" : "✨ Créer un compte";
     document.getElementById("auth-submit").textContent =
@@ -2461,9 +2761,7 @@ async function handleAuthSubmit() {
                 errorEl.textContent = "❌ Ce pseudo est déjà pris.";
                 return;
             }
-
             localStorage.setItem(LS_PENDING_PSEUDO, username);
-
             let user;
             try {
                 const cred = await FB.createUserWithEmailAndPassword(
@@ -2476,9 +2774,7 @@ async function handleAuthSubmit() {
                 localStorage.removeItem(LS_PENDING_PSEUDO);
                 throw e;
             }
-
             localStorage.setItem(pseudoKeyFor(user.uid), username);
-
             try {
                 await FB.set(usernameRef, {
                     uid: user.uid,
@@ -2487,7 +2783,6 @@ async function handleAuthSubmit() {
             } catch (e) {
                 console.warn("usernames échoué :", e);
             }
-
             try {
                 await FB.updateProfile(user, { displayName: username });
             } catch (e) {
@@ -2592,13 +2887,21 @@ function initAuth() {
                 if (
                     (state.totalRolls > 0 || state.coins > 0) &&
                     state._uid === user.uid
-                ) {
+                )
                     pushSaveToCloud();
-                }
             }
             state.uid = user.uid;
             state.username = username;
             state._uid = user.uid;
+
+            // LOT 2 : init
+            if (!Array.isArray(state.unlockedTitles)) state.unlockedTitles = [];
+            if (!state.level || state.level < 1) state.level = 1;
+            if (!state.xp || state.xp < 0) state.xp = 0;
+            TITLES.forEach((t) => {
+                if (!state.unlockedTitles.includes(t.id) && t.check())
+                    state.unlockedTitles.push(t.id);
+            });
 
             document.getElementById("stat-username").textContent =
                 state.username;
@@ -2639,18 +2942,14 @@ function pushToLeaderboard() {
     const name = getPlayerName();
     const uid = state.uid;
     if (!name || !uid || !window.FB) return;
-
     const { db, ref, update } = window.FB;
     const playerRef = ref(db, "players/" + uid);
-
     const bestAura = state.bestAura ? AURA_BY_ID[state.bestAura] : null;
-
-    let bestAuraScore = 0;
-    let bestAuraName = "Aucune";
-    let bestAuraRarity = "none";
-    let bestAuraWeight = 0;
-    let bestAuraChance = "—";
-
+    let bestAuraScore = 0,
+        bestAuraName = "Aucune",
+        bestAuraRarity = "none",
+        bestAuraWeight = 0,
+        bestAuraChance = "—";
     if (bestAura) {
         const rIdx = RARITY_INDEX[bestAura.rarity];
         const w = auraWeight(bestAura);
@@ -2660,7 +2959,6 @@ function pushToLeaderboard() {
         bestAuraWeight = w;
         bestAuraChance = formatChance(bestAura);
     }
-
     update(playerRef, {
         name,
         bestAuraName,
@@ -2670,6 +2968,8 @@ function pushToLeaderboard() {
         bestAuraChance,
         totalRolls: state.totalRolls,
         playTime: Math.floor(state.playTime),
+        level: state.level || 1,
+        xp: state.xp || 0,
         updatedAt: Date.now(),
     }).catch((e) => console.warn("Erreur sync classement :", e));
 }
@@ -2680,20 +2980,16 @@ function fetchLeaderboard(type, callback) {
         return;
     }
     const { db, ref, query, orderByChild, limitToLast, get } = window.FB;
-
     const config = {
         bestAura: "bestAuraScore",
         totalRolls: "totalRolls",
         playTime: "playTime",
     }[type];
-
     if (!config) {
         callback({ players: [], error: "Type inconnu" });
         return;
     }
-
     const q = query(ref(db, "players"), orderByChild(config), limitToLast(20));
-
     get(q)
         .then((snapshot) => {
             const results = [];
@@ -2708,9 +3004,7 @@ function fetchLeaderboard(type, callback) {
                     return;
                 results.push(val);
             });
-
             results.reverse();
-
             callback({ players: results, error: null });
         })
         .catch((e) => {
@@ -2726,15 +3020,12 @@ function fetchLeaderboard(type, callback) {
 function renderLeaderboard(type, silent = false) {
     const container = $("#lb-content");
     const status = $("#lb-status");
-
     currentLeaderboardTab = type;
-
     if (!silent) {
         status.textContent = "Chargement...";
         status.style.color = "";
         container.innerHTML = "";
     }
-
     fetchLeaderboard(type, ({ players, error }) => {
         if (error) {
             status.textContent = "⚠️ " + error;
@@ -2742,14 +3033,12 @@ function renderLeaderboard(type, silent = false) {
             container.innerHTML = "";
             return;
         }
-
         if (!players || players.length === 0) {
             status.textContent = "Aucun joueur pour le moment.";
             status.style.color = "";
             container.innerHTML = "";
             return;
         }
-
         status.style.color = "";
         const myName = getPlayerName();
         const timeStr = new Date().toLocaleTimeString("fr-FR", {
@@ -2758,17 +3047,13 @@ function renderLeaderboard(type, silent = false) {
             second: "2-digit",
         });
         status.textContent = `Top ${players.length} joueurs · actualisé à ${timeStr}`;
-
         container.innerHTML = "";
-
         players.forEach((p, index) => {
             const rank = index + 1;
             const isMe = myName && p.name === myName;
-
-            let displayValue = "";
-            let subValue = "";
-            let valueColor = "#4ade80";
-
+            let displayValue = "",
+                subValue = "",
+                valueColor = "#4ade80";
             if (type === "bestAura") {
                 displayValue = p.bestAuraName || "Aucune";
                 subValue =
@@ -2776,14 +3061,13 @@ function renderLeaderboard(type, silent = false) {
                         ? p.bestAuraChance
                         : (p.bestAuraRarity || "").toUpperCase();
                 valueColor = RARITY_COLORS[p.bestAuraRarity] || "#4ade80";
-            } else if (type === "totalRolls") {
+            } else if (type === "totalRolls")
                 displayValue =
                     (p.totalRolls || 0).toLocaleString("fr-FR") + " rolls";
-            } else if (type === "playTime") {
-                const mins = Math.floor((p.playTime || 0) / 60);
-                displayValue = mins.toLocaleString("fr-FR") + " min";
-            }
-
+            else if (type === "playTime")
+                displayValue =
+                    Math.floor((p.playTime || 0) / 60).toLocaleString("fr-FR") +
+                    " min";
             const row = document.createElement("div");
             row.className = "lb-row" + (isMe ? " me" : "");
             const rankClass =
@@ -2794,7 +3078,6 @@ function renderLeaderboard(type, silent = false) {
                       : rank === 3
                         ? " top3"
                         : "";
-
             row.innerHTML = `
                 <div class="lb-rank${rankClass}">${rank}</div>
                 <div class="lb-name">
@@ -2810,18 +3093,15 @@ function renderLeaderboard(type, silent = false) {
 
 function initLeaderboard() {
     if (getPlayerName()) pushToLeaderboard();
-
     if (leaderboardInterval) clearInterval(leaderboardInterval);
     leaderboardInterval = setInterval(() => {
         if (getPlayerName()) pushToLeaderboard();
     }, 15000);
-
     if (leaderboardRefreshInterval) clearInterval(leaderboardRefreshInterval);
     leaderboardRefreshInterval = setInterval(() => {
         const modal = document.getElementById("leaderboard-modal");
-        if (modal && !modal.classList.contains("hidden") && getPlayerName()) {
+        if (modal && !modal.classList.contains("hidden") && getPlayerName())
             renderLeaderboard(currentLeaderboardTab, true);
-        }
     }, 15000);
 }
 
@@ -2852,7 +3132,7 @@ async function cleanGhostPlayers() {
     }
 }
 
-/* ---------- 7. PLAYTIME TRACKER ---------- */
+/* ---------- 7. PLAYTIME ---------- */
 
 const TAB_ID = Math.random().toString(36).slice(2, 10);
 const TAB_HEARTBEAT_KEY = "auraRng_activeTab";
@@ -2872,27 +3152,20 @@ function startPlayTimeTracker() {
     } catch (e) {
         tabChannel = null;
     }
-
     electPrimaryTab();
-
     if (tabChannel) {
         tabChannel.onmessage = (ev) => {
             if (!ev.data) return;
-            if (ev.data.type === "iam_primary" && ev.data.tabId !== TAB_ID) {
+            if (ev.data.type === "iam_primary" && ev.data.tabId !== TAB_ID)
                 isPrimaryTab = false;
-            }
         };
     }
-
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") {
             lastTickAt = Date.now();
             electPrimaryTab();
-        } else {
-            flushPlayTime();
-        }
+        } else flushPlayTime();
     });
-
     heartbeatInterval = setInterval(() => {
         if (document.visibilityState === "visible") {
             try {
@@ -2904,22 +3177,18 @@ function startPlayTimeTracker() {
             if (tabChannel) tabChannel.postMessage({ type: "hello" });
         }
     }, TAB_HEARTBEAT_INTERVAL);
-
     lastTickAt = Date.now();
     playTimeTickInterval = setInterval(() => {
         const now = Date.now();
         const delta = (now - lastTickAt) / 1000;
         lastTickAt = now;
-
         if (!state.uid) return;
         if (document.visibilityState !== "visible") return;
         if (!isPrimaryTab) return;
         if (delta > 10) return;
-
         const beforeFloor = Math.floor(state.playTime);
         state.playTime += delta;
         const afterFloor = Math.floor(state.playTime);
-
         if (afterFloor !== beforeFloor && afterFloor % 10 === 0) saveGame(true);
         if (afterFloor !== beforeFloor && afterFloor % 60 === 0) saveGame();
     }, 1000);
@@ -2963,7 +3232,7 @@ function electPrimaryTab() {
     }
 }
 
-/* ---------- 8. LOT 1 — BANDEAU / NUMÉROS / PARTICULES ---------- */
+/* ---------- 8. LOT 1 : BANDEAU / NUMÉROS / PARTICULES ---------- */
 
 let bannerTimeout = null;
 
@@ -2971,22 +3240,12 @@ function showGlobalBanner(data) {
     const banner = document.getElementById("global-banner");
     const text = document.getElementById("global-banner-text");
     if (!banner || !text) return;
-
     const rarity = data.auraRarity || "mythic";
-    const parts = [
-        "⚡",
-        `<strong>${data.name}</strong>`,
-        "vient d'obtenir",
-        `<strong>[${data.auraName}]</strong>`,
-        `— ${data.chance || "?"}`,
-    ];
-    text.innerHTML = parts.join(" ");
-
+    text.innerHTML = `⚡ <strong>${data.name}</strong> vient d'obtenir <strong>[${data.auraName}]</strong> — ${data.chance || "?"}`;
     banner.setAttribute("data-rarity", rarity);
     banner.classList.remove("hidden");
     void banner.offsetWidth;
     banner.classList.add("show");
-
     clearTimeout(bannerTimeout);
     const duration =
         rarity === "secret" ? 7000 : rarity === "cosmic" ? 6000 : 5000;
@@ -2999,7 +3258,6 @@ function showGlobalBanner(data) {
 async function publishAnnouncement(aura) {
     if (!window.FB || !state.uid || !state.username) return;
     if (!ANNOUNCE_RARITIES.includes(aura.rarity)) return;
-
     try {
         const { db, ref, push, set, serverTimestamp } = window.FB;
         const annRef = push(ref(db, "announcements"));
@@ -3027,9 +3285,8 @@ async function cleanOldAnnouncements() {
         snap.forEach((child) => {
             const v = child.val();
             if (!v || !v.ts) return;
-            if (now - v.ts > 10 * 60 * 1000) {
+            if (now - v.ts > 10 * 60 * 1000)
                 deletions.push(remove(ref(db, "announcements/" + child.key)));
-            }
         });
         if (deletions.length) await Promise.all(deletions);
     } catch (e) {}
@@ -3039,7 +3296,6 @@ let announcementsListenerStarted = false;
 function startAnnouncementsListener() {
     if (!window.FB || announcementsListenerStarted) return;
     announcementsListenerStarted = true;
-
     const { db, ref, query, orderByChild, limitToLast, onChildAdded } =
         window.FB;
     const q = query(
@@ -3047,9 +3303,7 @@ function startAnnouncementsListener() {
         orderByChild("ts"),
         limitToLast(5),
     );
-
     const startTs = Date.now();
-
     onChildAdded(q, (snap) => {
         const data = snap.val();
         if (!data) return;
@@ -3059,9 +3313,7 @@ function startAnnouncementsListener() {
     });
 }
 
-/* Numéros animés */
 const _lastValues = new WeakMap();
-
 function animateNumber(el, newValue, options = {}) {
     if (!el) return;
     const duration = options.duration || 700;
@@ -3069,14 +3321,11 @@ function animateNumber(el, newValue, options = {}) {
     const suffix = options.suffix || "";
     const locale = options.locale || "fr-FR";
     const flash = options.flash !== false;
-
     const prev = _lastValues.get(el);
     const from = typeof prev === "number" ? prev : newValue;
     _lastValues.set(el, newValue);
-
     const start = performance.now();
     const diff = newValue - from;
-
     function tick(now) {
         const t = Math.min(1, (now - start) / duration);
         const eased = 1 - Math.pow(1 - t, 3);
@@ -3086,7 +3335,6 @@ function animateNumber(el, newValue, options = {}) {
         else el.textContent = prefix + newValue.toLocaleString(locale) + suffix;
     }
     requestAnimationFrame(tick);
-
     if (flash && diff !== 0) {
         el.classList.remove("num-up", "num-down", "num-flash");
         void el.offsetWidth;
@@ -3098,7 +3346,6 @@ function animateNumber(el, newValue, options = {}) {
     }
 }
 
-/* Particules par biome */
 const BIOME_PARTICLE_CONFIG = {
     plains: { cls: "particle-plains", count: 18, spawnRate: 500 },
     forest: {
@@ -3124,28 +3371,22 @@ let currentBiomeParticleType = null;
 function startBiomeParticles() {
     const box = document.getElementById("biome-particles");
     if (!box) return;
-
     const biomeId = state.currentBiome;
     if (currentBiomeParticleType === biomeId && particleSpawnInterval) return;
     currentBiomeParticleType = biomeId;
-
     if (particleSpawnInterval) {
         clearInterval(particleSpawnInterval);
         particleSpawnInterval = null;
     }
     box.innerHTML = "";
-
     if (state.settings.reduceAnim) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
     const config =
         BIOME_PARTICLE_CONFIG[biomeId] || BIOME_PARTICLE_CONFIG.plains;
-
     function spawnOne() {
         if (!document.body.contains(box)) return;
         const el = document.createElement("div");
         el.className = "biome-particle " + config.cls;
-
         if (biomeId === "desert") {
             el.style.left = "-5%";
             el.style.top = Math.random() * 100 + "%";
@@ -3169,25 +3410,18 @@ function startBiomeParticles() {
             el.style.top = "-2%";
             el.style.setProperty("--dx", Math.random() * 200 - 100 + "px");
         }
-
         if (config.colors && config.colors.length) {
             const c =
                 config.colors[Math.floor(Math.random() * config.colors.length)];
             el.style.color = c;
             if (biomeId === "forest") el.style.background = c;
         }
-
         const dur = 6 + Math.random() * 6;
         el.style.animationDuration = dur + "s";
         box.appendChild(el);
-
         setTimeout(() => el.remove(), (dur + 0.5) * 1000);
     }
-
-    for (let i = 0; i < config.count; i++) {
-        setTimeout(spawnOne, i * 120);
-    }
-
+    for (let i = 0; i < config.count; i++) setTimeout(spawnOne, i * 120);
     particleSpawnInterval = setInterval(spawnOne, config.spawnRate);
 }
 
@@ -3203,34 +3437,27 @@ function stopBiomeParticles() {
 
 /* ---------- 9. ÉVÉNEMENTS ---------- */
 
-// ✅ VERROU UNIQUE : garantit qu'un seul roll peut être en cours
-//    (auto OU manuel), et le relâche dans tous les cas.
+let lastRolledAura = null;
 let rollLock = false;
 let autoRollActive = false;
 let autoRollTimer = null;
 
 function handleAuraReveal(aura) {
-    if (REVEAL_RARITIES.includes(aura.rarity) && !state.settings.reduceAnim) {
+    if (REVEAL_RARITIES.includes(aura.rarity) && !state.settings.reduceAnim)
         showReveal(aura);
-    } else if (!state.settings.hideCommon || aura.rarity !== "common") {
+    else if (!state.settings.hideCommon || aura.rarity !== "common")
         showToast(`✨ ${aura.name} (${aura.rarity})`);
-    }
 }
 
-/* ---------- Roll manuel : prend le verrou, ignore si déjà pris ---------- */
 $("#roll-btn").addEventListener("click", () => {
-    // ✅ Verrou atomique : si un roll (auto ou manuel) tourne déjà, on ignore
     if (rollLock) return;
     rollLock = true;
     $("#roll-btn").disabled = true;
-
     const delay = state.settings.reduceAnim ? 0 : 300;
     setTimeout(() => {
         try {
             const aura = performRoll();
-            // ✅ Si le roll est refusé (rate limit), on arrête
             if (!aura) return;
-
             handleAuraReveal(aura);
             playSound("roll");
             if (REVEAL_RARITIES.includes(aura.rarity)) playSound("rare");
@@ -3266,27 +3493,20 @@ function toggleAutoRoll() {
         btn.textContent = "Auto Roll : OFF";
         btn.classList.remove("active");
         clearTimeout(autoRollTimer);
-        // Réactive le bouton manuel si aucun roll n'est en cours
         if (!rollLock) $("#roll-btn").disabled = false;
     }
 }
 
 function runAutoRollLoop() {
     if (!autoRollActive) return;
-
-    // ✅ Si un roll est déjà en cours (manuel), on attend et on réessaie
     if (rollLock) {
         autoRollTimer = setTimeout(runAutoRollLoop, 100);
         return;
     }
-
     rollLock = true;
-    // Désactive le bouton manuel pendant l'auto-roll
     $("#roll-btn").disabled = true;
-
     try {
         const aura = performRoll();
-        // ✅ Si refusé (rate limit), on arrête l'auto-roll
         if (!aura) {
             autoRollActive = false;
             const btn = $("#auto-roll-btn");
@@ -3295,7 +3515,6 @@ function runAutoRollLoop() {
             showToast("🚫 Auto Roll arrêté (triche détectée)");
             return;
         }
-
         handleAuraReveal(aura);
         playSound("roll");
         renderUI();
@@ -3307,7 +3526,6 @@ function runAutoRollLoop() {
         rollLock = false;
         if (!autoRollActive) $("#roll-btn").disabled = false;
     }
-
     let interval = 600;
     const speedEffect = state.activeEffects.find((e) => e.speed);
     if (speedEffect) interval *= 1 - speedEffect.speed;
@@ -3492,6 +3710,10 @@ $("#upgrades-btn").addEventListener("click", () => {
     renderUpgrades();
     openModal("upgrades-modal");
 });
+$("#titles-btn").addEventListener("click", () => {
+    renderTitles();
+    openModal("titles-modal");
+});
 $("#stats-btn").addEventListener("click", () => {
     renderStats();
     openModal("stats-modal");
@@ -3557,6 +3779,16 @@ $("#opt-hide-common").addEventListener("change", (e) => {
     saveGame();
 });
 
+const resetAtBtn = document.getElementById("reset-antitamper-btn");
+if (resetAtBtn) {
+    resetAtBtn.addEventListener("click", () => {
+        if (window.__auraAntiTamper) {
+            window.__auraAntiTamper.violations.reset();
+            showToast("✅ Violations réinitialisées");
+        }
+    });
+}
+
 document.getElementById("clean-lb-btn").addEventListener("click", async () => {
     if (!confirm("Supprimer toutes les entrées 'Joueur' du classement ?"))
         return;
@@ -3605,11 +3837,9 @@ function playSound(type) {
     const gain = audioCtx.createGain();
     osc.connect(gain);
     gain.connect(audioCtx.destination);
-
     let freq = 440,
         dur = 0.1,
         waveType = "sine";
-
     if (type === "roll") {
         freq = 300;
         dur = 0.08;
@@ -3646,14 +3876,12 @@ function playSound(type) {
         dur = 2.5;
         waveType = "square";
     }
-
     osc.frequency.value = freq;
     osc.type = waveType;
     gain.gain.value = state.settings.volume * 0.15;
     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
     osc.start();
     osc.stop(audioCtx.currentTime + dur);
-
     if (type.startsWith("reveal-")) {
         const osc2 = audioCtx.createOscillator();
         const gain2 = audioCtx.createGain();
@@ -3710,53 +3938,6 @@ function init() {
     console.log("🎮 Aura RNG prêt !");
 }
 
-// ✅ Expose les fonctions critiques pour la surveillance anti-triche
-window.performRoll = performRoll;
-window.registerAura = registerAura;
-window.getTotalLuckMultiplier = getTotalLuckMultiplier;
-window.pushToLeaderboard = pushToLeaderboard;
-window.state = state;
-
-// ✅ Active les protections quand tout est prêt
-setTimeout(() => {
-    if (window.__auraAntiTamper) {
-        window.__auraAntiTamper.snapshot();
-        window.__auraAntiTamper.freeze(["performRoll", "registerAura"]);
-        window.__auraAntiTamper.lockState();
-
-        // Vérifie l'intégrité toutes les 5s
-        setInterval(() => {
-            const integrity = window.__auraAntiTamper.checkIntegrity();
-            if (!integrity.ok) {
-                console.warn("🚨", integrity.reason);
-                document.body.innerHTML = `
-                    <div style="
-                        color: #fff;
-                        background: #1a0000;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        height: 100vh;
-                        font-family: sans-serif;
-                        text-align: center;
-                        padding: 40px;
-                    ">
-                        <div>
-                            <h1 style="color: #f87171;">🚫 Triche détectée</h1>
-                            <p style="margin-top: 20px; opacity: 0.8;">
-                                ${integrity.reason}
-                            </p>
-                            <p style="margin-top: 20px; opacity: 0.6;">
-                                Recharge la page pour reprendre.
-                            </p>
-                        </div>
-                    </div>
-                `;
-            }
-        }, 5000);
-    }
-}, 1000);
-
 if (window.FB) {
     init();
 } else {
@@ -3765,3 +3946,34 @@ if (window.FB) {
         if (!authInitialized && window.FB) init();
     }, 500);
 }
+
+/* ---------- 12. EXPOSE POUR ANTI-TRICHE ---------- */
+
+window.performRoll = performRoll;
+window.registerAura = registerAura;
+window.getTotalLuckMultiplier = getTotalLuckMultiplier;
+window.pushToLeaderboard = pushToLeaderboard;
+window.state = state;
+
+setTimeout(() => {
+    if (window.__auraAntiTamper) {
+        window.__auraAntiTamper.snapshot();
+        window.__auraAntiTamper.freeze(["performRoll", "registerAura"]);
+        window.__auraAntiTamper.lockState();
+        setInterval(() => {
+            const integrity = window.__auraAntiTamper.checkIntegrity();
+            if (!integrity.ok) {
+                console.warn("🚨", integrity.reason);
+                document.body.innerHTML = `
+                    <div style="color: #fff; background: #1a0000; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; text-align: center; padding: 40px;">
+                        <div>
+                            <h1 style="color: #f87171;">🚫 Triche détectée</h1>
+                            <p style="margin-top: 20px; opacity: 0.8;">${integrity.reason}</p>
+                            <p style="margin-top: 20px; opacity: 0.6;">Recharge la page pour reprendre.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }, 5000);
+    }
+}, 1000);

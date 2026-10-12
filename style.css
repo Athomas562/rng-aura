@@ -1,15 +1,10 @@
-@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Outfit:wght@400;500;600;700&display=swap");
-
 /* =========================================================
    AURA RNG — style.css
-   Direction : nuit cosmique, violet/cyan maîtrisés, lumière
-   portée par les auras (couleur de rareté) plutôt que par l'UI.
-   Aucune modification du HTML / JS requise.
+   Lot 1 + Lot 2 intégrés
    ========================================================= */
 
-/* =========================================================
-   TOKENS
-   ========================================================= */
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Outfit:wght@400;500;600;700&display=swap");
+
 :root {
     --void: #060710;
     --panel: #0f1226;
@@ -31,9 +26,6 @@
     --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* =========================================================
-   RESET & BASE
-   ========================================================= */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -88,9 +80,105 @@ button:disabled {
     background: transparent;
 }
 
-/* =========================================================
-   ARRIÈRE-PLAN (classes bg-* pilotées par le JS)
-   ========================================================= */
+/* ===== BANDEAU GLOBAL ===== */
+#global-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 250;
+    padding: 14px 20px;
+    text-align: center;
+    font-family: "Cinzel", Georgia, serif;
+    font-size: clamp(14px, 1.8vw, 18px);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #fff;
+    background: linear-gradient(
+        90deg,
+        rgba(15, 18, 38, 0.96),
+        rgba(60, 20, 80, 0.96),
+        rgba(15, 18, 38, 0.96)
+    );
+    border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+    box-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.6),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    transform: translateY(-100%);
+    opacity: 0;
+    transition:
+        transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+        opacity 0.4s ease;
+    pointer-events: none;
+}
+#global-banner.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+#global-banner-text {
+    text-shadow:
+        0 0 20px currentColor,
+        0 0 40px currentColor;
+    display: inline-block;
+    padding: 0 12px;
+}
+#global-banner[data-rarity="mythic"] #global-banner-text {
+    color: #fda4af;
+}
+#global-banner[data-rarity="divine"] #global-banner-text {
+    color: #fef08a;
+}
+#global-banner[data-rarity="celestial"] #global-banner-text {
+    color: #67e8f9;
+}
+#global-banner[data-rarity="cosmic"] #global-banner-text {
+    color: #c084fc;
+}
+#global-banner[data-rarity="secret"] #global-banner-text {
+    background: linear-gradient(
+        90deg,
+        #ff0000,
+        #ff7700,
+        #ffff00,
+        #00ff00,
+        #00ffff,
+        #0088ff,
+        #aa00ff,
+        #ff00ff,
+        #ff0000
+    );
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: bmcRainbow 2s linear infinite;
+    filter: drop-shadow(0 0 15px rgba(255, 0, 255, 0.8));
+}
+@keyframes bmcRainbow {
+    from {
+        background-position: 0% 50%;
+    }
+    to {
+        background-position: 300% 50%;
+    }
+}
+#global-banner.show #global-banner-text {
+    animation: bannerPulse 0.6s ease-out;
+}
+@keyframes bannerPulse {
+    0% {
+        transform: scale(0.85);
+    }
+    50% {
+        transform: scale(1.08);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* ===== ARRIÈRE-PLAN ===== */
 #background-layer {
     position: fixed;
     inset: 0;
@@ -135,7 +223,6 @@ button:disabled {
         radial-gradient(120% 80% at 50% 0%, #4a0f4a 0%, transparent 62%),
         linear-gradient(180deg, #14061a, #0a0010);
 }
-/* nébuleuses */
 #background-layer::before {
     content: "";
     position: absolute;
@@ -153,7 +240,6 @@ button:disabled {
         );
     animation: nebula 14s ease-in-out infinite alternate;
 }
-/* vignette */
 #background-layer::after {
     content: "";
     position: absolute;
@@ -175,7 +261,6 @@ button:disabled {
         transform: scale(1.06);
     }
 }
-/* étoiles : deux couches en dérive lente (transform uniquement) */
 .bg-particles {
     position: absolute;
     inset: 0;
@@ -248,9 +333,170 @@ button:disabled {
     }
 }
 
-/* =========================================================
-   HUD — BARRE SUPÉRIEURE
-   ========================================================= */
+/* ===== PARTICULES BIOME ===== */
+#biome-particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 1;
+}
+.biome-particle {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    will-change: transform, opacity;
+    animation-fill-mode: forwards;
+}
+.particle-plains {
+    width: 6px;
+    height: 6px;
+    background: radial-gradient(circle, #a5f3fc, transparent 70%);
+    border-radius: 50%;
+    animation: particleFallPlains linear forwards;
+}
+@keyframes particleFallPlains {
+    0% {
+        transform: translate(0, -20px) rotate(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 0.7;
+    }
+    90% {
+        opacity: 0.7;
+    }
+    100% {
+        transform: translate(var(--dx), 110vh) rotate(360deg);
+        opacity: 0;
+    }
+}
+.particle-forest {
+    width: 10px;
+    height: 10px;
+    background: #4ade80;
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    animation: particleFallForest linear forwards;
+    opacity: 0.8;
+}
+@keyframes particleFallForest {
+    0% {
+        transform: translate(0, -20px) rotate(0deg) rotateY(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 0.85;
+    }
+    50% {
+        transform: translate(calc(var(--dx) * 0.5), 55vh) rotate(180deg)
+            rotateY(180deg);
+    }
+    100% {
+        transform: translate(var(--dx), 110vh) rotate(360deg) rotateY(360deg);
+        opacity: 0;
+    }
+}
+.particle-desert {
+    width: 3px;
+    height: 3px;
+    background: #fcd34d;
+    border-radius: 50%;
+    box-shadow: 0 0 4px #fcd34d;
+    animation: particleBlow linear forwards;
+}
+@keyframes particleBlow {
+    0% {
+        transform: translate(-10vw, var(--dy));
+        opacity: 0;
+    }
+    15% {
+        opacity: 0.9;
+    }
+    85% {
+        opacity: 0.9;
+    }
+    100% {
+        transform: translate(110vw, calc(var(--dy) - 20px));
+        opacity: 0;
+    }
+}
+.particle-ocean {
+    width: 8px;
+    height: 8px;
+    border: 2px solid #67e8f9;
+    border-radius: 50%;
+    background: rgba(103, 232, 249, 0.2);
+    box-shadow: 0 0 10px rgba(103, 232, 249, 0.6);
+    animation: particleBubble linear forwards;
+}
+@keyframes particleBubble {
+    0% {
+        transform: translate(0, 110vh) scale(0.3);
+        opacity: 0;
+    }
+    10% {
+        opacity: 0.9;
+    }
+    90% {
+        opacity: 0.9;
+    }
+    100% {
+        transform: translate(var(--dx), -20vh) scale(1);
+        opacity: 0;
+    }
+}
+.particle-space {
+    width: 3px;
+    height: 3px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow:
+        0 0 8px #fff,
+        0 0 16px #818cf8;
+    animation: particleShootingStar linear forwards;
+}
+@keyframes particleShootingStar {
+    0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0;
+    }
+    5% {
+        opacity: 1;
+    }
+    95% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(var(--dx), var(--dy)) scale(0.3);
+        opacity: 0;
+    }
+}
+.particle-cosmic {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    box-shadow: 0 0 12px currentColor;
+    background: currentColor;
+    animation: particleCosmicFloat linear forwards;
+}
+@keyframes particleCosmicFloat {
+    0% {
+        transform: translate(0, 0) scale(0.5);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        transform: translate(var(--dx), var(--dy)) scale(1.3);
+        opacity: 0;
+    }
+}
+
+/* ===== HUD ===== */
 #top-bar {
     position: relative;
     z-index: 2;
@@ -302,9 +548,111 @@ button:disabled {
     border-color: var(--line-strong);
 }
 
-/* =========================================================
-   ÉCRAN PRINCIPAL
-   ========================================================= */
+/* ===== LOT 2 : BADGE NIVEAU + TITRE ===== */
+.level-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    box-shadow: 0 0 12px rgba(124, 58, 237, 0.5);
+    vertical-align: middle;
+}
+.title-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: rgba(251, 191, 36, 0.18);
+    color: #fcd34d;
+    border: 1px solid rgba(251, 191, 36, 0.5);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+    vertical-align: middle;
+}
+
+/* ===== LOT 2 : BARRE XP ===== */
+#xp-bar-container {
+    position: relative;
+    z-index: 2;
+    padding: 6px 18px 8px;
+    background: linear-gradient(
+        180deg,
+        rgba(15, 18, 38, 0.7),
+        rgba(15, 18, 38, 0.5)
+    );
+    border-bottom: 1px solid rgba(139, 92, 246, 0.15);
+    backdrop-filter: blur(6px);
+}
+#xp-bar {
+    position: relative;
+    height: 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+#xp-bar-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #7c3aed, #a855f7 50%, #22d3ee);
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.6);
+    transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+#xp-bar-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+    pointer-events: none;
+}
+@keyframes levelUpPulse {
+    0% {
+        transform: scale(1);
+    }
+    30% {
+        transform: scale(1.4);
+    }
+    60% {
+        transform: scale(1.15);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+.level-up-anim {
+    animation: levelUpPulse 0.8s ease-out;
+}
+#toast.level-up-toast {
+    background: linear-gradient(
+        135deg,
+        rgba(124, 58, 237, 0.95),
+        rgba(37, 99, 235, 0.95)
+    );
+    border-color: rgba(196, 181, 253, 0.6);
+    box-shadow: 0 12px 40px rgba(124, 58, 237, 0.5);
+    font-size: 15px;
+    font-weight: 700;
+    padding: 14px 28px;
+}
+
+/* ===== ÉCRAN PRINCIPAL ===== */
 #main-screen {
     position: relative;
     z-index: 1;
@@ -356,7 +704,6 @@ button:disabled {
     --rc: #ff00ff;
 }
 
-/* ----- Aura centrale ----- */
 #aura-visual {
     --size: clamp(150px, 28vh, 240px);
     --glow: 0.4;
@@ -370,7 +717,6 @@ button:disabled {
     justify-content: center;
     isolation: isolate;
 }
-/* anneau orbital (rare et au-delà) */
 #aura-visual::before {
     content: "";
     position: absolute;
@@ -398,7 +744,6 @@ button:disabled {
     opacity: var(--ring);
     animation: rotate 10s linear infinite reverse;
 }
-/* lueur de fond */
 #aura-visual::after {
     content: "";
     position: absolute;
@@ -484,7 +829,6 @@ button:disabled {
     }
 }
 
-/* identité par rareté : couleur + intensité (--glow) + anneau (--ring) */
 #aura-visual.rarity-common {
     color: #9aa5b1;
     --glow: 0.35;
@@ -555,7 +899,6 @@ button:disabled {
     animation: pulse 1s ease-in-out infinite;
 }
 
-/* ----- Textes ----- */
 #aura-name {
     font-family: var(--font-display);
     font-size: clamp(26px, 5.2vw, 46px);
@@ -600,9 +943,7 @@ button:disabled {
     color: var(--muted);
 }
 
-/* =========================================================
-   BOUTON ROLL
-   ========================================================= */
+/* ===== BOUTON ROLL ===== */
 .main-btn {
     position: relative;
     overflow: hidden;
@@ -666,11 +1007,6 @@ button:disabled {
 }
 .main-btn:active {
     transform: translateY(2px) scale(0.99);
-    box-shadow:
-        0 0 0 3px rgba(139, 92, 246, 0.15),
-        0 6px 18px -6px rgba(124, 58, 237, 0.7),
-        inset 0 1px 0 rgba(255, 255, 255, 0.3),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.25);
 }
 .main-btn:disabled {
     opacity: 0.85;
@@ -679,9 +1015,7 @@ button:disabled {
     cursor: wait;
 }
 
-/* =========================================================
-   CONTRÔLES RAPIDES & BOUTONS
-   ========================================================= */
+/* ===== CONTROLS ===== */
 #quick-controls {
     display: flex;
     flex-wrap: wrap;
@@ -764,9 +1098,7 @@ button:disabled {
     box-shadow: 0 0 8px var(--accent-2);
 }
 
-/* =========================================================
-   MODALES
-   ========================================================= */
+/* ===== MODALES ===== */
 .modal {
     position: fixed;
     inset: 0;
@@ -848,7 +1180,6 @@ button:disabled {
     font-size: 17px;
     letter-spacing: 0.04em;
 }
-/* bouton fermer : reste visible pendant le défilement, ne prend pas de place */
 .close-btn {
     position: sticky;
     top: 12px;
@@ -882,9 +1213,7 @@ button:disabled {
     font-weight: 700;
 }
 
-/* =========================================================
-   GRILLES & CARTES
-   ========================================================= */
+/* ===== GRILLES ===== */
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -1074,7 +1403,6 @@ button:disabled {
     border-color: rgba(255, 0, 255, 0.5);
 }
 
-/* listes crafting / biomes */
 #craft-list,
 #biomes-list {
     display: grid;
@@ -1088,9 +1416,7 @@ button:disabled {
     margin-top: 0 !important;
 }
 
-/* =========================================================
-   FILTRES & FORMULAIRES
-   ========================================================= */
+/* ===== FILTRES ===== */
 .filters {
     display: flex;
     flex-wrap: wrap;
@@ -1135,9 +1461,7 @@ input[type="range"] {
     accent-color: var(--accent);
 }
 
-/* =========================================================
-   AMÉLIORATIONS
-   ========================================================= */
+/* ===== AMÉLIORATIONS ===== */
 .upgrade-card {
     display: flex;
     justify-content: space-between;
@@ -1211,9 +1535,7 @@ input[type="range"] {
     color: var(--gold);
 }
 
-/* =========================================================
-   CLASSEMENT
-   ========================================================= */
+/* ===== CLASSEMENT ===== */
 .lb-tabs {
     display: flex;
     gap: 6px;
@@ -1311,9 +1633,7 @@ input[type="range"] {
     text-transform: capitalize;
 }
 
-/* =========================================================
-   CONNEXION
-   ========================================================= */
+/* ===== AUTH ===== */
 .auth-content {
     max-width: 460px;
 }
@@ -1453,15 +1773,14 @@ input[type="range"] {
     color: var(--muted);
 }
 body.not-logged #main-screen,
-body.not-logged #top-bar {
+body.not-logged #top-bar,
+body.not-logged #xp-bar-container {
     filter: blur(6px);
     pointer-events: none;
     user-select: none;
 }
 
-/* =========================================================
-   AUTO ROLL — ÉCRAN DE DÉBLOCAGE
-   ========================================================= */
+/* ===== PAYWALL ===== */
 .paywall-content {
     max-width: 460px;
     text-align: center;
@@ -1577,9 +1896,7 @@ body.not-logged #top-bar {
     opacity: 0.6;
 }
 
-/* =========================================================
-   ÉCRANS DE PAIEMENT (simulation interne au jeu)
-   ========================================================= */
+/* ===== FAUX PAIEMENT ===== */
 #fake-payment {
     position: fixed;
     inset: 0;
@@ -1595,7 +1912,6 @@ body.not-logged #top-bar {
     color: var(--text);
     animation: modalFade 0.25s ease;
 }
-/* bandeau explicite : ce n'est pas un vrai paiement */
 #fake-payment::before {
     content: "Simulation — aucun paiement réel n'est effectué";
     position: fixed;
@@ -1655,7 +1971,6 @@ body.not-logged #top-bar {
     line-height: 1.5;
     color: var(--muted);
 }
-/* maquettes de moyens de paiement */
 #form-paypal {
     background: #fff;
     border-radius: 16px;
@@ -1926,9 +2241,7 @@ body.not-logged #top-bar {
     opacity: 0.6;
 }
 
-/* =========================================================
-   PARAMÈTRES, DIVERS
-   ========================================================= */
+/* ===== SETTINGS ===== */
 #settings-modal .modal-content > label {
     display: flex;
     align-items: center;
@@ -1978,7 +2291,7 @@ body.not-logged #top-bar {
     opacity: 0.85;
 }
 
-/* stats */
+/* ===== STATS ===== */
 #stats-content {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -1993,7 +2306,8 @@ body.not-logged #top-bar {
     font-variant-numeric: tabular-nums;
 }
 #stats-content h3,
-#stats-content hr {
+#stats-content hr,
+.collections-section {
     grid-column: 1 / -1;
 }
 #stats-content hr {
@@ -2001,7 +2315,126 @@ body.not-logged #top-bar {
     border-top: 1px solid var(--line);
 }
 
-/* toast */
+/* ===== LOT 2 : TITRES ===== */
+.title-card {
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.06),
+        rgba(255, 255, 255, 0.02)
+    );
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px 14px;
+    text-align: center;
+    cursor: pointer;
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease;
+    position: relative;
+}
+.title-card:hover:not(.locked) {
+    transform: translateY(-3px);
+    border-color: rgba(251, 191, 36, 0.5);
+    box-shadow: 0 12px 28px -10px rgba(251, 191, 36, 0.5);
+}
+.title-card.locked {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.7);
+}
+.title-card.equipped {
+    border-color: #fbbf24;
+    background: linear-gradient(
+        180deg,
+        rgba(251, 191, 36, 0.12),
+        rgba(251, 191, 36, 0.04)
+    );
+    box-shadow: 0 0 22px -4px rgba(251, 191, 36, 0.6);
+}
+.title-card.equipped::after {
+    content: "Équipé";
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #fbbf24;
+    color: #1a1200;
+    font-size: 10px;
+    font-weight: 700;
+}
+.title-icon {
+    font-size: 32px;
+    line-height: 1;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 0 12px rgba(251, 191, 36, 0.5));
+}
+.title-name {
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #fcd34d;
+    margin-bottom: 6px;
+}
+.title-desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+/* ===== LOT 2 : COLLECTIONS ===== */
+.collections-section {
+    margin-top: 14px;
+}
+.collection-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--line);
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+.collection-row.complete {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.4);
+}
+.collection-row .col-rarity {
+    text-transform: capitalize;
+    font-weight: 700;
+    min-width: 100px;
+}
+.collection-row .col-progress {
+    flex: 1;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+}
+.collection-row .col-bonus {
+    font-size: 11px;
+    color: #4ade80;
+    font-weight: 600;
+    margin-left: 8px;
+}
+.collection-row.complete .col-bonus {
+    color: #fcd34d;
+    animation: bonusPulse 2s ease-in-out infinite;
+}
+@keyframes bonusPulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* ===== TOAST ===== */
 #toast {
     position: fixed;
     bottom: 30px;
@@ -2031,10 +2464,35 @@ body.not-logged #top-bar {
     }
 }
 
-/* =========================================================
-   RÉVÉLATION DES AURAS RARES
-   (durées identiques au JS : 3.2 s)
-   ========================================================= */
+/* ===== NUMÉROS ANIMÉS ===== */
+.num-flash {
+    animation: numFlash 0.5s ease-out;
+    color: #fff !important;
+}
+@keyframes numFlash {
+    0% {
+        transform: scale(1);
+        text-shadow: none;
+    }
+    30% {
+        transform: scale(1.25);
+        text-shadow: 0 0 12px currentColor;
+    }
+    100% {
+        transform: scale(1);
+        text-shadow: none;
+    }
+}
+.num-up {
+    color: #4ade80 !important;
+    text-shadow: 0 0 8px rgba(74, 222, 128, 0.8) !important;
+}
+.num-down {
+    color: #f87171 !important;
+    text-shadow: 0 0 8px rgba(248, 113, 113, 0.8) !important;
+}
+
+/* ===== RÉVÉLATION ===== */
 #reveal-overlay {
     --rv: 255, 255, 255;
     position: fixed;
@@ -2324,9 +2782,51 @@ body.screen-shake {
     }
 }
 
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
+/* ===== BMC ===== */
+#bmc-btn {
+    position: fixed;
+    bottom: 18px;
+    left: 18px;
+    z-index: 150;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 50px;
+    background: linear-gradient(135deg, #ffdd00, #ffb300);
+    color: #1a1200;
+    text-decoration: none;
+    font-family: "Outfit", system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    box-shadow:
+        0 6px 18px rgba(255, 179, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        filter 0.18s ease;
+}
+#bmc-btn:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow:
+        0 10px 26px rgba(255, 179, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    filter: brightness(1.08);
+}
+#bmc-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+#bmc-btn .bmc-icon {
+    font-size: 16px;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.3));
+}
+#bmc-btn .bmc-text {
+    white-space: nowrap;
+}
+
+/* ===== RESPONSIVE ===== */
 @media (max-width: 900px) {
     #top-bar {
         padding: 10px 12px;
@@ -2415,187 +2915,6 @@ body.screen-shake {
     #reveal-rarity-tag {
         letter-spacing: 0.25em;
     }
-}
-@media (max-width: 360px) {
-    #quick-controls {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-/* =========================================================
-   RÉDUCTION DES ANIMATIONS
-   (option du jeu + préférence système)
-   ========================================================= */
-body.reduce-anim *,
-body.reduce-anim *::before,
-body.reduce-anim *::after {
-    animation-duration: 0.001s !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001s !important;
-}
-body.reduce-anim #reveal-rays {
-    display: none !important;
-}
-@media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-        animation-duration: 0.001s !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.001s !important;
-    }
-}
-
-/* =========================================================
-   LOT 1 — BANDEAU GLOBAL / BMC / NUMÉROS ANIMÉS / PARTICULES
-   ========================================================= */
-
-/* ---------- BANDEAU GLOBAL (annonces mythic+) ---------- */
-#global-banner {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 250;
-    padding: 14px 20px;
-    text-align: center;
-    font-family: "Cinzel", Georgia, serif;
-    font-size: clamp(14px, 1.8vw, 18px);
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    color: #fff;
-    background: linear-gradient(
-        90deg,
-        rgba(15, 18, 38, 0.96),
-        rgba(60, 20, 80, 0.96),
-        rgba(15, 18, 38, 0.96)
-    );
-    border-bottom: 2px solid rgba(255, 255, 255, 0.15);
-    box-shadow:
-        0 8px 30px rgba(0, 0, 0, 0.6),
-        inset 0 -1px 0 rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(12px);
-    transform: translateY(-100%);
-    opacity: 0;
-    transition:
-        transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
-        opacity 0.4s ease;
-    pointer-events: none;
-}
-#global-banner.show {
-    transform: translateY(0);
-    opacity: 1;
-}
-#global-banner-text {
-    text-shadow:
-        0 0 20px currentColor,
-        0 0 40px currentColor;
-    display: inline-block;
-    padding: 0 12px;
-}
-
-/* Couleur selon la rareté (data-rarity) */
-#global-banner[data-rarity="mythic"] #global-banner-text {
-    color: #fda4af;
-}
-#global-banner[data-rarity="divine"] #global-banner-text {
-    color: #fef08a;
-}
-#global-banner[data-rarity="celestial"] #global-banner-text {
-    color: #67e8f9;
-}
-#global-banner[data-rarity="cosmic"] #global-banner-text {
-    color: #c084fc;
-}
-#global-banner[data-rarity="secret"] #global-banner-text {
-    background: linear-gradient(
-        90deg,
-        #ff0000,
-        #ff7700,
-        #ffff00,
-        #00ff00,
-        #00ffff,
-        #0088ff,
-        #aa00ff,
-        #ff00ff,
-        #ff0000
-    );
-    background-size: 300% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: bmcRainbow 2s linear infinite;
-    filter: drop-shadow(0 0 15px rgba(255, 0, 255, 0.8));
-}
-@keyframes bmcRainbow {
-    from {
-        background-position: 0% 50%;
-    }
-    to {
-        background-position: 300% 50%;
-    }
-}
-
-/* Petite pulsation d'entrée */
-#global-banner.show #global-banner-text {
-    animation: bannerPulse 0.6s ease-out;
-}
-@keyframes bannerPulse {
-    0% {
-        transform: scale(0.85);
-    }
-    50% {
-        transform: scale(1.08);
-    }
-    100% {
-        transform: scale(1);
-    }
-}
-
-/* ---------- BOUTON BUY ME A COFFEE ---------- */
-#bmc-btn {
-    position: fixed;
-    bottom: 18px;
-    left: 18px;
-    z-index: 150;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    border-radius: 50px;
-    background: linear-gradient(135deg, #ffdd00, #ffb300);
-    color: #1a1200;
-    text-decoration: none;
-    font-family: "Outfit", system-ui, sans-serif;
-    font-weight: 700;
-    font-size: 13px;
-    letter-spacing: 0.03em;
-    box-shadow:
-        0 6px 18px rgba(255, 179, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    transition:
-        transform 0.18s ease,
-        box-shadow 0.18s ease,
-        filter 0.18s ease;
-}
-#bmc-btn:hover {
-    transform: translateY(-3px) scale(1.03);
-    box-shadow:
-        0 10px 26px rgba(255, 179, 0, 0.6),
-        inset 0 1px 0 rgba(255, 255, 255, 0.7);
-    filter: brightness(1.08);
-}
-#bmc-btn:active {
-    transform: translateY(0) scale(0.98);
-}
-#bmc-btn .bmc-icon {
-    font-size: 16px;
-    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.3));
-}
-#bmc-btn .bmc-text {
-    white-space: nowrap;
-}
-@media (max-width: 600px) {
     #bmc-btn {
         bottom: 12px;
         left: 12px;
@@ -2608,217 +2927,39 @@ body.reduce-anim #reveal-rays {
     #bmc-btn .bmc-icon {
         font-size: 20px;
     }
-}
-
-/* ---------- NUMÉROS ANIMÉS ---------- */
-.num-flash {
-    animation: numFlash 0.5s ease-out;
-    color: #fff !important;
-}
-@keyframes numFlash {
-    0% {
-        transform: scale(1);
-        text-shadow: none;
+    .collection-row {
+        flex-wrap: wrap;
     }
-    30% {
-        transform: scale(1.25);
-        text-shadow: 0 0 12px currentColor;
-    }
-    100% {
-        transform: scale(1);
-        text-shadow: none;
+    .collection-row .col-rarity {
+        min-width: 80px;
     }
 }
-.num-up {
-    color: #4ade80 !important;
-    text-shadow: 0 0 8px rgba(74, 222, 128, 0.8) !important;
-}
-.num-down {
-    color: #f87171 !important;
-    text-shadow: 0 0 8px rgba(248, 113, 113, 0.8) !important;
-}
-
-/* ---------- PARTICULES PAR BIOME ---------- */
-#biome-particles {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    overflow: hidden;
-    z-index: 1;
-}
-
-.biome-particle {
-    position: absolute;
-    pointer-events: none;
-    opacity: 0;
-    will-change: transform, opacity;
-    animation-fill-mode: forwards;
-}
-
-/* Plaines : pétales flottants */
-.particle-plains {
-    width: 6px;
-    height: 6px;
-    background: radial-gradient(circle, #a5f3fc, transparent 70%);
-    border-radius: 50%;
-    animation: particleFallPlains linear forwards;
-}
-@keyframes particleFallPlains {
-    0% {
-        transform: translate(0, -20px) rotate(0deg);
-        opacity: 0;
-    }
-    10% {
-        opacity: 0.7;
-    }
-    90% {
-        opacity: 0.7;
-    }
-    100% {
-        transform: translate(var(--dx), 110vh) rotate(360deg);
-        opacity: 0;
+@media (max-width: 360px) {
+    #quick-controls {
+        grid-template-columns: repeat(2, 1fr);
     }
 }
 
-/* Forêt : feuilles */
-.particle-forest {
-    width: 10px;
-    height: 10px;
-    background: #4ade80;
-    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-    animation: particleFallForest linear forwards;
-    opacity: 0.8;
+/* ===== REDUCE ANIM ===== */
+body.reduce-anim *,
+body.reduce-anim *::before,
+body.reduce-anim *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
 }
-@keyframes particleFallForest {
-    0% {
-        transform: translate(0, -20px) rotate(0deg) rotateY(0deg);
-        opacity: 0;
-    }
-    10% {
-        opacity: 0.85;
-    }
-    50% {
-        transform: translate(calc(var(--dx) * 0.5), 55vh) rotate(180deg)
-            rotateY(180deg);
-    }
-    100% {
-        transform: translate(var(--dx), 110vh) rotate(360deg) rotateY(360deg);
-        opacity: 0;
-    }
-}
-
-/* Désert : grains de sable */
-.particle-desert {
-    width: 3px;
-    height: 3px;
-    background: #fcd34d;
-    border-radius: 50%;
-    box-shadow: 0 0 4px #fcd34d;
-    animation: particleBlow linear forwards;
-}
-@keyframes particleBlow {
-    0% {
-        transform: translate(-10vw, var(--dy));
-        opacity: 0;
-    }
-    15% {
-        opacity: 0.9;
-    }
-    85% {
-        opacity: 0.9;
-    }
-    100% {
-        transform: translate(110vw, calc(var(--dy) - 20px));
-        opacity: 0;
-    }
-}
-
-/* Océan : bulles qui montent */
-.particle-ocean {
-    width: 8px;
-    height: 8px;
-    border: 2px solid #67e8f9;
-    border-radius: 50%;
-    background: rgba(103, 232, 249, 0.2);
-    box-shadow: 0 0 10px rgba(103, 232, 249, 0.6);
-    animation: particleBubble linear forwards;
-}
-@keyframes particleBubble {
-    0% {
-        transform: translate(0, 110vh) scale(0.3);
-        opacity: 0;
-    }
-    10% {
-        opacity: 0.9;
-    }
-    90% {
-        opacity: 0.9;
-    }
-    100% {
-        transform: translate(var(--dx), -20vh) scale(1);
-        opacity: 0;
-    }
-}
-
-/* Espace : étoiles filantes */
-.particle-space {
-    width: 3px;
-    height: 3px;
-    background: #fff;
-    border-radius: 50%;
-    box-shadow:
-        0 0 8px #fff,
-        0 0 16px #818cf8;
-    animation: particleShootingStar linear forwards;
-}
-@keyframes particleShootingStar {
-    0% {
-        transform: translate(0, 0) scale(1);
-        opacity: 0;
-    }
-    5% {
-        opacity: 1;
-    }
-    95% {
-        opacity: 1;
-    }
-    100% {
-        transform: translate(var(--dx), var(--dy)) scale(0.3);
-        opacity: 0;
-    }
-}
-
-/* Cosmique : particules arc-en-ciel */
-.particle-cosmic {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    box-shadow: 0 0 12px currentColor;
-    background: currentColor;
-    animation: particleCosmicFloat linear forwards;
-}
-@keyframes particleCosmicFloat {
-    0% {
-        transform: translate(0, 0) scale(0.5);
-        opacity: 0;
-    }
-    10% {
-        opacity: 1;
-    }
-    90% {
-        opacity: 1;
-    }
-    100% {
-        transform: translate(var(--dx), var(--dy)) scale(1.3);
-        opacity: 0;
-    }
-}
-
-/* Respect des préférences */
+body.reduce-anim #reveal-rays,
 body.reduce-anim .biome-particle {
     display: none !important;
 }
 @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001s !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001s !important;
+    }
     .biome-particle {
         display: none !important;
     }
