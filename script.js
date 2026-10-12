@@ -3122,11 +3122,11 @@ function startFakePaymentProcess(method) {
         const trolls = [
             {
                 title: "Paiement refusé",
-                msg: `${method} a détecté une anomalie 😏`,
+                msg: `${method} a détecté une anomalie `,
             },
             {
                 title: "Fonds insuffisants",
-                msg: `Ton compte ${method} est vide 😂`,
+                msg: `Ton compte ${method} est vide `,
             },
             {
                 title: "Erreur inconnue",
@@ -3134,12 +3134,12 @@ function startFakePaymentProcess(method) {
             },
             {
                 title: "Compte introuvable",
-                msg: `Aucun compte ${method} associé 🤷`,
+                msg: `Aucun compte ${method} associé `,
             },
-            { title: "Vérification échouée", msg: `Identité refusée 🎣` },
-            { title: "Serveur surchargé", msg: `Serveur en pause café ☕` },
-            { title: "Session expirée", msg: `Session expirée 🕵️` },
-            { title: "Paiement suspect", msg: `Trop beau pour être vrai 😎` },
+            { title: "Vérification échouée", msg: `Identité refusée ` },
+            { title: "Serveur surchargé", msg: `Serveur en pause café ` },
+            { title: "Session expirée", msg: `Session expirée ` },
+            { title: "Paiement suspect", msg: `Trop beau pour être vrai ` },
         ];
         const troll = trolls[Math.floor(Math.random() * trolls.length)];
         document.getElementById("payment-error-title").textContent =
