@@ -2,9 +2,7 @@
    AURA RNG — script.js
    ========================================================= */
 
-/* =========================================================
-   1. CONFIGURATION
-   ========================================================= */
+/* ---------- 1. CONFIGURATION ---------- */
 
 const RARITIES = [
     "common",
@@ -32,7 +30,6 @@ const RARITY_COLORS = {
     secret: "#ff00ff",
 };
 
-// ===== BASE DE DONNÉES DES AURAS =====
 const AURAS = [
     {
         id: "a01",
@@ -627,16 +624,14 @@ const AUTOROLL_SECRET_UNLOCK_AT = 10;
 
 const SAVE_KEY = "auraRng_save_v1";
 const SAVE_VERSION = 1;
-
 const FB_EMAIL_DOMAIN = "@aurarng.local";
 
-/* =========================================================
-   2. ÉTAT DU JEU + SAUVEGARDE (local + cloud)
-   ========================================================= */
+/* ---------- 2. ÉTAT + SAUVEGARDE ---------- */
 
 function createDefaultState() {
     return {
         version: SAVE_VERSION,
+        _uid: null, // ← propriétaire de la save (anti-contamination)
         coins: 0,
         totalRolls: 0,
         rollsSinceRare: 0,
@@ -671,6 +666,7 @@ function getSaveKey() {
     return state.uid ? `auraRng_save_v1_${state.uid}` : SAVE_KEY;
 }
 
+// Charge la save locale, mais refuse celle d'un autre compte
 function loadGame() {
     try {
         const raw = localStorage.getItem(getSaveKey());
@@ -678,9 +674,14 @@ function loadGame() {
         const parsed = JSON.parse(raw);
         if (!parsed || parsed.version !== SAVE_VERSION) return;
 
+        // ✅ Anti-contamination : si la save appartient à un autre uid, on ignore
+        if (parsed._uid && parsed._uid !== state.uid) {
+            console.warn("Save locale ignorée (uid différent)");
+            return;
+        }
+
         const currentUid = state.uid;
         const currentUsername = state.username;
-
         state = Object.assign(createDefaultState(), parsed);
         state.uid = currentUid;
         state.username = currentUsername;
@@ -689,7 +690,7 @@ function loadGame() {
             parsed.settings || {},
         );
     } catch (e) {
-        console.warn("Sauvegarde locale invalide :", e);
+        console.warn("Save locale invalide :", e);
     }
 }
 
@@ -703,9 +704,14 @@ async function loadGameFromCloud() {
         const parsed = snap.val();
         if (!parsed || parsed.version !== SAVE_VERSION) return false;
 
+        // ✅ Anti-contamination : la save cloud doit nous appartenir
+        if (parsed._uid && parsed._uid !== state.uid) {
+            console.warn("Save cloud ignorée (uid différent)");
+            return false;
+        }
+
         const currentUid = state.uid;
         const currentUsername = state.username;
-
         state = Object.assign(createDefaultState(), parsed);
         state.uid = currentUid;
         state.username = currentUsername;
@@ -713,31 +719,30 @@ async function loadGameFromCloud() {
             createDefaultState().settings,
             parsed.settings || {},
         );
-        console.log("☁️ Sauvegarde cloud chargée");
+        console.log("☁️ Save cloud chargée :", state.totalRolls, "rolls");
         return true;
     } catch (e) {
-        console.warn("Erreur chargement cloud :", e);
+        console.warn("Erreur cloud load :", e);
         return false;
     }
 }
 
-// Debounce Firebase (évite de spammer la DB)
 let fbSaveTimer = null;
 let fbSavePending = false;
 
 function saveGame(skipCloud = false) {
-    // 1) Toujours : sauvegarde locale (instantanée)
+    // Stampe le propriétaire avant de sérialiser
+    state._uid = state.uid;
+
     try {
         localStorage.setItem(getSaveKey(), JSON.stringify(state));
     } catch (e) {
-        console.warn("Impossible de sauvegarder en local :", e);
+        console.warn("Erreur save locale :", e);
     }
 
-    // 2) Si demandé, on ne va PAS sur Firebase
     if (skipCloud) return;
-
-    // 3) Sinon : cloud debounced (3s)
     if (!state.uid || !window.FB) return;
+
     fbSavePending = true;
     clearTimeout(fbSaveTimer);
     fbSaveTimer = setTimeout(pushSaveToCloud, 3000);
@@ -748,12 +753,13 @@ function pushSaveToCloud() {
     fbSavePending = false;
     const { db, ref, set } = window.FB;
 
+    state._uid = state.uid;
     const payload = { ...state };
     delete payload.uid;
     delete payload.username;
 
     set(ref(db, "saves/" + state.uid), payload)
-        .then(() => console.log("☁️ Sauvegarde cloud OK"))
+        .then(() => console.log("☁️ Save cloud OK"))
         .catch((e) => console.warn("Erreur save cloud :", e));
 }
 
@@ -764,9 +770,7 @@ function flushCloudSave() {
     }
 }
 
-/* =========================================================
-   3. LOGIQUE DE ROLL & CHANCE
-   ========================================================= */
+/* ---------- 3. ROLLS & CHANCE ---------- */
 
 function getUpgradeLevel(id) {
     return state.upgrades[id] || 0;
@@ -792,7 +796,7 @@ function getUpgradeEffect(effectType) {
 function buyUpgrade(upgrade) {
     const level = getUpgradeLevel(upgrade.id);
     if (level >= upgrade.maxLevel) {
-        showToast("⭐ Déjà au niveau maximum.");
+        showToast("⭐ Niveau max.");
         return;
     }
     const cost = getUpgradeCost(upgrade);
@@ -803,7 +807,7 @@ function buyUpgrade(upgrade) {
     state.coins -= cost;
     state.upgrades[upgrade.id] = level + 1;
     playSound("buy");
-    showToast(`⭐ ${upgrade.name} niveau ${level + 1} acheté !`);
+    showToast(`⭐ ${upgrade.name} niv. ${level + 1} !`);
     saveGame();
     renderUI();
     renderUpgrades();
@@ -821,9 +825,8 @@ function getTotalLuckMultiplier() {
         if (eff.bonus) mult *= eff.bonus;
     });
     if (state.equipped) {
-        const equippedAura = AURA_BY_ID[state.equipped];
-        if (equippedAura && equippedAura.luckBonus)
-            mult *= equippedAura.luckBonus;
+        const a = AURA_BY_ID[state.equipped];
+        if (a && a.luckBonus) mult *= a.luckBonus;
     }
     return mult;
 }
@@ -851,8 +854,7 @@ function formatChance(aura) {
 }
 
 function performRoll() {
-    const luck = getTotalLuckMultiplier();
-    const aura = pickAuraByWeight(luck);
+    const aura = pickAuraByWeight(getTotalLuckMultiplier());
     registerAura(aura);
     return aura;
 }
@@ -863,7 +865,7 @@ function registerAura(aura) {
     const quantity = Math.random() < doubleChance ? 2 : 1;
     state.inventory[aura.id] = (state.inventory[aura.id] || 0) + quantity;
     state.discovered[aura.id] = true;
-    if (quantity === 2) showToast("✨ Écho du destin : aura doublée !");
+    if (quantity === 2) showToast("✨ Aura doublée !");
 
     const currentBest = state.bestAura ? AURA_BY_ID[state.bestAura] : null;
     if (
@@ -884,9 +886,9 @@ function registerAura(aura) {
     if (rareRarities.includes(aura.rarity)) state.rollsSinceRare = 0;
     else state.rollsSinceRare++;
 
-    const baseReward = COIN_REWARDS[aura.rarity] || 1;
-    const coinBonus = 1 + getUpgradeEffect("coins");
-    state.coins += Math.round(baseReward * coinBonus);
+    state.coins += Math.round(
+        (COIN_REWARDS[aura.rarity] || 1) * (1 + getUpgradeEffect("coins")),
+    );
 
     BIOMES.forEach((b) => {
         if (
@@ -894,7 +896,7 @@ function registerAura(aura) {
             !state.unlockedBiomes.includes(b.id)
         ) {
             state.unlockedBiomes.push(b.id);
-            showToast(`🌍 Nouveau biome débloqué : ${b.name}`);
+            showToast(`🌍 Biome débloqué : ${b.name}`);
         }
     });
 
@@ -902,9 +904,7 @@ function registerAura(aura) {
     saveGame();
 }
 
-/* =========================================================
-   4. RENDU (UI)
-   ========================================================= */
+/* ---------- 4. UI ---------- */
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -963,8 +963,18 @@ function renderUI() {
         : "Aucune";
     $("#stat-username").textContent = state.username || "—";
 
-    if (state.equipped && AURA_BY_ID[state.equipped])
+    if (state.equipped && AURA_BY_ID[state.equipped]) {
         displayAura(AURA_BY_ID[state.equipped]);
+    } else {
+        // Affichage par défaut
+        $("#aura-name").textContent = "Aucune aura";
+        $("#aura-rarity").textContent = "—";
+        $("#aura-chance").textContent = "—";
+        $("#aura-desc").textContent =
+            "Lance un roll pour commencer ton aventure !";
+        $("#aura-name").style.color = "";
+        $("#aura-visual").className = "rarity-common";
+    }
 
     const btn = $("#auto-roll-btn");
     if (!state.autoRollUnlocked) {
@@ -982,9 +992,7 @@ function renderUI() {
     renderBiomeBackground();
 }
 
-/* =========================================================
-   5. INVENTAIRE / BOUTIQUE / CRAFT / BIOMES / AMÉLIORATIONS / STATS
-   ========================================================= */
+/* ---------- 5. INVENTAIRE / BOUTIQUE / CRAFT / BIOMES / UPGRADES / STATS ---------- */
 
 function renderInventory() {
     const grid = $("#inventory-grid");
@@ -1110,7 +1118,7 @@ function buyItem(item) {
 
 function usePotion(potionId) {
     if (!state.ownedItems[potionId]) {
-        showToast("❌ Tu ne possèdes pas cette potion.");
+        showToast("❌ Pas cette potion.");
         return;
     }
     const potion = POTIONS.find((p) => p.id === potionId);
@@ -1143,8 +1151,7 @@ function renderCraft() {
             .map((ing) => {
                 const owned = state.ownedItems[ing.id] || 0;
                 const ok = owned >= ing.qty;
-                const name = findItemName(ing.id);
-                return `<div style="color:${ok ? "#4ade80" : "#f87171"}">${name} : ${owned} / ${ing.qty}</div>`;
+                return `<div style="color:${ok ? "#4ade80" : "#f87171"}">${findItemName(ing.id)} : ${owned} / ${ing.qty}</div>`;
             })
             .join("");
         const canCraft = r.ingredients.every(
@@ -1234,15 +1241,15 @@ function renderUpgrades() {
         const totalEffect = level * up.effectPerLevel;
         let effectText = "";
         if (up.effectType === "luck")
-            effectText = `Chance actuelle : +${(totalEffect * 100).toFixed(0)}%`;
+            effectText = `Chance : +${(totalEffect * 100).toFixed(0)}%`;
         if (up.effectType === "speed")
-            effectText = `Vitesse actuelle : +${(totalEffect * 100).toFixed(0)}%`;
+            effectText = `Vitesse : +${(totalEffect * 100).toFixed(0)}%`;
         if (up.effectType === "coins")
-            effectText = `Monnaie actuelle : +${(totalEffect * 100).toFixed(0)}%`;
+            effectText = `Monnaie : +${(totalEffect * 100).toFixed(0)}%`;
         if (up.effectType === "double")
-            effectText = `Chance de doubler : ${(totalEffect * 100).toFixed(0)}%`;
+            effectText = `Double : ${(totalEffect * 100).toFixed(0)}%`;
         if (up.effectType === "potionDiscount")
-            effectText = `Réduction boutique : -${(totalEffect * 100).toFixed(0)}%`;
+            effectText = `Réduction : -${(totalEffect * 100).toFixed(0)}%`;
 
         const card = document.createElement("div");
         card.className = "upgrade-card" + (maxed ? " maxed" : "");
@@ -1253,9 +1260,7 @@ function renderUpgrades() {
         <div class="upgrade-level">Niveau : ${level} / ${up.maxLevel}</div>
         <div class="upgrade-effect">${effectText}</div>
       </div>
-      <button ${maxed ? "disabled" : ""}>
-        ${maxed ? "MAX" : "💰 " + cost.toLocaleString("fr-FR")}
-      </button>
+      <button ${maxed ? "disabled" : ""}>${maxed ? "MAX" : "💰 " + cost.toLocaleString("fr-FR")}</button>
     `;
         if (!maxed)
             card.querySelector("button").addEventListener("click", () =>
@@ -1290,7 +1295,7 @@ function renderStats() {
     <p>💰 Monnaie : ${state.coins.toLocaleString("fr-FR")}</p>
     <p>🧪 Potions utilisées : ${state.usedPotions}</p>
     <p>🔨 Objets fabriqués : ${state.craftedItems}</p>
-    <p>⭐ Améliorations achetées : ${totalUpgradeLevels} niveaux</p>
+    <p>⭐ Améliorations : ${totalUpgradeLevels} niveaux</p>
     <p>🤖 Auto Roll : ${state.autoRollUnlocked ? "Débloqué" : "Verrouillé"}</p>
     <p>👤 Joueur : ${state.username || "—"}</p>
     <p>📊 Collection : ${pct}%</p>
@@ -1300,13 +1305,15 @@ function renderStats() {
   `;
 }
 
-/* =========================================================
-   6. AUTHENTIFICATION (pseudo + mot de passe) + CLASSEMENT
-   ========================================================= */
+/* ---------- 6. AUTH + LEADERBOARD ---------- */
 
 let authMode = "login";
 let authInitialized = false;
 let leaderboardInterval = null;
+
+// Clés localStorage
+const LS_PENDING_PSEUDO = "auraRng_pendingPseudo"; // pseudo en cours d'inscription
+const pseudoKeyFor = (uid) => "auraRng_pseudo_" + uid; // pseudo par uid
 
 function usernameToEmail(username) {
     return username.toLowerCase().replace(/[^a-z0-9_]/g, "") + FB_EMAIL_DOMAIN;
@@ -1327,7 +1334,7 @@ function showAuthLoading(show, text) {
     const loading = document.getElementById("auth-loading");
     if (show) {
         document.getElementById("auth-loading-text").textContent =
-            text || "Connexion en cours...";
+            text || "Chargement...";
         loading.classList.remove("hidden");
     } else {
         loading.classList.add("hidden");
@@ -1351,7 +1358,7 @@ async function handleAuthSubmit() {
     const FB = window.FB;
     if (!FB) {
         document.getElementById("auth-error").textContent =
-            "Firebase non chargé. Recharge la page.";
+            "Firebase non chargé.";
         return;
     }
 
@@ -1371,7 +1378,7 @@ async function handleAuthSubmit() {
         return;
     }
     if (!password || password.length < 6) {
-        errorEl.textContent = "❌ Mot de passe : 6 caractères minimum.";
+        errorEl.textContent = "❌ Mot de passe : 6 car. min.";
         return;
     }
 
@@ -1382,6 +1389,7 @@ async function handleAuthSubmit() {
         const email = usernameToEmail(username);
 
         if (authMode === "register") {
+            // Vérifie que le pseudo n'existe pas
             const usernameRef = FB.ref(
                 FB.db,
                 "usernames/" + username.toLowerCase(),
@@ -1392,18 +1400,41 @@ async function handleAuthSubmit() {
                 return;
             }
 
-            const userCredential = await FB.createUserWithEmailAndPassword(
-                FB.auth,
-                email,
-                password,
-            );
-            const user = userCredential.user;
+            // ✅ CRITIQUE : cache le pseudo AVANT de créer le user
+            //    comme ça onAuthStateChanged peut le lire même si la DB n'a pas encore reçu l'écriture
+            localStorage.setItem(LS_PENDING_PSEUDO, username);
 
-            await FB.set(usernameRef, { uid: user.uid, createdAt: Date.now() });
+            let user;
+            try {
+                const cred = await FB.createUserWithEmailAndPassword(
+                    FB.auth,
+                    email,
+                    password,
+                );
+                user = cred.user;
+            } catch (e) {
+                localStorage.removeItem(LS_PENDING_PSEUDO);
+                throw e;
+            }
+
+            // Cache définitif par uid
+            localStorage.setItem(pseudoKeyFor(user.uid), username);
+
+            // Écriture DB (peut échouer sans casser le login)
+            try {
+                await FB.set(usernameRef, {
+                    uid: user.uid,
+                    createdAt: Date.now(),
+                });
+            } catch (e) {
+                console.warn("Écriture usernames échouée :", e);
+            }
+
+            // displayName (peut échouer sans casser le login)
             try {
                 await FB.updateProfile(user, { displayName: username });
             } catch (e) {
-                console.warn("updateProfile a échoué (non bloquant) :", e);
+                console.warn("updateProfile échoué :", e);
             }
         } else {
             await FB.signInWithEmailAndPassword(FB.auth, email, password);
@@ -1421,13 +1452,12 @@ async function handleAuthSubmit() {
             msg = "❌ Ce pseudo est déjà utilisé.";
         if (e.code === "auth/weak-password")
             msg = "❌ Mot de passe trop faible.";
-        if (e.code === "auth/too-many-requests")
-            msg = "❌ Trop de tentatives. Patiente.";
+        if (e.code === "auth/too-many-requests") msg = "❌ Trop de tentatives.";
         if (e.code === "auth/invalid-email") msg = "❌ Pseudo invalide.";
         if (e.code === "auth/operation-not-allowed")
-            msg = "❌ Active E-mail/Mot de passe dans Firebase Authentication.";
+            msg = "❌ Active E-mail/Mot de passe dans Firebase.";
         if (e.code === "auth/network-request-failed")
-            msg = "❌ Problème de connexion réseau.";
+            msg = "❌ Problème réseau.";
         errorEl.textContent = msg;
     } finally {
         submitBtn.disabled = false;
@@ -1438,12 +1468,7 @@ async function handleAuthSubmit() {
 
 async function handleLogout() {
     if (!window.FB) return;
-    if (
-        !confirm(
-            "Se déconnecter ? Ta progression est sauvegardée dans le cloud.",
-        )
-    )
-        return;
+    if (!confirm("Se déconnecter ? Ta progression est dans le cloud.")) return;
     try {
         flushCloudSave();
         await window.FB.signOut(window.FB.auth);
@@ -1451,6 +1476,49 @@ async function handleLogout() {
     } catch (e) {
         console.warn("Erreur déconnexion :", e);
     }
+}
+
+// ✅ Récupère le pseudo avec plusieurs fallbacks + retry DB
+async function resolveUsername(user) {
+    // 1) Cache localStorage par uid (le plus fiable)
+    let username = localStorage.getItem(pseudoKeyFor(user.uid));
+
+    // 2) Pseudo en cours d'inscription (race condition du register)
+    if (!username) {
+        const pending = localStorage.getItem(LS_PENDING_PSEUDO);
+        if (pending) username = pending;
+    }
+
+    // 3) displayName Firebase
+    if (!username && user.displayName) username = user.displayName;
+
+    // 4) Lookup DB avec retry
+    if (!username) {
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const snap = await window.FB.get(
+                    window.FB.ref(window.FB.db, "usernames"),
+                );
+                if (snap.exists()) {
+                    snap.forEach((child) => {
+                        if (child.val().uid === user.uid) username = child.key;
+                    });
+                }
+                if (username) break;
+            } catch (e) {
+                console.warn(
+                    "Lookup pseudo échoué (tentative " + (attempt + 1) + ") :",
+                    e,
+                );
+            }
+            await new Promise((r) => setTimeout(r, 400));
+        }
+    }
+
+    if (!username) username = "Joueur";
+    // Cache définitif
+    localStorage.setItem(pseudoKeyFor(user.uid), username);
+    return username;
 }
 
 function initAuth() {
@@ -1468,46 +1536,54 @@ function initAuth() {
         if (user) {
             showAuthLoading(true, "Chargement de ta progression...");
 
-            // 1) Identité
+            // ✅ 1) On RESET complètement l'état avant de charger quoi que ce soit
+            //    → empêche toute contamination par une save précédente
+            state = createDefaultState();
             state.uid = user.uid;
 
-            // 2) Pseudo depuis la DB (fallback : displayName)
-            let username = user.displayName || "Joueur";
-            try {
-                const snap = await FB.get(FB.ref(FB.db, "usernames"));
-                if (snap.exists()) {
-                    snap.forEach((child) => {
-                        if (child.val().uid === user.uid) username = child.key;
-                    });
-                }
-            } catch (e) {
-                console.warn("Impossible de récupérer le pseudo :", e);
-            }
+            // 2) Résolution du pseudo (multi-fallback)
+            const username = await resolveUsername(user);
             state.username = username;
 
-            // 3) Sauvegarde : cloud en PRIORITÉ
+            // 3) Chargement : cloud prioritaire, sinon local
             const loadedFromCloud = await loadGameFromCloud();
             if (!loadedFromCloud) {
-                // Pas de cloud → on charge le local (si présent)
-                loadGame();
-                // Si on a une progression locale, on la pousse au cloud
-                if (state.totalRolls > 0 || state.coins > 0) {
+                loadGame(); // refusera si _uid ne correspond pas
+                // Si on a une progression locale valide, on pousse au cloud
+                if (
+                    (state.totalRolls > 0 || state.coins > 0) &&
+                    state._uid === user.uid
+                ) {
                     pushSaveToCloud();
                 }
             }
+
+            // 4) Sécurisation finale
             state.uid = user.uid;
             state.username = username;
+            state._uid = user.uid;
 
-            // 4) UI
+            // 5) UI
             document.getElementById("stat-username").textContent =
                 state.username;
             showAuthLoading(false);
             showAuthModal(false);
             renderUI();
 
-            // 5) Sync classement
+            // 6) Sync
             pushToLeaderboard();
             initLeaderboard();
+
+            // 7) Clean du pending pseudo
+            localStorage.removeItem(LS_PENDING_PSEUDO);
+
+            console.log(
+                "✅ Connecté :",
+                username,
+                "|",
+                state.totalRolls,
+                "rolls",
+            );
         } else {
             state = createDefaultState();
             document.getElementById("stat-username").textContent = "—";
@@ -1523,7 +1599,6 @@ function initAuth() {
     });
 }
 
-// --- CLASSEMENT ---
 function getPlayerName() {
     return state.username;
 }
@@ -1535,7 +1610,6 @@ function pushToLeaderboard() {
 
     const { db, ref, update } = window.FB;
     const playerRef = ref(db, "players/" + uid);
-
     const bestAura = state.bestAura ? AURA_BY_ID[state.bestAura] : null;
     const bestRarityIndex = bestAura ? RARITIES.indexOf(bestAura.rarity) : -1;
 
@@ -1592,8 +1666,7 @@ function renderLeaderboard(type) {
 
     fetchLeaderboard(type, (players) => {
         if (players.length === 0) {
-            status.textContent =
-                "Aucun joueur pour le moment. Sois le premier !";
+            status.textContent = "Aucun joueur pour le moment.";
             return;
         }
         status.textContent = `Top ${players.length} joueurs`;
@@ -1646,9 +1719,7 @@ function initLeaderboard() {
     }, 60000);
 }
 
-/* =========================================================
-   7. ÉVÉNEMENTS
-   ========================================================= */
+/* ---------- 7. ÉVÉNEMENTS ---------- */
 
 let rollInProgress = false;
 let autoRollActive = false;
@@ -1736,15 +1807,13 @@ function openAutoRollPaywall() {
     saveGame();
     const modal = document.getElementById("autoroll-paywall");
     const secretBox = document.getElementById("paywall-secret");
-    const status = document.getElementById("paywall-status");
-    status.textContent = "";
+    document.getElementById("paywall-status").textContent = "";
     if (state.autoRollPaywallOpenCount >= AUTOROLL_SECRET_UNLOCK_AT)
         secretBox.classList.remove("hidden");
     else secretBox.classList.add("hidden");
     modal.classList.remove("hidden");
 }
 
-// --- Fausses pages de paiement ---
 const PAYMENT_FORMS = {
     PayPal: "form-paypal",
     "Apple Pay": "form-apple",
@@ -1770,8 +1839,7 @@ document.querySelectorAll(".pay-btn").forEach((btn) => {
 });
 
 function showFakePayment(formId) {
-    const overlay = document.getElementById("fake-payment");
-    overlay.classList.remove("hidden");
+    document.getElementById("fake-payment").classList.remove("hidden");
     document
         .querySelectorAll("#fake-payment .payment-screen")
         .forEach((el) => el.classList.add("hidden"));
@@ -1825,36 +1893,24 @@ function startFakePaymentProcess(method) {
         const trolls = [
             {
                 title: "Paiement refusé",
-                msg: `${method} a détecté une anomalie. Réessaie plus tard 😏`,
+                msg: `${method} a détecté une anomalie 😏`,
             },
             {
                 title: "Fonds insuffisants",
-                msg: `Ton compte ${method} est vide. Comme par hasard 😂`,
+                msg: `Ton compte ${method} est vide 😂`,
             },
             {
                 title: "Erreur inconnue",
-                msg: `Code erreur : TROLL-${Math.floor(Math.random() * 9000) + 1000}. Réessaie 10 fois 😉`,
+                msg: `Code : TROLL-${Math.floor(Math.random() * 9000) + 1000}`,
             },
             {
                 title: "Compte introuvable",
-                msg: `Aucun compte ${method} associé. Crée-en un 🤷`,
+                msg: `Aucun compte ${method} associé 🤷`,
             },
-            {
-                title: "Vérification échouée",
-                msg: `Vérification d'identité refusée. T'as 8 ans ? 🎣`,
-            },
-            {
-                title: "Serveur surchargé",
-                msg: `Le serveur de ${method} est en pause café ☕ Réessaie dans 10 ans.`,
-            },
-            {
-                title: "Session expirée",
-                msg: `Ta session a expiré. Ferme et rouvre 10 fois 🕵️`,
-            },
-            {
-                title: "Paiement suspect",
-                msg: `Ce paiement est trop beau pour être vrai, non ? 😎`,
-            },
+            { title: "Vérification échouée", msg: `Identité refusée 🎣` },
+            { title: "Serveur surchargé", msg: `Serveur en pause café ☕` },
+            { title: "Session expirée", msg: `Session expirée 🕵️` },
+            { title: "Paiement suspect", msg: `Trop beau pour être vrai 😎` },
         ];
         const troll = trolls[Math.floor(Math.random() * trolls.length)];
         document.getElementById("payment-error-title").textContent =
@@ -1894,7 +1950,6 @@ document.getElementById("paywall-buy-coins").addEventListener("click", () => {
     toggleAutoRoll();
 });
 
-// --- Modales ---
 document.querySelectorAll("[data-close]").forEach((btn) => {
     btn.addEventListener("click", () =>
         document.getElementById(btn.dataset.close).classList.add("hidden"),
@@ -1931,7 +1986,6 @@ $("#stats-btn").addEventListener("click", () => {
 });
 $("#settings-btn").addEventListener("click", () => openModal("settings-modal"));
 
-// --- AUTH : événements ---
 document.querySelectorAll(".auth-tab").forEach((tab) => {
     tab.addEventListener("click", () => setAuthMode(tab.dataset.auth));
 });
@@ -1945,7 +1999,6 @@ document
 });
 document.getElementById("logout-btn").addEventListener("click", handleLogout);
 
-// --- CLASSEMENT : événements ---
 $("#leaderboard-btn").addEventListener("click", () => {
     if (!getPlayerName()) {
         showToast("❌ Connecte-toi pour voir le classement.");
@@ -1964,7 +2017,6 @@ document.querySelectorAll(".lb-tab").forEach((tab) => {
     });
 });
 
-// --- Filtres inventaire ---
 ["inv-search", "inv-filter-rarity", "inv-sort", "inv-show-locked"].forEach(
     (id) => {
         document.getElementById(id).addEventListener("input", renderInventory);
@@ -1972,7 +2024,6 @@ document.querySelectorAll(".lb-tab").forEach((tab) => {
     },
 );
 
-// --- Paramètres ---
 $("#opt-sound").addEventListener("change", (e) => {
     state.settings.sound = e.target.checked;
     saveGame();
@@ -1992,31 +2043,24 @@ $("#opt-hide-common").addEventListener("change", (e) => {
 });
 
 $("#reset-save-btn").addEventListener("click", () => {
-    if (
-        !confirm("⚠️ Effacer toute la progression de ce compte ? Irréversible.")
-    )
-        return;
+    if (!confirm("⚠️ Effacer toute la progression ? Irréversible.")) return;
     localStorage.removeItem(getSaveKey());
     const uid = state.uid;
     const username = state.username;
-
-    // Supprime aussi le cloud
     if (uid && window.FB) {
         window.FB.set(window.FB.ref(window.FB.db, "saves/" + uid), null).catch(
             (e) => console.warn("Erreur reset cloud :", e),
         );
     }
-
     state = createDefaultState();
     state.uid = uid;
     state.username = username;
-    saveGame(true); // local seulement, cloud vient d'être supprimé
+    saveGame(true);
     location.reload();
 });
 
-/* =========================================================
-   8. AUDIO
-   ========================================================= */
+/* ---------- 8. AUDIO ---------- */
+
 let audioCtx = null;
 function playSound(type) {
     if (!state.settings.sound) return;
@@ -2059,9 +2103,8 @@ function playSound(type) {
     osc.stop(audioCtx.currentTime + dur);
 }
 
-/* =========================================================
-   9. INITIALISATION
-   ========================================================= */
+/* ---------- 9. INIT ---------- */
+
 function init() {
     const raritySelect = $("#inv-filter-rarity");
     RARITIES.forEach((r) => {
@@ -2074,7 +2117,6 @@ function init() {
     showAuthModal(true);
     setAuthMode("login");
 
-    // PlayTime : local toutes les 10s, cloud toutes les 60s
     setInterval(() => {
         if (!state.uid) return;
         state.playTime++;
@@ -2084,19 +2126,15 @@ function init() {
 
     setInterval(renderEffectsBar, 1000);
 
-    // Avant fermeture : on flush tout
     window.addEventListener("beforeunload", () => {
         if (state.uid) {
             saveGame();
             flushCloudSave();
         }
     });
-
-    // Si l'onglet passe en arrière-plan → flush immédiat
     document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "hidden" && state.uid) {
+        if (document.visibilityState === "hidden" && state.uid)
             flushCloudSave();
-        }
     });
 
     if (!authInitialized) {

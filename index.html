@@ -6,9 +6,6 @@
         <title>Aura RNG — Jeu de tirage</title>
         <link rel="stylesheet" href="style.css" />
 
-        <!-- =====================================================
-       SDK FIREBASE (Auth Email/MDP + Realtime DB)
-       ===================================================== -->
         <script type="module">
             import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
             import {
@@ -25,7 +22,6 @@
                 set,
                 get,
                 update,
-                remove,
                 query,
                 orderByChild,
                 limitToLast,
@@ -59,7 +55,6 @@
                 set,
                 get,
                 update,
-                remove,
                 query,
                 orderByChild,
                 limitToLast,
@@ -69,12 +64,10 @@
         </script>
     </head>
     <body class="not-logged">
-        <!-- ============ ARRIÈRE-PLAN ANIMÉ ============ -->
         <div id="background-layer" class="bg-plains">
             <div class="bg-particles"></div>
         </div>
 
-        <!-- ============ ÉCRAN PRINCIPAL ============ -->
         <header id="top-bar">
             <div class="stat-box" title="Nombre total de rolls effectués">
                 🎲 <span id="stat-rolls">0</span>
@@ -130,9 +123,7 @@
             <div id="effects-bar"></div>
         </main>
 
-        <!-- ============ MODALES ============ -->
-
-        <!-- Authentification (pseudo + mot de passe) -->
+        <!-- Authentification -->
         <div id="auth-modal" class="modal">
             <div class="modal-content auth-content">
                 <h2 id="auth-title">🔐 Connexion</h2>
@@ -248,7 +239,7 @@
             </div>
         </div>
 
-        <!-- Améliorations permanentes -->
+        <!-- Améliorations -->
         <div id="upgrades-modal" class="modal hidden">
             <div class="modal-content">
                 <button class="close-btn" data-close="upgrades-modal">✕</button>
@@ -258,7 +249,7 @@
             </div>
         </div>
 
-        <!-- Classement mondial -->
+        <!-- Classement -->
         <div id="leaderboard-modal" class="modal hidden">
             <div class="modal-content">
                 <button class="close-btn" data-close="leaderboard-modal">
@@ -283,7 +274,7 @@
             </div>
         </div>
 
-        <!-- Statistiques -->
+        <!-- Stats -->
         <div id="stats-modal" class="modal hidden">
             <div class="modal-content">
                 <button class="close-btn" data-close="stats-modal">✕</button>
@@ -332,12 +323,11 @@
                 </button>
                 <p class="hint">
                     ☁️ Ta progression est synchronisée avec le cloud Firebase.
-                    Tu la retrouveras sur n'importe quel appareil.
                 </p>
             </div>
         </div>
 
-        <!-- Paywall Auto Roll (troll) -->
+        <!-- Paywall -->
         <div id="autoroll-paywall" class="modal hidden">
             <div class="modal-content paywall-content">
                 <button class="close-btn" data-close="autoroll-paywall">
@@ -386,7 +376,7 @@
             </div>
         </div>
 
-        <!-- Fausses pages de paiement -->
+        <!-- Faux paiement -->
         <div id="fake-payment" class="hidden">
             <div id="payment-loading" class="payment-screen hidden">
                 <div class="payment-spinner"></div>
@@ -515,12 +505,10 @@
             </div>
         </div>
 
-        <!-- Révélation spectaculaire -->
         <div id="reveal-overlay" class="hidden">
             <div id="reveal-text"></div>
         </div>
 
-        <!-- Toast -->
         <div id="toast" class="hidden"></div>
 
         <script src="script.js"></script>
