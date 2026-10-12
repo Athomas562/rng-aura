@@ -1785,6 +1785,15 @@ function formatChance(aura) {
 }
 
 function performRoll() {
+    // ✅ Vérifie le rate limit AVANT tout
+    if (window.__auraAntiTamper) {
+        const check = window.__auraAntiTamper.rateCheck();
+        if (!check.ok) {
+            showToast("🚫 " + check.reason);
+            return null;
+        }
+    }
+
     const aura = pickAuraByWeight(getTotalLuckMultiplier());
     registerAura(aura);
     return aura;
@@ -3219,6 +3228,9 @@ $("#roll-btn").addEventListener("click", () => {
     setTimeout(() => {
         try {
             const aura = performRoll();
+            // ✅ Si le roll est refusé (rate limit), on arrête
+            if (!aura) return;
+
             handleAuraReveal(aura);
             playSound("roll");
             if (REVEAL_RARITIES.includes(aura.rarity)) playSound("rare");
@@ -3229,7 +3241,6 @@ $("#roll-btn").addEventListener("click", () => {
             console.warn("Erreur roll manuel :", e);
         } finally {
             rollLock = false;
-            // Ne réactive le bouton QUE si l'auto-roll n'est pas actif
             if (!autoRollActive) $("#roll-btn").disabled = false;
         }
     }, delay);
@@ -3275,6 +3286,16 @@ function runAutoRollLoop() {
 
     try {
         const aura = performRoll();
+        // ✅ Si refusé (rate limit), on arrête l'auto-roll
+        if (!aura) {
+            autoRollActive = false;
+            const btn = $("#auto-roll-btn");
+            btn.textContent = "Auto Roll : OFF";
+            btn.classList.remove("active");
+            showToast("🚫 Auto Roll arrêté (triche détectée)");
+            return;
+        }
+
         handleAuraReveal(aura);
         playSound("roll");
         renderUI();
@@ -3284,7 +3305,6 @@ function runAutoRollLoop() {
         console.warn("Erreur auto-roll :", e);
     } finally {
         rollLock = false;
-        // Le bouton reste désactivé si l'auto-roll tourne encore
         if (!autoRollActive) $("#roll-btn").disabled = false;
     }
 
@@ -3689,6 +3709,53 @@ function init() {
 
     console.log("🎮 Aura RNG prêt !");
 }
+
+// ✅ Expose les fonctions critiques pour la surveillance anti-triche
+window.performRoll = performRoll;
+window.registerAura = registerAura;
+window.getTotalLuckMultiplier = getTotalLuckMultiplier;
+window.pushToLeaderboard = pushToLeaderboard;
+window.state = state;
+
+// ✅ Active les protections quand tout est prêt
+setTimeout(() => {
+    if (window.__auraAntiTamper) {
+        window.__auraAntiTamper.snapshot();
+        window.__auraAntiTamper.freeze(["performRoll", "registerAura"]);
+        window.__auraAntiTamper.lockState();
+
+        // Vérifie l'intégrité toutes les 5s
+        setInterval(() => {
+            const integrity = window.__auraAntiTamper.checkIntegrity();
+            if (!integrity.ok) {
+                console.warn("🚨", integrity.reason);
+                document.body.innerHTML = `
+                    <div style="
+                        color: #fff;
+                        background: #1a0000;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        height: 100vh;
+                        font-family: sans-serif;
+                        text-align: center;
+                        padding: 40px;
+                    ">
+                        <div>
+                            <h1 style="color: #f87171;">🚫 Triche détectée</h1>
+                            <p style="margin-top: 20px; opacity: 0.8;">
+                                ${integrity.reason}
+                            </p>
+                            <p style="margin-top: 20px; opacity: 0.6;">
+                                Recharge la page pour reprendre.
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+        }, 5000);
+    }
+}, 1000);
 
 if (window.FB) {
     init();
