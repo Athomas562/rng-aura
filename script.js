@@ -3044,7 +3044,7 @@ function renderStats() {
         return `<div class="collection-row ${complete ? "complete" : ""}"><span class="col-rarity">${r}</span><span class="col-progress">${found} / ${total}</span><span class="col-bonus">${bonusText}</span></div>`;
     }).join("")}</div>`;
 }
-/* ---------- 7. AUTH + LEADERBOARD ---------- */
+/*/* ---------- 7. AUTH + LEADERBOARD ---------- */
 
 let authMode = "login";
 let authInitialized = false;
@@ -3197,7 +3197,6 @@ async function handleAuthSubmit() {
 async function checkPseudoDeleted(username) {
     if (!window.FB) return false;
     try {
-        // 1. Cherche dans /deleted_usernames/
         const delSnap = await window.FB.get(
             window.FB.ref(
                 window.FB.db,
@@ -3206,7 +3205,6 @@ async function checkPseudoDeleted(username) {
         );
         if (delSnap.exists()) return true;
 
-        // 2. Cherche dans /deleted/ par nom
         const allDeleted = await window.FB.get(
             window.FB.ref(window.FB.db, "deleted"),
         );
@@ -3421,6 +3419,26 @@ function startRealtimeSync() {
                 }
             }
         }
+
+        // ✅ Détection d'auras AJOUTÉES par un admin
+        if (cloud.inventory && typeof cloud.inventory === "object") {
+            const cloudKeys = Object.keys(cloud.inventory);
+            for (const key of cloudKeys) {
+                const cloudQty = cloud.inventory[key] || 0;
+                const localQty = state.inventory[key] || 0;
+                if (cloudQty > localQty) {
+                    const aura = AURA_BY_ID[key];
+                    if (aura) {
+                        const diff = cloudQty - localQty;
+                        showToast(`✨ +${diff}x [${aura.name}] reçue(s) !`);
+                    }
+                    state.inventory[key] = cloudQty;
+                    state.discovered[key] = true;
+                    changed = true;
+                }
+            }
+        }
+
         if (changed) {
             renderUI();
             try {
@@ -5529,6 +5547,136 @@ async function adminGiveLuck() {
         showToast("❌ Erreur.");
     }
 }
+/* ✅ Donne une aura au joueur (par nom ou ID) */
+async function adminGiveAura() {
+    if (!isAdminUser || !currentAdminTarget) return;
+
+    const uid = currentAdminTarget.uid;
+    const name = currentAdminTarget.name;
+
+    const input = prompt(
+        `✨ Donner une aura à ${name}\n\n` +
+            `Entre l'ID (ex: a108) OU le nom (ex: Aura ultime) :\n\n` +
+            `Ou tape "list" pour voir les 20 dernières auras.`,
+        "",
+    );
+    if (!input) return;
+
+    if (input.toLowerCase() === "list") {
+        const list = AURAS.slice(-20)
+            .map((a) => `${a.id} — ${a.name} (${a.rarity})`)
+            .join("\n");
+        alert(`📋 20 dernières auras :\n\n${list}`);
+        return;
+    }
+
+    let aura = AURA_BY_ID[input.trim()];
+    if (!aura) {
+        const searchName = input.trim().toLowerCase();
+        aura = AURAS.find((a) => a.name.toLowerCase() === searchName);
+    }
+    if (!aura) {
+        showToast("❌ Aura introuvable. Vérifie l'ID ou le nom.");
+        return;
+    }
+
+    const qtyInput = prompt(`Combien d'exemplaires de "${aura.name}" ?`, "1");
+    if (qtyInput === null) return;
+    const qty = parseInt(qtyInput, 10);
+    if (isNaN(qty) || qty <= 0) {
+        showToast("❌ Quantité invalide.");
+        return;
+    }
+
+    const confirmed = confirm(
+        `✨ Donner ${qty}x "${aura.name}" (${aura.rarity}) à ${name} ?`,
+    );
+    if (!confirmed) return;
+
+    const statusEl = document.getElementById("admin-status");
+    statusEl.textContent = "⏳ Ajout en cours...";
+
+    try {
+        const sSnap = await window.FB.get(
+            window.FB.ref(window.FB.db, "saves/" + uid),
+        );
+        const save = sSnap.exists() ? sSnap.val() : {};
+
+        const inventory = save.inventory || {};
+        const discovered = save.discovered || {};
+
+        inventory[aura.id] = (inventory[aura.id] || 0) + qty;
+        discovered[aura.id] = true;
+
+        let bestAura = save.bestAura || null;
+        const currentBest = bestAura ? AURA_BY_ID[bestAura] : null;
+        if (!currentBest) {
+            bestAura = aura.id;
+        } else {
+            const nR = RARITY_INDEX[aura.rarity],
+                oR = RARITY_INDEX[currentBest.rarity];
+            const nW = auraWeight(aura),
+                oW = auraWeight(currentBest);
+            if (
+                nR > oR ||
+                (nR === oR && nW > oW) ||
+                (nR === oR && nW === oW && aura.id < currentBest.id)
+            )
+                bestAura = aura.id;
+        }
+
+        await window.FB.update(window.FB.ref(window.FB.db, "saves/" + uid), {
+            inventory,
+            discovered,
+            bestAura,
+        });
+
+        const bestAuraObj = bestAura ? AURA_BY_ID[bestAura] : null;
+        let bestAuraScore = 0,
+            bestAuraName = "Aucune",
+            bestAuraRarity = "none",
+            bestAuraWeight = 0,
+            bestAuraChance = "—";
+        if (bestAuraObj) {
+            const rIdx = RARITY_INDEX[bestAuraObj.rarity];
+            const w = auraWeight(bestAuraObj);
+            bestAuraScore = (rIdx + 1) * 1e12 + w;
+            bestAuraName = bestAuraObj.name;
+            bestAuraRarity = bestAuraObj.rarity;
+            bestAuraWeight = w;
+            bestAuraChance = formatChance(bestAuraObj);
+        }
+        try {
+            await window.FB.update(
+                window.FB.ref(window.FB.db, "players/" + uid),
+                {
+                    bestAuraName,
+                    bestAuraRarity,
+                    bestAuraScore,
+                    bestAuraWeight,
+                    bestAuraChance,
+                    updatedAt: Date.now(),
+                },
+            );
+        } catch (e) {}
+
+        statusEl.textContent = `✅ ${qty}x "${aura.name}" ajouté(s) à ${name}.`;
+        showToast(`✨ ${qty}x ${aura.name} donné(s) à ${name}.`);
+
+        if (uid === state.uid) {
+            state.inventory[aura.id] = (state.inventory[aura.id] || 0) + qty;
+            state.discovered[aura.id] = true;
+            if (bestAura) state.bestAura = bestAura;
+            saveGame(true);
+            renderUI();
+        }
+    } catch (e) {
+        console.error("adminGiveAura error:", e);
+        statusEl.textContent = "❌ Erreur : " + (e.message || "inconnue");
+        showToast("❌ Erreur lors de l'ajout.");
+    }
+}
+
 async function adminRemoveAura() {
     if (!isAdminUser || !currentAdminTarget) return;
     const auraId = prompt("ID de l'aura (ex: a108) :", "");
@@ -6442,7 +6590,24 @@ document.addEventListener("DOMContentLoaded", () => {
     bind("admin-reset-coins-btn", adminResetCoins);
     bind("admin-give-coins-btn", adminGiveCoins);
     bind("admin-give-luck-btn", adminGiveLuck);
+    bind("admin-give-aura-btn", adminGiveAura);
     bind("admin-remove-aura-btn", adminRemoveAura);
+
+    // ✅ Bouton démute chat
+    bind("admin-unmute-btn", async () => {
+        if (!isAdminUser || !currentAdminTarget) return;
+        try {
+            await window.FB.remove(
+                window.FB.ref(
+                    window.FB.db,
+                    "chat_mutes/" + currentAdminTarget.uid,
+                ),
+            );
+            showToast(`✅ ${currentAdminTarget.name} démute du chat.`);
+        } catch (e) {
+            showToast("❌ Erreur.");
+        }
+    });
     bind("admin-wipe-btn", adminWipeStats);
     bind("admin-delete-btn", adminDeleteAccount);
     bind("admin-ban-btn", adminBan);
