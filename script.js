@@ -1,17 +1,15 @@
 /* =========================================================
    AURA RNG — script.js
-   v11 : Ban UID/IP + Wipe + Ban permanent + Verrou global
-         + Anti-scripts utilisateur (Tampermonkey, etc.)
+   v12 : Ban UID/IP + Wipe + Delete + Ban permanent + Verrou
+         + Anti-scripts utilisateur + Bouton logout ban
    ========================================================= */
 
 /* ---------- 0. ANTI-SCRIPTS UTILISATEUR (Tampermonkey, Violentmonkey) ---------- */
 (function protectAgainstUserScripts() {
-    // 1. Détection de la signature ==UserScript== injectée dans le DOM
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (mutation.addedNodes != null && mutation.addedNodes.length > 0) {
                 for (const addedNode of mutation.addedNodes) {
-                    // Détection par contenu
                     if (
                         addedNode.innerHTML &&
                         addedNode.innerHTML.includes("==UserScript==")
@@ -24,7 +22,6 @@
                         );
                         return;
                     }
-                    // Détection par balise script suspecte
                     if (addedNode.tagName === "SCRIPT") {
                         const src = addedNode.src || "";
                         const text = addedNode.textContent || "";
@@ -52,7 +49,6 @@
         subtree: true,
     });
 
-    // 2. Détection des variables globales typiques des gestionnaires de scripts
     function checkGlobals() {
         const suspects = [
             "GM_info",
@@ -72,7 +68,6 @@
         }
     }
 
-    // 3. Détection de la fonction toString modifiée (injection)
     function checkToString() {
         try {
             const fn = function () {};
@@ -83,23 +78,18 @@
         } catch (e) {}
     }
 
-    // 4. Vérification périodique
     setInterval(() => {
         checkGlobals();
         checkToString();
     }, 3000);
     checkGlobals();
 
-    // 5. Action en cas de détection
     function blockUserScript(reason) {
-        // Évite le spam si déjà bloqué
         if (window.__auraUserScriptBlocked) return;
         window.__auraUserScriptBlocked = true;
 
-        // Log
         console.error("🛡️ Blocage :", reason);
 
-        // Ban automatique si l'utilisateur est connecté
         if (
             typeof triggerAutoBan === "function" &&
             window.state &&
@@ -110,7 +100,6 @@
             } catch (e) {}
         }
 
-        // Message à l'écran
         const overlay = document.createElement("div");
         overlay.id = "userscript-blocked-overlay";
         overlay.style.cssText = `
@@ -135,7 +124,6 @@
     `;
         document.body.appendChild(overlay);
 
-        // Empêche toute interaction
         document.body.style.pointerEvents = "none";
         overlay.style.pointerEvents = "all";
     }
@@ -1671,7 +1659,6 @@ const SAVE_KEY = "auraRng_save_v1";
 const SAVE_VERSION = 1;
 const FB_EMAIL_DOMAIN = "@aurarng.local";
 
-/* ===== SKINS ===== */
 const SKINS = [
     {
         id: "default",
@@ -1715,7 +1702,6 @@ const SKINS = [
     },
 ];
 
-/* ===== COMPÉTENCES ===== */
 const SKILL_BRANCHES = [
     {
         id: "luck",
@@ -1756,7 +1742,6 @@ const SKILL_BRANCHES = [
 ];
 const SKILL_REQUIRED_LEVEL = 20;
 
-/* ===== CHAT ===== */
 const CHAT_BANNED_WORDS = [
     "connard",
     "connasse",
@@ -1791,13 +1776,11 @@ function filterChatText(text) {
     return filtered.slice(0, 200);
 }
 
-/* ===== AMIS ===== */
 const FRIENDS_MAX_ACTIVITY_PER_PLAYER = 20;
 const FRIENDS_ONLINE_WINDOW_MS = 5 * 60 * 1000;
 const FRIENDS_SOCIAL_BONUS_PER_FRIEND = 0.01;
 const FRIENDS_SOCIAL_BONUS_MAX = 10;
 
-/* ===== XP ===== */
 const XP_REWARDS = {
     common: 1,
     uncommon: 3,
@@ -1820,7 +1803,6 @@ function xpToNextLevel(n) {
     return xpForLevel(n + 1) - xpForLevel(n);
 }
 
-/* ===== TITRES ===== */
 const TITLES = [
     {
         id: "t_rookie",
@@ -1903,7 +1885,6 @@ function collectionPercent() {
     return total > 0 ? (found / total) * 100 : 0;
 }
 
-/* ===== COLLECTIONS ===== */
 const COMPLETE_COLLECTION_BONUSES = {
     common: 0.01,
     uncommon: 0.015,
@@ -1929,7 +1910,6 @@ function getCompleteCollectionBonus() {
     return b;
 }
 
-/* ===== LOT 5 : BAN / ADMIN ===== */
 const ADMIN_USERNAME = "ks_l9";
 const CONSOLE_BAN_REASON = "Utilisation de la console détectée";
 const BAN_DURATIONS = {
@@ -1945,11 +1925,8 @@ const BAN_COUNT_KEY = "auraRng_banCount";
 let isAdminUser = false;
 let currentAdminTarget = null;
 let banTimerInterval = null;
-/* ✅ Lock global : si un ban est affiché, personne ne peut le cacher */
 window.__auraBanLocked = false;
 window.__auraBanUntil = 0;
-
-/* ---------- 2. ÉTAT ---------- */
 
 function createDefaultState() {
     return {
@@ -3067,7 +3044,6 @@ function renderStats() {
         return `<div class="collection-row ${complete ? "complete" : ""}"><span class="col-rarity">${r}</span><span class="col-progress">${found} / ${total}</span><span class="col-bonus">${bonusText}</span></div>`;
     }).join("")}</div>`;
 }
-
 /* ---------- 7. AUTH + LEADERBOARD ---------- */
 
 let authMode = "login";
@@ -3141,6 +3117,14 @@ async function handleAuthSubmit() {
     try {
         const email = usernameToEmail(username);
         if (authMode === "register") {
+            // ✅ Vérifie si le pseudo a déjà été supprimé
+            const deletedCheck = await checkPseudoDeleted(username);
+            if (deletedCheck) {
+                errorEl.textContent =
+                    "🚫 Ce pseudo a été supprimé définitivement. Choisis-en un autre.";
+                return;
+            }
+
             const usernameRef = FB.ref(
                 FB.db,
                 "usernames/" + username.toLowerCase(),
@@ -3173,7 +3157,16 @@ async function handleAuthSubmit() {
             try {
                 await FB.updateProfile(user, { displayName: username });
             } catch (e) {}
-        } else await FB.signInWithEmailAndPassword(FB.auth, email, password);
+        } else {
+            // ✅ Vérifie si le compte a été supprimé AVANT de connecter
+            const deletedCheck = await checkPseudoDeleted(username);
+            if (deletedCheck) {
+                errorEl.textContent =
+                    "🚫 Ce compte a été supprimé définitivement. Tu ne peux plus te connecter.";
+                return;
+            }
+            await FB.signInWithEmailAndPassword(FB.auth, email, password);
+        }
     } catch (e) {
         let msg = "❌ Erreur inconnue.";
         if (e.code === "auth/user-not-found")
@@ -3197,6 +3190,43 @@ async function handleAuthSubmit() {
         submitBtn.disabled = false;
         submitBtn.textContent =
             authMode === "login" ? "Se connecter" : "Créer mon compte";
+    }
+}
+
+/* ✅ Vérifie si un pseudo a été marqué comme supprimé */
+async function checkPseudoDeleted(username) {
+    if (!window.FB) return false;
+    try {
+        // 1. Cherche dans /deleted_usernames/
+        const delSnap = await window.FB.get(
+            window.FB.ref(
+                window.FB.db,
+                "deleted_usernames/" + username.toLowerCase(),
+            ),
+        );
+        if (delSnap.exists()) return true;
+
+        // 2. Cherche dans /deleted/ par nom
+        const allDeleted = await window.FB.get(
+            window.FB.ref(window.FB.db, "deleted"),
+        );
+        if (allDeleted.exists()) {
+            let found = false;
+            allDeleted.forEach((child) => {
+                const val = child.val();
+                if (
+                    val &&
+                    val.name &&
+                    val.name.toLowerCase() === username.toLowerCase()
+                ) {
+                    found = true;
+                }
+            });
+            if (found) return true;
+        }
+        return false;
+    } catch (e) {
+        return false;
     }
 }
 
@@ -3246,6 +3276,7 @@ let realtimeFreezeListener = null;
 let realtimeSaveListener = null;
 let realtimePlayerListener = null;
 let realtimeKickListener = null;
+let realtimeDeletedListener = null;
 
 function startRealtimeSync() {
     if (!window.FB || !state.uid || realtimeSyncStarted) return;
@@ -3253,6 +3284,7 @@ function startRealtimeSync() {
 
     const { db, ref, onValue } = window.FB;
 
+    // 1. BAN
     const banRef = ref(db, "bans/" + state.uid);
     realtimeBanListener = onValue(banRef, (snap) => {
         const overlay = document.getElementById("ban-overlay");
@@ -3284,6 +3316,7 @@ function startRealtimeSync() {
         if (ab) ab.disabled = false;
     });
 
+    // 2. FREEZE
     const freezeRef = ref(db, "frozen/" + state.uid);
     realtimeFreezeListener = onValue(freezeRef, (snap) => {
         const frozen = snap.exists() && snap.val() === true;
@@ -3296,6 +3329,15 @@ function startRealtimeSync() {
         }
     });
 
+    // 3. DELETED (compte supprimé)
+    const deletedRef = ref(db, "deleted/" + state.uid);
+    realtimeDeletedListener = onValue(deletedRef, (snap) => {
+        if (snap.exists()) {
+            showDeletedOverlay(snap.val());
+        }
+    });
+
+    // 4. SAVE
     const saveRef = ref(db, "saves/" + state.uid);
     let firstSaveLoad = true;
     realtimeSaveListener = onValue(saveRef, (snap) => {
@@ -3307,7 +3349,6 @@ function startRealtimeSync() {
             return;
         }
 
-        // ✅ Détection de wipe
         const wasWiped =
             cloud.totalRolls === 0 &&
             cloud.coins === 0 &&
@@ -3388,6 +3429,7 @@ function startRealtimeSync() {
         }
     });
 
+    // 5. PLAYER
     const playerRef = ref(db, "players/" + state.uid);
     let firstPlayerLoad = true;
     realtimePlayerListener = onValue(playerRef, (snap) => {
@@ -3405,8 +3447,9 @@ function startRealtimeSync() {
         }
     });
 
+    // 6. KICK
     const kickRef = ref(db, "kicked/" + state.uid);
-    onValue(kickRef, (snap) => {
+    realtimeKickListener = onValue(kickRef, (snap) => {
         if (snap.exists()) {
             const d = snap.val();
             if (d.ts && Date.now() - d.ts < 10000) {
@@ -3417,7 +3460,11 @@ function startRealtimeSync() {
                 if (autoRollActive) toggleAutoRoll();
                 if (rollLock) rollLock = false;
                 document.querySelectorAll("button").forEach((b) => {
-                    if (b.id !== "payment-error-close" && b.id !== "logout-btn")
+                    if (
+                        b.id !== "payment-error-close" &&
+                        b.id !== "logout-btn" &&
+                        b.id !== "ban-logout-btn"
+                    )
                         b.disabled = true;
                 });
             }
@@ -3449,6 +3496,10 @@ function stopRealtimeSync() {
     if (realtimeKickListener) {
         off(ref(db, "kicked/" + state.uid));
         realtimeKickListener = null;
+    }
+    if (realtimeDeletedListener) {
+        off(ref(db, "deleted/" + state.uid));
+        realtimeDeletedListener = null;
     }
     realtimeSyncStarted = false;
 }
@@ -4030,7 +4081,6 @@ function stopBiomeParticles() {
     if (box) box.innerHTML = "";
     currentBiomeParticleType = null;
 }
-
 /* ---------- 10. CHAT ---------- */
 
 let chatListenerStarted = false,
@@ -4646,6 +4696,13 @@ function showBanOverlay(until, reason) {
     if (rollBtn) rollBtn.disabled = true;
     clearInterval(banTimerInterval);
 
+    // ✅ S'assure que le bouton logout est bien là et cliquable
+    const logoutBtn = document.getElementById("ban-logout-btn");
+    if (logoutBtn) {
+        logoutBtn.style.display = "block";
+        logoutBtn.style.pointerEvents = "auto";
+    }
+
     const tick = () => {
         const remaining = Math.max(0, until - Date.now());
         const el = document.getElementById("ban-timer");
@@ -4749,6 +4806,76 @@ async function checkBanned() {
         } catch (e) {}
     }
     return false;
+}
+
+/* ✅ Vérifie si le compte a été supprimé */
+async function checkDeleted() {
+    if (!window.FB || !state.uid) return false;
+    try {
+        const snap = await window.FB.get(
+            window.FB.ref(window.FB.db, "deleted/" + state.uid),
+        );
+        if (snap.exists()) {
+            showDeletedOverlay(snap.val());
+            return true;
+        }
+        const banSnap = await window.FB.get(
+            window.FB.ref(window.FB.db, "bans/" + state.uid),
+        );
+        if (banSnap.exists()) {
+            const d = banSnap.val();
+            if (d.deleted) {
+                showDeletedOverlay(d);
+                return true;
+            }
+        }
+    } catch (e) {}
+    return false;
+}
+
+/* ✅ Overlay de compte supprimé */
+function showDeletedOverlay(data) {
+    if (document.getElementById("deleted-overlay")) return;
+    const overlay = document.createElement("div");
+    overlay.id = "deleted-overlay";
+    overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 999999;
+    background: radial-gradient(circle at 50% 40%, #1a0000, #0a0000 70%);
+    backdrop-filter: blur(20px);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-family: system-ui, sans-serif; text-align: center; padding: 20px;
+  `;
+    overlay.innerHTML = `
+    <div style="max-width: 500px;">
+      <div style="font-size: 80px; margin-bottom: 20px;">❌</div>
+      <h1 style="color: #f87171; font-size: 32px; margin-bottom: 16px;">Compte supprimé</h1>
+      <p style="color: #fca5a5; font-size: 16px; line-height: 1.6;">
+        Ton compte a été <strong>supprimé définitivement</strong> par un administrateur.<br><br>
+        Tu ne peux plus te connecter avec ce pseudo.
+      </p>
+      <p style="color: #fff; font-size: 13px; margin-top: 20px; opacity: 0.6;">
+        Raison : ${(data && data.reason) || "Compte supprimé"}
+      </p>
+      <button id="deleted-logout-btn" style="margin-top: 30px; padding: 12px 24px; border-radius: 10px; background: rgba(220, 38, 38, 0.9); color: #fff; font-weight: 700; font-size: 15px; border: 1px solid rgba(248, 113, 113, 0.6); cursor: pointer;">
+        🚪 Se déconnecter
+      </button>
+    </div>
+  `;
+    document.body.appendChild(overlay);
+
+    document.body.style.pointerEvents = "none";
+    overlay.style.pointerEvents = "all";
+
+    document
+        .getElementById("deleted-logout-btn")
+        .addEventListener("click", async () => {
+            try {
+                if (window.FB && window.FB.signOut) {
+                    await window.FB.signOut(window.FB.auth);
+                }
+            } catch (e) {}
+            location.reload();
+        });
 }
 
 function detectConsoleInput() {
@@ -4943,6 +5070,7 @@ async function checkAdminStatus() {
 }
 
 async function postLoginChecks() {
+    await checkDeleted();
     await checkBanned();
     await registerPlayerIP();
     await checkAdminStatus();
@@ -5328,6 +5456,166 @@ async function adminWipeStats() {
     }
 }
 
+/* ✅ Supprime DÉFINITIVEMENT le compte (marqueur deleted + ban permanent + wipe total) */
+async function adminDeleteAccount() {
+    if (!isAdminUser || !currentAdminTarget) return;
+
+    const uid = currentAdminTarget.uid;
+    const name = currentAdminTarget.name;
+
+    const confirmed = confirm(
+        `⚠️ SUPPRIMER DÉFINITIVEMENT le compte de ${name} ?\n\n` +
+            `Cette action va :\n` +
+            `• Marquer le compte comme supprimé (il ne pourra PLUS se connecter)\n` +
+            `• Supprimer sa save (progression)\n` +
+            `• Supprimer son profil joueur (classement)\n` +
+            `• Supprimer son pseudo (/usernames/)\n` +
+            `• Supprimer son activité\n` +
+            `• Le bannir de force (permanent)\n\n` +
+            `⚠️ IRRÉVERSIBLE.`,
+    );
+    if (!confirmed) return;
+
+    const confirmed2 = confirm(
+        `Es-tu VRAIMENT sûr ? Cette action est DÉFINITIVE.`,
+    );
+    if (!confirmed2) return;
+
+    const statusEl = document.getElementById("admin-status");
+    statusEl.textContent = "⏳ Suppression en cours...";
+
+    try {
+        // 1. Marquer comme supprimé (marqueur principal)
+        try {
+            await window.FB.set(window.FB.ref(window.FB.db, "deleted/" + uid), {
+                deletedAt: Date.now(),
+                by: state.username,
+                name: name,
+                reason: "Compte supprimé par admin",
+            });
+        } catch (e) {
+            console.warn("Écriture deleted échouée :", e.message);
+        }
+
+        // 2. Marquer le pseudo comme supprimé (bloque la reconnexion)
+        try {
+            await window.FB.set(
+                window.FB.ref(
+                    window.FB.db,
+                    "deleted_usernames/" + name.toLowerCase(),
+                ),
+                {
+                    uid: uid,
+                    deletedAt: Date.now(),
+                    by: state.username,
+                },
+            );
+        } catch (e) {
+            console.warn("Écriture deleted_usernames échouée :", e.message);
+        }
+
+        // 3. Ban permanent (sécurité supplémentaire)
+        try {
+            await window.FB.set(window.FB.ref(window.FB.db, "bans/" + uid), {
+                until: Date.now() + 9999 * 365 * 24 * 60 * 60 * 1000,
+                reason: "Compte supprimé définitivement",
+                ts: Date.now(),
+                name: name,
+                by: state.username,
+                deleted: true,
+            });
+        } catch (e) {
+            console.warn("Écriture ban échouée :", e.message);
+        }
+
+        // 4. Supprimer la save
+        try {
+            await window.FB.remove(window.FB.ref(window.FB.db, "saves/" + uid));
+        } catch (e) {
+            console.warn("Suppression save échouée :", e.message);
+        }
+
+        // 5. Supprimer le profil joueur (classement)
+        try {
+            await window.FB.remove(
+                window.FB.ref(window.FB.db, "players/" + uid),
+            );
+        } catch (e) {
+            console.warn("Suppression player échouée :", e.message);
+        }
+
+        // 6. Supprimer le pseudo
+        try {
+            const usernamesSnap = await window.FB.get(
+                window.FB.ref(window.FB.db, "usernames"),
+            );
+            if (usernamesSnap.exists()) {
+                const removals = [];
+                usernamesSnap.forEach((child) => {
+                    if (child.val().uid === uid) {
+                        removals.push(
+                            window.FB.remove(
+                                window.FB.ref(
+                                    window.FB.db,
+                                    "usernames/" + child.key,
+                                ),
+                            ),
+                        );
+                    }
+                });
+                await Promise.all(removals);
+            }
+        } catch (e) {
+            console.warn("Suppression username échouée :", e.message);
+        }
+
+        // 7. Supprimer l'activité
+        try {
+            await window.FB.remove(
+                window.FB.ref(window.FB.db, "activity/" + uid),
+            );
+        } catch (e) {
+            console.warn("Suppression activity échouée :", e.message);
+        }
+
+        // 8. Supprimer les amis
+        try {
+            await window.FB.remove(
+                window.FB.ref(window.FB.db, "friends/" + uid),
+            );
+        } catch (e) {
+            console.warn("Suppression friends échouée :", e.message);
+        }
+
+        // 9. Supprimer le freeze
+        try {
+            await window.FB.remove(
+                window.FB.ref(window.FB.db, "frozen/" + uid),
+            );
+        } catch (e) {}
+
+        // 10. Kick immédiat
+        try {
+            await window.FB.set(window.FB.ref(window.FB.db, "kicked/" + uid), {
+                ts: Date.now(),
+                reason: "Compte supprimé",
+                until: Date.now() + 9999 * 365 * 24 * 60 * 60 * 1000,
+            });
+        } catch (e) {}
+
+        statusEl.textContent = `✅ Compte de ${name} supprimé.`;
+        showToast(`❌ Compte de ${name} supprimé définitivement.`);
+
+        currentAdminTarget = null;
+        document.getElementById("admin-player-info").classList.add("hidden");
+        loadAdminBanList();
+    } catch (e) {
+        console.error("adminDeleteAccount error:", e);
+        statusEl.textContent = "❌ Erreur : " + (e.message || "inconnue");
+        showToast("❌ Erreur lors de la suppression.");
+    }
+}
+
 /* ✅ Ban UID uniquement */
 async function adminBan() {
     if (!isAdminUser || !currentAdminTarget) return;
@@ -5495,7 +5783,6 @@ async function adminUnban() {
         showToast("❌ Erreur.");
     }
 }
-
 /* ---------- 13. ÉVÉNEMENTS ---------- */
 
 function handleAuraReveal(aura) {
@@ -5946,10 +6233,33 @@ document.addEventListener("DOMContentLoaded", () => {
     bind("admin-give-luck-btn", adminGiveLuck);
     bind("admin-remove-aura-btn", adminRemoveAura);
     bind("admin-wipe-btn", adminWipeStats);
+    bind("admin-delete-btn", adminDeleteAccount);
     bind("admin-ban-btn", adminBan);
     bind("admin-ban-ip-btn", adminBanIP);
     bind("admin-unban-btn", adminUnban);
     detectConsoleInput();
+
+    // ✅ Bouton déconnexion dans l'overlay de ban
+    const banLogoutBtn = document.getElementById("ban-logout-btn");
+    if (banLogoutBtn) {
+        banLogoutBtn.addEventListener("click", async () => {
+            if (
+                !confirm("Se déconnecter ? Tu pourras créer un nouveau compte.")
+            )
+                return;
+            try {
+                if (window.FB && window.FB.signOut) {
+                    await window.FB.signOut(window.FB.auth);
+                }
+            } catch (e) {}
+            try {
+                localStorage.removeItem("auraRng_localBan");
+            } catch (e) {}
+            window.__auraBanLocked = false;
+            window.__auraBanUntil = 0;
+            location.reload();
+        });
+    }
 });
 
 /* ---------- 14. AUDIO ---------- */
