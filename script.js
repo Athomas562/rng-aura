@@ -4141,11 +4141,68 @@ function getPlayerDisplayColor(name) {
     const hues = [260, 290, 320, 200, 170, 40, 15];
     return `hsl(${hues[Math.abs(hash) % hues.length]}, 70%, 65%)`;
 }
+/* ✅ Blocage chat progressif : 20s → 30min */
+const CHAT_MUTE_KEY = "auraRng_chatMute";
+const CHAT_LAST_MSG_KEY = "auraRng_lastChatMsg";
+
+function getChatMute() {
+    try {
+        const raw = localStorage.getItem(CHAT_MUTE_KEY);
+        if (!raw) return { until: 0, count: 0 };
+        const data = JSON.parse(raw);
+        if (!data || typeof data.until !== "number")
+            return { until: 0, count: 0 };
+        // ✅ Auto-reset si le mute est expiré depuis + d'1h
+        if (data.until && Date.now() > data.until + 60 * 60 * 1000) {
+            return { until: 0, count: 0 };
+        }
+        return data;
+    } catch (e) {
+        return { until: 0, count: 0 };
+    }
+}
+
+function setChatMute(data) {
+    try {
+        localStorage.setItem(CHAT_MUTE_KEY, JSON.stringify(data));
+    } catch (e) {}
+}
+
+function isChatMuted() {
+    const mute = getChatMute();
+    if (mute.until && Date.now() < mute.until) {
+        return { muted: true, until: mute.until, count: mute.count };
+    }
+    return { muted: false, until: 0, count: mute.count || 0 };
+}
+
+/* ✅ Durées progressives : 20s, 1min, 5min, 15min, 30min (max) */
+function getMuteDurationMs(count) {
+    const durations = [
+        20 * 1000, // 20s
+        60 * 1000, // 1 min
+        5 * 60 * 1000, // 5 min
+        15 * 60 * 1000, // 15 min
+        30 * 60 * 1000, // 30 min (max)
+    ];
+    const idx = Math.min(count - 1, durations.length - 1);
+    return durations[Math.max(0, idx)];
+}
+
+function formatMuteDuration(ms) {
+    const totalSec = Math.ceil(ms / 1000);
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    if (min >= 1) return `${min}min ${sec}s`;
+    return `${sec}s`;
+}
+
 async function sendChatMessage() {
     const input = document.getElementById("chat-input");
     if (!input) return;
     const text = input.value.trim();
     if (!text) return;
+
     if (text.length > 200) {
         showToast("❌ Trop long.");
         return;
@@ -4155,7 +4212,15 @@ async function sendChatMessage() {
         return;
     }
 
-    // ✅ Anti-spam : 7 secondes entre 2 messages
+    // ✅ Vérif si l'utilisateur est mute
+    const mute = isChatMuted();
+    if (mute.muted) {
+        const remaining = mute.until - Date.now();
+        showToast(`🔇 Chat bloqué encore ${formatMuteDuration(remaining)}`);
+        return;
+    }
+
+    // ✅ Anti-spam 7 sec (cooldown normal)
     const now = Date.now();
     const COOLDOWN = 7000;
     if (state._lastChatAt && now - state._lastChatAt < COOLDOWN) {
@@ -4167,9 +4232,75 @@ async function sendChatMessage() {
         );
         return;
     }
-    state._lastChatAt = now;
 
+    // ✅ DÉTECTION DU MESSAGE RÉPÉTÉ
+    const normalizedText = text.toLowerCase().trim();
+    let lastMsg = null;
+    try {
+        lastMsg = JSON.parse(localStorage.getItem(CHAT_LAST_MSG_KEY) || "null");
+    } catch (e) {}
+
+    let muteCount = mute.count || 0;
+
+    if (lastMsg && lastMsg.text === normalizedText) {
+        // ✅ MÊME MESSAGE qu'avant → mute progressif
+        muteCount++;
+        const duration = getMuteDurationMs(muteCount);
+        const until = Date.now() + duration;
+
+        setChatMute({ until, count: muteCount });
+
+        console.warn(
+            `🔇 Message répété détecté (${muteCount}x) → mute ${formatMuteDuration(duration)}`,
+        );
+
+        // Enregistre aussi côté Firebase (visible par les admins)
+        try {
+            if (window.FB) {
+                await window.FB.set(
+                    window.FB.ref(window.FB.db, "chat_mutes/" + state.uid),
+                    {
+                        until,
+                        count: muteCount,
+                        reason: "Spam (même message répété)",
+                        name: state.username,
+                        lastMessage: text.slice(0, 100),
+                        ts: Date.now(),
+                    },
+                );
+            }
+        } catch (e) {}
+
+        showToast(
+            `🔇 Tu as répété le même message. Chat bloqué ${formatMuteDuration(duration)} (récidive ${muteCount}/5).`,
+        );
+
+        // Désactive l'input pendant le mute
+        startChatMuteUI(input, until);
+
+        // Affiche une alerte
+        alert(
+            `🔇 Chat bloqué !\n\nTu as envoyé le même message plusieurs fois de suite.\n\n` +
+                `Durée du blocage : ${formatMuteDuration(duration)}\n` +
+                `Récidive : ${muteCount}/5\n` +
+                (muteCount >= 5
+                    ? `\n⚠️ Prochaine fois = 30 min (maximum).`
+                    : `\nProchaine fois plus long.`),
+        );
+        return;
+    }
+
+    // ✅ Message différent → on autorise
+    try {
+        localStorage.setItem(
+            CHAT_LAST_MSG_KEY,
+            JSON.stringify({ text: normalizedText, ts: now }),
+        );
+    } catch (e) {}
+
+    state._lastChatAt = now;
     const safeText = filterChatText(text);
+
     try {
         const { db, ref, push, set, serverTimestamp } = window.FB;
         const msgRef = push(ref(db, "chat"));
@@ -4180,21 +4311,53 @@ async function sendChatMessage() {
         });
         input.value = "";
 
-        // ✅ Affiche un compteur dans l'input
+        // Reset du compteur de spam si le message est différent (après un certain temps)
+        if (mute.count > 0 && now - (mute.lastResetAt || 0) > 5 * 60 * 1000) {
+            setChatMute({ until: 0, count: 0, lastResetAt: now });
+        }
+
         startChatCooldown(input, COOLDOWN);
     } catch (e) {
         showToast("❌ Erreur d'envoi.");
     }
 }
 
-/* ✅ Compteur visuel dans l'input pendant le cooldown */
+/* ✅ UI de blocage pendant un mute (input désactivé + compte à rebours) */
+function startChatMuteUI(input, until) {
+    if (!input) return;
+    const sendBtn = document.getElementById("chat-send");
+    const originalPlaceholder = "Écris ton message...";
+
+    input.disabled = true;
+    input.value = "";
+    if (sendBtn) sendBtn.disabled = true;
+
+    const tick = () => {
+        const remaining = Math.max(0, until - Date.now());
+        if (remaining <= 0) {
+            input.disabled = false;
+            input.placeholder = originalPlaceholder;
+            if (sendBtn) sendBtn.disabled = false;
+            showToast("✅ Tu peux à nouveau écrire dans le chat.");
+            return;
+        }
+        const min = Math.floor(remaining / 60000);
+        const sec = Math.ceil((remaining % 60000) / 1000);
+        input.placeholder =
+            min > 0 ? `🔇 Bloqué ${min}min ${sec}s...` : `🔇 Bloqué ${sec}s...`;
+        setTimeout(tick, 250);
+    };
+    tick();
+}
+
+/* ✅ Compteur visuel dans l'input pendant le cooldown normal (7s) */
 function startChatCooldown(input, duration) {
     const sendBtn = document.getElementById("chat-send");
     const endAt = Date.now() + duration;
     if (input) input.disabled = true;
     if (sendBtn) sendBtn.disabled = true;
 
-    const originalPlaceholder = input.placeholder;
+    const originalPlaceholder = "Écris ton message...";
     const tick = () => {
         const remaining = Math.max(0, endAt - Date.now());
         if (remaining <= 0) {
@@ -6104,6 +6267,16 @@ $("#chat-btn").addEventListener("click", () => {
     setTimeout(() => {
         const box = document.getElementById("chat-messages");
         if (box) box.scrollTop = box.scrollHeight;
+
+        // ✅ Vérifie si l'utilisateur est mute en ouvrant le chat
+        const mute = isChatMuted();
+        if (mute.muted) {
+            const input = document.getElementById("chat-input");
+            if (input) startChatMuteUI(input, mute.until);
+            showToast(
+                `🔇 Tu es bloqué du chat encore ${formatMuteDuration(mute.until - Date.now())}`,
+            );
+        }
     }, 100);
 });
 $("#friends-btn").addEventListener("click", async () => {
