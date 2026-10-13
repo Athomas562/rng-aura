@@ -4154,12 +4154,21 @@ async function sendChatMessage() {
         showToast("❌ Connecte-toi.");
         return;
     }
+
+    // ✅ Anti-spam : 7 secondes entre 2 messages
     const now = Date.now();
-    if (state._lastChatAt && now - state._lastChatAt < 2000) {
-        showToast("⏳ Attends.");
+    const COOLDOWN = 7000;
+    if (state._lastChatAt && now - state._lastChatAt < COOLDOWN) {
+        const remaining = Math.ceil(
+            (COOLDOWN - (now - state._lastChatAt)) / 1000,
+        );
+        showToast(
+            `⏳ Attends encore ${remaining}s avant de renvoyer un message.`,
+        );
         return;
     }
     state._lastChatAt = now;
+
     const safeText = filterChatText(text);
     try {
         const { db, ref, push, set, serverTimestamp } = window.FB;
@@ -4170,9 +4179,38 @@ async function sendChatMessage() {
             ts: serverTimestamp(),
         });
         input.value = "";
+
+        // ✅ Affiche un compteur dans l'input
+        startChatCooldown(input, COOLDOWN);
     } catch (e) {
         showToast("❌ Erreur d'envoi.");
     }
+}
+
+/* ✅ Compteur visuel dans l'input pendant le cooldown */
+function startChatCooldown(input, duration) {
+    const sendBtn = document.getElementById("chat-send");
+    const endAt = Date.now() + duration;
+    if (input) input.disabled = true;
+    if (sendBtn) sendBtn.disabled = true;
+
+    const originalPlaceholder = input.placeholder;
+    const tick = () => {
+        const remaining = Math.max(0, endAt - Date.now());
+        if (remaining <= 0) {
+            if (input) {
+                input.disabled = false;
+                input.placeholder = originalPlaceholder;
+                input.focus();
+            }
+            if (sendBtn) sendBtn.disabled = false;
+            return;
+        }
+        const sec = Math.ceil(remaining / 1000);
+        if (input) input.placeholder = `⏳ Attends ${sec}s...`;
+        setTimeout(tick, 200);
+    };
+    tick();
 }
 async function cleanOldChat() {
     if (!window.FB) return;
