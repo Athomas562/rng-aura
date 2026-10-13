@@ -1434,7 +1434,42 @@ function auraWeight(aura) {
     if (aura.oneIn) return aura.oneIn;
     return TOTAL_WEIGHT / aura.weight;
 }
-
+function isBetterAura(a, b) {
+    if (!a) return false;
+    if (!b) return true;
+    const ra = RARITY_INDEX[a.rarity],
+        rb = RARITY_INDEX[b.rarity];
+    if (ra !== rb) return ra > rb;
+    return auraWeight(a) > auraWeight(b);
+}
+function bestAuraFromInventory(inventory) {
+    let best = null;
+    Object.keys(inventory || {}).forEach((id) => {
+        if (!(inventory[id] > 0)) return;
+        const a = AURA_BY_ID[id];
+        if (isBetterAura(a, best)) best = a;
+    });
+    return best;
+}
+// Même formule que pushToLeaderboard : une aura plus rare = score plus haut
+function buildLeaderboardBestFields(aura) {
+    if (!aura)
+        return {
+            bestAuraName: "Aucune",
+            bestAuraRarity: "none",
+            bestAuraScore: 0,
+            bestAuraWeight: 0,
+            bestAuraChance: "—",
+        };
+    const w = auraWeight(aura);
+    return {
+        bestAuraName: aura.name,
+        bestAuraRarity: aura.rarity,
+        bestAuraScore: (RARITY_INDEX[aura.rarity] + 1) * 1e12 + w,
+        bestAuraWeight: w,
+        bestAuraChance: formatChance(aura),
+    };
+}
 const BIOMES = [
     {
         id: "plains",
@@ -3443,12 +3478,7 @@ function startRealtimeSync() {
             }
         }
 
-        if (changed) {
-            renderUI();
-            try {
-                localStorage.setItem(getSaveKey(), JSON.stringify(state));
-            } catch (e) {}
-        }
+        startRealtimeSync;
     });
 
     // 5. PLAYER
@@ -5554,30 +5584,28 @@ async function adminGiveLuck() {
 /* ✅ Donne une aura au joueur (par nom ou ID) */
 async function adminGiveAura() {
     if (!isAdminUser || !currentAdminTarget) return;
-
     const uid = currentAdminTarget.uid;
     const name = currentAdminTarget.name;
 
     const input = prompt(
-        `✨ Donner une aura à ${name}\n\n` +
-            `Entre l'ID (ex: a108) OU le nom (ex: Aura ultime) :\n\n` +
-            `Ou tape "list" pour voir les 20 dernières auras.`,
+        `✨ Donner une aura à ${name}\n\nEntre l'ID (ex: a108) OU le nom (ex: Aura ultime) :\n\nOu tape "list" pour voir les 20 dernières auras.`,
         "",
     );
     if (!input) return;
-
     if (input.toLowerCase() === "list") {
-        const list = AURAS.slice(-20)
-            .map((a) => `${a.id} — ${a.name} (${a.rarity})`)
-            .join("\n");
-        alert(`📋 20 dernières auras :\n\n${list}`);
+        alert(
+            "📋 20 dernières auras :\n\n" +
+                AURAS.slice(-20)
+                    .map((a) => `${a.id} — ${a.name} (${a.rarity})`)
+                    .join("\n"),
+        );
         return;
     }
 
     let aura = AURA_BY_ID[input.trim()];
     if (!aura) {
-        const searchName = input.trim().toLowerCase();
-        aura = AURAS.find((a) => a.name.toLowerCase() === searchName);
+        const s = input.trim().toLowerCase();
+        aura = AURAS.find((a) => a.name.toLowerCase() === s);
     }
     if (!aura) {
         showToast("❌ Aura introuvable. Vérifie l'ID ou le nom.");
@@ -5591,89 +5619,58 @@ async function adminGiveAura() {
         showToast("❌ Quantité invalide.");
         return;
     }
-
-    const confirmed = confirm(
-        `✨ Donner ${qty}x "${aura.name}" (${aura.rarity}) à ${name} ?`,
-    );
-    if (!confirmed) return;
+    if (
+        !confirm(
+            `✨ Donner ${qty}x "${aura.name}" (${aura.rarity}) à ${name} ?`,
+        )
+    )
+        return;
 
     const statusEl = document.getElementById("admin-status");
     statusEl.textContent = "⏳ Ajout en cours...";
 
     try {
-        const sSnap = await window.FB.get(
-            window.FB.ref(window.FB.db, "saves/" + uid),
-        );
+        const { db, ref, get, update } = window.FB;
+        const sSnap = await get(ref(db, "saves/" + uid));
         const save = sSnap.exists() ? sSnap.val() : {};
-
         const inventory = save.inventory || {};
         const discovered = save.discovered || {};
-
         inventory[aura.id] = (inventory[aura.id] || 0) + qty;
         discovered[aura.id] = true;
 
-        let bestAura = save.bestAura || null;
-        const currentBest = bestAura ? AURA_BY_ID[bestAura] : null;
-        if (!currentBest) {
-            bestAura = aura.id;
-        } else {
-            const nR = RARITY_INDEX[aura.rarity],
-                oR = RARITY_INDEX[currentBest.rarity];
-            const nW = auraWeight(aura),
-                oW = auraWeight(currentBest);
-            if (
-                nR > oR ||
-                (nR === oR && nW > oW) ||
-                (nR === oR && nW === oW && aura.id < currentBest.id)
-            )
-                bestAura = aura.id;
-        }
+        // Meilleure aura recalculée depuis TOUT l'inventaire (plus fiable que save.bestAura)
+        const bestAuraObj = bestAuraFromInventory(inventory);
+        const bestAura = bestAuraObj ? bestAuraObj.id : null;
 
-        await window.FB.update(window.FB.ref(window.FB.db, "saves/" + uid), {
+        await update(ref(db, "saves/" + uid), {
             inventory,
             discovered,
             bestAura,
         });
 
-        const bestAuraObj = bestAura ? AURA_BY_ID[bestAura] : null;
-        let bestAuraScore = 0,
-            bestAuraName = "Aucune",
-            bestAuraRarity = "none",
-            bestAuraWeight = 0,
-            bestAuraChance = "—";
-        if (bestAuraObj) {
-            const rIdx = RARITY_INDEX[bestAuraObj.rarity];
-            const w = auraWeight(bestAuraObj);
-            bestAuraScore = (rIdx + 1) * 1e12 + w;
-            bestAuraName = bestAuraObj.name;
-            bestAuraRarity = bestAuraObj.rarity;
-            bestAuraWeight = w;
-            bestAuraChance = formatChance(bestAuraObj);
-        }
-        try {
-            await window.FB.update(
-                window.FB.ref(window.FB.db, "players/" + uid),
-                {
-                    bestAuraName,
-                    bestAuraRarity,
-                    bestAuraScore,
-                    bestAuraWeight,
-                    bestAuraChance,
-                    updatedAt: Date.now(),
-                },
-            );
-        } catch (e) {}
+        // Classement : nom + aura + chance + score → il passe devant si son score est plus haut
+        await update(ref(db, "players/" + uid), {
+            name,
+            ...buildLeaderboardBestFields(bestAuraObj),
+            updatedAt: Date.now(),
+        });
 
-        statusEl.textContent = `✅ ${qty}x "${aura.name}" ajouté(s) à ${name}.`;
+        const isNewBest = bestAuraObj && bestAuraObj.id === aura.id;
+        statusEl.textContent = `✅ ${qty}x "${aura.name}" ajouté(s) à ${name}.${isNewBest ? " Nouvelle meilleure aura → classement mis à jour." : ""}`;
         showToast(`✨ ${qty}x ${aura.name} donné(s) à ${name}.`);
 
         if (uid === state.uid) {
+            window.__auraInternalWrite = true;
             state.inventory[aura.id] = (state.inventory[aura.id] || 0) + qty;
             state.discovered[aura.id] = true;
-            if (bestAura) state.bestAura = bestAura;
+            state.bestAura = bestAura;
+            window.__auraInternalWrite = false;
             saveGame(true);
             renderUI();
         }
+        const lb = document.getElementById("leaderboard-modal");
+        if (lb && !lb.classList.contains("hidden"))
+            renderLeaderboard(currentLeaderboardTab, true);
     } catch (e) {
         console.error("adminGiveAura error:", e);
         statusEl.textContent = "❌ Erreur : " + (e.message || "inconnue");
@@ -5704,9 +5701,20 @@ async function adminRemoveAura() {
             return;
         }
         delete inventory[auraId];
+        const best = bestAuraFromInventory(inventory);
         await window.FB.update(
             window.FB.ref(window.FB.db, "saves/" + currentAdminTarget.uid),
-            { inventory },
+            {
+                inventory,
+                bestAura: best ? best.id : null,
+            },
+        );
+        await window.FB.update(
+            window.FB.ref(window.FB.db, "players/" + currentAdminTarget.uid),
+            {
+                ...buildLeaderboardBestFields(best),
+                updatedAt: Date.now(),
+            },
         );
         showToast(`✦ ${AURA_BY_ID[auraId].name} retirée.`);
     } catch (e) {
