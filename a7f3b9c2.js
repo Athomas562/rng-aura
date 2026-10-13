@@ -2170,6 +2170,10 @@ function formatChance(aura) {
 
 let __auraInternalWrite = false;
 function performRoll() {
+    if (window.__auraGuard && window.__auraGuard.blocked) {
+        showToast("🚫 Script utilisateur détecté.");
+        return null;
+    }
     const banOverlay = document.getElementById("ban-overlay");
     if (banOverlay && !banOverlay.classList.contains("hidden")) {
         showToast("🚫 Tu es banni.");
