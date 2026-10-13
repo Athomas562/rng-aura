@@ -3460,6 +3460,7 @@ function startRealtimeSync() {
         }
 
         // ✅ Détection d'auras AJOUTÉES par un admin
+        // ✅ Détection d'auras AJOUTÉES par un admin
         if (cloud.inventory && typeof cloud.inventory === "object") {
             const cloudKeys = Object.keys(cloud.inventory);
             for (const key of cloudKeys) {
@@ -3478,7 +3479,40 @@ function startRealtimeSync() {
             }
         }
 
-        startRealtimeSync;
+        // ✅ Recalcule la meilleure aura locale depuis TOUT l'inventaire
+        //    (sinon la save locale va écraser le classement avec l'ancien bestAura)
+        const newBestObj = bestAuraFromInventory(state.inventory);
+        const newBestId = newBestObj ? newBestObj.id : null;
+        if (newBestId !== state.bestAura) {
+            state.bestAura = newBestId;
+            changed = true;
+            if (newBestObj)
+                showToast(`⭐ Nouvelle meilleure aura : ${newBestObj.name} !`);
+        }
+
+        if (changed) {
+            renderUI();
+            try {
+                localStorage.setItem(getSaveKey(), JSON.stringify(state));
+            } catch (e) {}
+
+            // ✅ Met à jour le classement immédiatement
+            if (state.uid) {
+                try {
+                    const cloudBest = bestAuraFromInventory(state.inventory);
+                    const { db, ref, update } = window.FB;
+                    update(ref(db, "players/" + state.uid), {
+                        name: state.username,
+                        ...buildLeaderboardBestFields(cloudBest),
+                        totalRolls: state.totalRolls,
+                        playTime: Math.floor(state.playTime),
+                        level: state.level || 1,
+                        xp: state.xp || 0,
+                        updatedAt: Date.now(),
+                    }).catch(() => {});
+                } catch (e) {}
+            }
+        }
     });
 
     // 5. PLAYER
@@ -3815,6 +3849,17 @@ function initLeaderboard() {
         if (modal && !modal.classList.contains("hidden") && getPlayerName())
             renderLeaderboard(currentLeaderboardTab, true);
     }, 15000);
+    // ✅ Vérification périodique : si le classement ne correspond pas à l'inventaire local, on corrige
+    setInterval(() => {
+        if (!state.uid || !window.FB) return;
+        const realBest = bestAuraFromInventory(state.inventory);
+        const realBestId = realBest ? realBest.id : null;
+        if (realBestId !== state.bestAura) {
+            state.bestAura = realBestId;
+            pushToLeaderboard();
+            renderUI();
+        }
+    }, 30000); // toutes les 30s
 }
 
 async function cleanGhostPlayers() {
