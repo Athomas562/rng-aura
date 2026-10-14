@@ -7,11 +7,11 @@ import {
   signOut,
   updateProfile,
 } from "firebase/auth";
-import { get, getDatabase, limitToLast, orderByChild, query, ref, set } from "firebase/database";
-import { FunctionsError, getFunctions, httpsCallable } from "firebase/functions";
-import { EMAIL_DOMAIN, usernameToEmail, type ApiRequest, type ApiResponse, type LeaderboardEntry } from "../../shared";
+import { get, getDatabase, ref, set } from "firebase/database";
+import { EMAIL_DOMAIN, usernameToEmail, type ApiRequest } from "../../shared";
 import type { Settings } from "../settings/settings";
-import { BackendError, type GameBackend, type LeaderboardRow } from "./types";
+import { callApi, fetchLeaderboard } from "./apiClient";
+import { BackendError, type GameBackend } from "./types";
 
 /** Configuration publique du projet Firebase existant (non secrète par nature). */
 const firebaseConfig = {
@@ -39,35 +39,17 @@ function authError(e: unknown): BackendError {
   return new BackendError("auth", AUTH_MESSAGES[code] ?? "Erreur de connexion.");
 }
 
-function callError(e: unknown): BackendError {
-  if (e instanceof FunctionsError) {
-    const details = (e.details ?? {}) as { retryInMs?: number; until?: number };
-    switch (e.code) {
-      case "functions/resource-exhausted":
-        return new BackendError("cooldown", e.message, { retryInMs: details.retryInMs });
-      case "functions/permission-denied":
-        return details.until
-          ? new BackendError("banned", e.message, { until: details.until })
-          : new BackendError("invalid", e.message);
-      case "functions/invalid-argument":
-      case "functions/failed-precondition":
-      case "functions/already-exists":
-        return new BackendError("invalid", e.message);
-      case "functions/unauthenticated":
-        return new BackendError("auth", "Session expirée, reconnecte-toi.");
-      case "functions/unavailable":
-      case "functions/deadline-exceeded":
-        return new BackendError("network", "Serveur injoignable.");
-    }
-  }
-  return new BackendError("unknown", "Erreur inattendue.");
-}
-
 export function createFirebaseBackend(): GameBackend {
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getDatabase(app);
-  const api = httpsCallable<ApiRequest, ApiResponse>(getFunctions(app, "europe-west1"), "api");
+  /** API du Worker Cloudflare, authentifiée par le jeton Firebase de l'utilisateur connecté. */
+  const idToken = async () => {
+    const user = auth.currentUser;
+    if (!user) throw new BackendError("auth", "Connexion requise.");
+    return user.getIdToken();
+  };
+  const api = (req: ApiRequest) => callApi(req, idToken);
 
   const nameOf = (email: string | null, displayName: string | null) =>
     displayName || (email?.endsWith(EMAIL_DOMAIN) ? email.slice(0, -EMAIL_DOMAIN.length) : "Joueur");
@@ -96,33 +78,16 @@ export function createFirebaseBackend(): GameBackend {
       } catch (e) {
         throw authError(e);
       }
-      try {
-        await api({ action: "register", name });
-      } catch (e) {
-        throw callError(e);
-      }
+      await api({ action: "register", name });
     },
 
     async signOut() {
       await signOut(auth);
     },
 
-    async call(req) {
-      try {
-        return (await api(req)).data;
-      } catch (e) {
-        throw callError(e);
-      }
-    },
+    call: api,
 
-    async leaderboard(category, limit) {
-      const snap = await get(query(ref(db, "v2/leaderboard"), orderByChild(category), limitToLast(limit)));
-      const rows: LeaderboardRow[] = [];
-      snap.forEach((child) => {
-        rows.push({ uid: child.key!, ...(child.val() as LeaderboardEntry) });
-      });
-      return rows.reverse();
-    },
+    leaderboard: (category, limit) => fetchLeaderboard(category, limit, idToken),
 
     async loadSettings(uid) {
       const snap = await get(ref(db, `v2/settings/${uid}`));

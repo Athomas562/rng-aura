@@ -63,10 +63,20 @@ export interface Caller {
   displayName?: string;
 }
 
-function nameFromCaller(c: Caller): string {
-  if (c.displayName && USERNAME_RE.test(c.displayName)) return c.displayName;
-  const local = c.email?.endsWith(EMAIL_DOMAIN) ? c.email.slice(0, -EMAIL_DOMAIN.length) : "";
-  return USERNAME_RE.test(local) ? local : "Joueur";
+/** Nom générique des comptes qui ne suivent pas le format pseudo@aurarng.local. */
+export const GENERIC_NAME = "Joueur";
+
+/**
+ * Nom affiché (classement compris), dérivé uniquement de l'e-mail du compte,
+ * unique par construction (pseudo@aurarng.local). Le `displayName` du jeton est
+ * modifiable par le joueur : il ne sert qu'à conserver la casse du même pseudo.
+ */
+export function nameFromCaller(c: Caller): string {
+  const email = c.email?.toLowerCase() ?? "";
+  const local = email.endsWith(EMAIL_DOMAIN) ? email.slice(0, -EMAIL_DOMAIN.length) : "";
+  if (!USERNAME_RE.test(local)) return GENERIC_NAME;
+  if (c.displayName && USERNAME_RE.test(c.displayName) && c.displayName.toLowerCase() === local) return c.displayName;
+  return local;
 }
 
 function asRecord(data: unknown): Record<string, unknown> {
@@ -89,7 +99,12 @@ export async function handleApi(
   }
 
   const fallbackName = nameFromCaller(caller);
-  const load = (raw: unknown, now: number) => normalizePlayerState(raw, fallbackName, now);
+  const load = (raw: unknown, now: number) => {
+    const s = normalizePlayerState(raw, fallbackName, now);
+    // Un nom stocké qui ne correspond pas au compte (ancien nom usurpé) est corrigé.
+    if (s.name.toLowerCase() !== fallbackName.toLowerCase()) s.name = fallbackName;
+    return s;
+  };
 
   // Chaque action renvoie l'état final + des informations annexes calculées dans la même transaction.
   let extra: Omit<ApiResponse, "state" | "serverNow"> = {};

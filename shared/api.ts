@@ -20,6 +20,23 @@ export interface ApiResponse {
   rewards?: PotionReward;
 }
 
+export type LeaderboardCategory = "rolls" | "bestOdds" | "collection" | "achievements";
+export const LEADERBOARD_CATEGORIES: readonly LeaderboardCategory[] = ["rolls", "bestOdds", "collection", "achievements"];
+export const LEADERBOARD_MAX = 50;
+
+/** Ligne du classement renvoyée par l'API : sans uid, seulement le rang et un repère « moi ». */
+export interface LeaderboardRow {
+  rank: number;
+  me: boolean;
+  name: string;
+  rolls: number;
+  bestOdds: number;
+  bestAuraId: string | null;
+  collection: number;
+  achievements: number;
+  equipped: string | null;
+}
+
 export const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 /** Les comptes existants utilisent pseudo@aurarng.local comme identifiant Firebase. */
 export const EMAIL_DOMAIN = "@aurarng.local";

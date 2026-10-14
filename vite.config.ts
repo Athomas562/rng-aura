@@ -12,8 +12,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    // En développement, l'API est servie par `npm run dev:api` (wrangler dev).
+    server: { proxy: { "/api": "http://127.0.0.1:8787" } },
     test: {
-      include: ["shared/**/*.test.ts", "functions/src/**/*.test.ts", "src/**/*.test.tsx"],
+      include: ["shared/**/*.test.ts", "functions/src/**/*.test.ts", "src/**/*.test.tsx", "tests/**/*.static.test.ts", "worker/**/*.test.ts", "src/**/*.test.ts"],
     },
   };
 });

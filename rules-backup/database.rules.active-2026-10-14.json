@@ -1,0 +1,27 @@
+{
+  "rules": {
+    "players": {
+      ".read": true,
+      ".write": "auth != null",
+      ".indexOn": ["bestAuraScore", "totalRolls", "playTime"]
+    },
+    "saves": {
+      "$uid": {
+        ".read": true,
+        ".write": "auth != null"
+      }
+    },
+    "bans": { ".read": true, ".write": "auth != null" },
+    "ip_bans": { ".read": true, ".write": "auth != null" },
+    "kicked": { ".read": true, ".write": "auth != null" },
+    "frozen": { ".read": true, ".write": "auth != null" },
+    "admins": { ".read": true, ".write": false },
+    "deleted": { ".read": true, ".write": "auth != null" },
+    "deleted_usernames": { ".read": true, ".write": "auth != null" },
+    "usernames": { ".read": true, ".write": "auth != null" },
+    "chat": { ".read": true, ".write": "auth != null" },
+    "announcements": { ".read": true, ".write": "auth != null" },
+    "activity": { ".read": true, ".write": "auth != null" },
+    "friends": { ".read": true, ".write": "auth != null" }
+  }
+}

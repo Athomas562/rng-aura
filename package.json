@@ -11,16 +11,23 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "functions:build": "npm --prefix functions run build",
-    "deploy:backend": "npm run functions:build && firebase deploy --only functions,database"
+    "deploy:backend": "npm run functions:build && firebase deploy --only functions",
+    "test:rules": "firebase emulators:exec --only database --project demo-rng-aura \"vitest run --config vitest.rules.config.ts\"",
+    "dev:api": "wrangler dev --port 8787",
+    "deploy:rules": "vitest run tests/rules/candidate.static.test.ts && firebase deploy --only database",
+    "db:migrate:local": "wrangler d1 migrations apply rng-aura --local",
+    "db:import:convert": "node scripts/rtdb-export-to-sql.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/sora": "^5.3.0",
     "firebase": "^13.0.0",
+    "jose": "^6.2.12",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@types/node": "^26.6.5",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",

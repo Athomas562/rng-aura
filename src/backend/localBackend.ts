@@ -119,10 +119,21 @@ export function createLocalBackend(): GameBackend {
     },
 
     async leaderboard(category, limit) {
+      const viewer = db.session?.uid;
       return Object.entries(read().leaderboard)
-        .map(([uid, e]) => ({ uid, ...e }))
-        .sort((a, b) => (b[category] as number) - (a[category] as number))
-        .slice(0, limit);
+        .sort(([, a], [, b]) => b[category] - a[category] || a.updatedAt - b.updatedAt)
+        .slice(0, limit)
+        .map(([uid, e], i) => ({
+          rank: i + 1,
+          me: uid === viewer,
+          name: e.name,
+          rolls: e.rolls,
+          bestOdds: e.bestOdds,
+          bestAuraId: e.bestAuraId,
+          collection: e.collection,
+          achievements: e.achievements,
+          equipped: e.equipped,
+        }));
     },
 
     async loadSettings(uid) {

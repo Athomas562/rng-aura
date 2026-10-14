@@ -1,0 +1,15 @@
+{
+  // Tests des règles Realtime Database : ils utilisent le SDK client Firebase
+  // (types navigateur : DOM) dans Node, d'où les bibliothèques DOM + ESNext.
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.rules.tsbuildinfo",
+    "target": "ES2022",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["tests", "vitest.rules.config.ts"]
+}

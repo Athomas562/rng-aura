@@ -408,3 +408,51 @@ describe("isolation et données réelles", () => {
     for (const a of AURAS) expect(getRarity(a.rarity).minOdds).toBeLessThanOrEqual(a.odds);
   });
 });
+
+describe("usurpation du nom affiché au classement", () => {
+  const as = (c: Caller, data: unknown) =>
+    handleApi(c, data, { store, rng: () => nextU, now: () => clock }).catch((e) => {
+      throw toApiError(e);
+    });
+
+  it("ignore un displayName choisi par le joueur s'il ne correspond pas au compte", async () => {
+    const spoof: Caller = { uid: "uid-mallory", email: "mallory@aurarng.local", displayName: "Alice" };
+    const res = await as(spoof, { action: "load" });
+    expect(res.state.name).toBe("mallory");
+    expect(store.leaderboard.get("uid-mallory")?.name).toBe("mallory");
+  });
+
+  it("garde la casse choisie quand le displayName est bien le pseudo du compte", async () => {
+    const res = await as({ uid: "u", email: "alice@aurarng.local", displayName: "ALICE" }, { action: "load" });
+    expect(res.state.name).toBe("ALICE");
+  });
+
+  it("corrige un nom usurpé déjà enregistré et met à jour le classement", async () => {
+    const mallory: Caller = { uid: "uid-mallory", email: "mallory@aurarng.local" };
+    await as(mallory, { action: "load" });
+    // simule une ancienne donnée corrompue (écrite avant le correctif)
+    await store.updatePlayer("uid-mallory", (raw) => ({ ...normalizePlayerState(raw, "x", T0), name: "TopPlayer" }));
+    const res = await as(mallory, { action: "roll", count: 1 });
+    expect(res.state.name).toBe("mallory");
+    expect(store.stored("uid-mallory").name).toBe("mallory");
+    expect(store.leaderboard.get("uid-mallory")?.name).toBe("mallory");
+  });
+
+  it("ne permet pas d'enregistrer le pseudo d'un autre, même avec un displayName trafiqué", async () => {
+    const spoof: Caller = { uid: "uid-mallory", email: "mallory@aurarng.local", displayName: "Alice" };
+    expect((await rejected(as(spoof, { action: "register", name: "Alice" })))?.code).toBe("permission-denied");
+    expect(store.usernames.get("alice")).toBeUndefined();
+  });
+
+  it("donne un nom générique aux comptes hors format pseudo@aurarng.local", async () => {
+    for (const email of ["alice@gmail.com", "alice@aurarng.local.evil.com", undefined, "a@aurarng.local", "x".repeat(21) + "@aurarng.local"]) {
+      const res = await as({ uid: `u-${email}`, email, displayName: "Alice" }, { action: "load" });
+      expect(res.state.name, String(email)).toBe("Joueur");
+    }
+  });
+
+  it("refuse les caractères spéciaux dans le displayName", async () => {
+    const res = await as({ uid: "u", email: "alice@aurarng.local", displayName: "alice<script>" }, { action: "load" });
+    expect(res.state.name).toBe("alice");
+  });
+});

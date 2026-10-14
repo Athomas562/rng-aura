@@ -1,0 +1,62 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "v2": {
+      "players": {
+        "$uid": {
+          ".read": false,
+          ".write": false
+        }
+      },
+
+      "leaderboard": {
+        ".read": "auth != null",
+        ".write": false,
+        ".indexOn": ["rolls", "bestOdds", "collection", "achievements"]
+      },
+
+      "settings": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['soundEnabled', 'volume', 'reducedMotion', 'noFlashes', 'skipCommonReveal', 'keybinds'])",
+          "soundEnabled": { ".validate": "newData.isBoolean()" },
+          "volume": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
+          "reducedMotion": { ".validate": "newData.isBoolean()" },
+          "noFlashes": { ".validate": "newData.isBoolean()" },
+          "skipCommonReveal": { ".validate": "newData.isBoolean()" },
+          "keybinds": {
+            ".validate": "newData.hasChildren()",
+            "$action": {
+              ".validate": "$action.matches(/^(roll|auto|nav[1-7])$/) && newData.isString() && newData.val().length <= 24"
+            }
+          },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+
+    "usernames": { ".read": false, ".write": false },
+    "bans": { ".read": false, ".write": false },
+
+    "players": {
+      ".read": false,
+      ".write": false,
+      ".indexOn": ["bestAuraScore", "totalRolls", "playTime"]
+    },
+    "saves": { ".read": false, ".write": false },
+    "ip_bans": { ".read": false, ".write": false },
+    "kicked": { ".read": false, ".write": false },
+    "frozen": { ".read": false, ".write": false },
+    "admins": { ".read": false, ".write": false },
+    "deleted": { ".read": false, ".write": false },
+    "deleted_usernames": { ".read": false, ".write": false },
+    "chat": { ".read": false, ".write": false },
+    "chat_mutes": { ".read": false, ".write": false },
+    "announcements": { ".read": false, ".write": false },
+    "activity": { ".read": false, ".write": false },
+    "friends": { ".read": false, ".write": false }
+  }
+}

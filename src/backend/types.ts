@@ -1,15 +1,11 @@
-import type { ApiRequest, ApiResponse, LeaderboardEntry } from "../../shared";
+import type { ApiRequest, ApiResponse, LeaderboardCategory, LeaderboardRow } from "../../shared";
 import type { Settings } from "../settings/settings";
+
+export type { LeaderboardCategory, LeaderboardRow };
 
 export interface AuthUser {
   uid: string;
   name: string;
-}
-
-export type LeaderboardCategory = "rolls" | "bestOdds" | "collection" | "achievements";
-
-export interface LeaderboardRow extends LeaderboardEntry {
-  uid: string;
 }
 
 export type BackendErrorCode =

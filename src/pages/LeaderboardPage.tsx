@@ -4,7 +4,6 @@ import { backend, type LeaderboardCategory, type LeaderboardRow } from "../backe
 import { AuraIcon } from "../components/AuraIcon";
 import { Icon } from "../components/Icon";
 import { RarityBadge } from "../components/RarityBadge";
-import { useGame } from "../game/GameContext";
 import { formatNumber, formatOddsN } from "../lib/format";
 import "./LeaderboardPage.css";
 
@@ -41,7 +40,6 @@ function MainValue({ row, tab }: { row: LeaderboardRow; tab: LeaderboardCategory
 }
 
 export function LeaderboardPage() {
-  const { user } = useGame();
   const [tab, setTab] = useState<LeaderboardCategory>("rolls");
   const [rows, setRows] = useState<LeaderboardRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,10 +96,10 @@ export function LeaderboardPage() {
           <ol className="lb-list">
             {rows.map((row, i) => {
               const equipped = row.equipped ? getAura(row.equipped) : undefined;
-              const me = row.uid === user.uid;
+              const me = row.me;
               return (
-                <li key={row.uid} className={`lb-row ${me ? "is-me" : ""} rank-${i + 1}`}>
-                  <span className="lb-rank tabular">{i + 1}</span>
+                <li key={row.rank} className={`lb-row ${me ? "is-me" : ""} rank-${row.rank}`}>
+                  <span className="lb-rank tabular">{row.rank}</span>
                   <span className="lb-avatar">
                     {equipped ? (
                       <AuraIcon aura={equipped} size={40} animated={i < 3} />

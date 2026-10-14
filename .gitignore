@@ -5,5 +5,16 @@ functions/node_modules
 .firebase
 *.log
 .env.local
+.env.*.local
 .wrangler
+
+# Secrets — ne jamais versionner (clé du compte de service, secrets locaux du Worker)
 .dev.vars
+.dev.vars.*
+*-firebase-adminsdk-*.json
+*service-account*.json
+*service_account*.json
+*serviceAccount*.json
+*.pem
+*.key
+*.p12

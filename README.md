@@ -22,7 +22,10 @@ src/
   effects/       Rendu Canvas : registre de couches d'aura, effets de révélation
   roll/          Scène centrale, révélation plein écran, panneaux
   pages/         Inventaire, Collection, Succès, Statistiques, Classement, Paramètres
-database.rules.json  Règles de sécurité
+worker/         Worker Cloudflare : API /api et /api/leaderboard, données dans D1
+migrations/     Schéma SQL de la base D1
+database.rules.candidate.json  Règles de sécurité approuvées (seul fichier publié, via firebase.json)
+database.rules.json            Ancienne version, conservée mais publiée par aucune commande
 ```
 
 ### Probabilités
@@ -52,17 +55,23 @@ Le navigateur n'envoie que des intentions (`roll`, `potion`, `equip`…). Le tir
 ```bash
 npm install && npm --prefix functions install
 npm run dev:offline   # jeu complet sans Firebase (moteur exécuté dans le navigateur)
-npm run dev           # contre le vrai Firebase (nécessite les Functions déployées)
+npm run dev           # frontend ; /api est relayé vers npm run dev:api
+npm run dev:api       # Worker en local — ⚠️ avec un .dev.vars réel, écrit dans la VRAIE base
 npm test              # tests du moteur et de l'API
 npm run build         # build de production dans dist/
 ```
 
-## Déploiement
+## Déploiement (forfait Spark, sans facturation)
 
-1. Passer le projet Firebase `rng-aura` au forfait **Blaze** (requis par Cloud Functions).
-2. `npm i -g firebase-tools && firebase login`
-3. `npm run deploy:backend` — déploie la fonction `api` et `database.rules.json`.
-   ⚠️ Ces règles **remplacent** celles de la console : les anciennes données (`saves/`, chat, amis…) restent en base mais ne sont plus accessibles aux clients.
-4. Front : Netlify (`netlify.toml` : `npm run build`, dossier `dist`).
+- **Site + API** : Cloudflare Workers. Build command vide (`wrangler.jsonc` lance `npm run build`), Deploy command `npx wrangler deploy`.
+- **Données serveur** : Cloudflare D1 (binding `DB`), aucun secret ni compte de service. Une seule fois :
+  1. `npx wrangler d1 create rng-aura`, puis copier l'identifiant affiché dans `database_id` de `wrangler.jsonc` ;
+  2. `npx wrangler d1 migrations apply rng-aura --remote` (crée les tables, ne supprime rien).
+  En local : `npm run db:migrate:local` puis `npm run dev:api` (base D1 locale dans `.wrangler/`, aucune donnée réelle).
+- **Bans** : `npx wrangler d1 execute rng-aura --remote --command "INSERT INTO bans (uid, until, reason) VALUES ('<uid>', <timestamp_ms>, '<raison>')"`.
+- **Reprise des données Firebase** (bans, pseudos, `v2`) : exporter le JSON depuis la console Firebase, puis
+  `npm run db:import:convert -- export.json import.sql` et `npx wrangler d1 execute rng-aura --remote --file import.sql` (INSERT OR IGNORE uniquement).
+- **Règles** : `npm run deploy:rules` — vérifie puis publie **uniquement** `database.rules.candidate.json` (⚠️ remplace les règles de la console).
+- **Cloud Function** (alternative, forfait Blaze uniquement) : `npm run deploy:backend` — ne publie plus aucune règle.
 
-Coût : la fonction est limitée à 10 instances ; l'auto-roll groupe ses rolls par 4 pour diviser le nombre d'appels.
+Ne téléchargez jamais la clé du compte de service dans ce dossier ; elle est de toute façon exclue par `.gitignore`.

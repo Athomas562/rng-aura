@@ -1,16 +1,35 @@
 {
-  // Frontend RNG Aura : Cloudflare Workers avec uniquement des fichiers statiques (aucun code Worker).
-  // Le backend (Auth, Realtime Database, fonction `api`) reste sur Firebase.
+  // RNG Aura sur Cloudflare Workers :
+  //  - /api et /api/*  → worker/index.ts (API du jeu et classement)
+  //  - tout le reste   → fichiers statiques du site (dist/)
+  // Données serveur : Cloudflare D1. Identité : Firebase Authentication (forfait Spark).
+  // Aucun secret ni compte de service Google n'est nécessaire.
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "rng-aura",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
-  // `npx wrangler deploy` compile d'abord le site, puis publie dist/.
+  // `npx wrangler deploy` compile d'abord le site, puis publie le Worker et dist/.
   "build": {
     "command": "npm run build"
   },
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     // Application monopage : toute URL inconnue renvoie index.html.
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    // Seule l'API passe par le Worker ; les fichiers statiques sont servis sans l'invoquer.
+    "run_worker_first": ["/api", "/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "rng-aura",
+      // À renseigner avec l'identifiant affiché par `npx wrangler d1 create rng-aura`.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "FIREBASE_PROJECT_ID": "rng-aura"
   }
 }
