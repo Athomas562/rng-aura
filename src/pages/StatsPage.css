@@ -1,0 +1,143 @@
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.stat-card {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-card__label {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.stat-card__value {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.stats-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.stats-section {
+  padding: 20px;
+}
+
+.stats-best {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.stats-best > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.stats-best strong {
+  font-family: var(--font-display);
+  font-size: 24px;
+}
+
+.stats-best .muted {
+  margin: 0;
+}
+
+.bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bars li {
+  display: grid;
+  grid-template-columns: 96px 1fr 64px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.bars__label {
+  color: var(--rc);
+  font-weight: 600;
+}
+
+.bars__track {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.bars__track span {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--rc);
+  border-radius: inherit;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--rc) 60%, transparent);
+  transition: width 0.6s;
+}
+
+.bars__value {
+  text-align: right;
+  color: var(--text-dim);
+}
+
+.odds-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.odds-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-faint);
+  padding: 0 0 8px;
+}
+
+.odds-table td {
+  padding: 6px 0;
+  border-top: 1px solid var(--panel-border);
+  color: var(--text-dim);
+}
+
+.odds-table td:last-child {
+  color: var(--text);
+}
+
+@media (max-width: 520px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .stat-card__value {
+    font-size: 19px;
+  }
+
+  .stats-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bars li {
+    grid-template-columns: 84px 1fr 48px;
+  }
+}

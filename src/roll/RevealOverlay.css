@@ -1,0 +1,292 @@
+.reveal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  cursor: pointer;
+  animation: reveal-in 0.4s ease-out;
+}
+
+.reveal__backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--c1) 22%, transparent), transparent 55%),
+    rgba(2, 3, 10, 0.93);
+}
+
+.reveal.phase-omen .reveal__backdrop {
+  background: radial-gradient(circle at 50% 50%, rgba(10, 8, 30, 0.85), rgba(0, 0, 0, 0.97) 70%);
+}
+
+.reveal__fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ───── Présage ───── */
+.reveal__omen {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+}
+
+.reveal__star {
+  width: 26px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 0 30px 10px var(--rc),
+    0 0 100px 40px color-mix(in srgb, var(--rc) 45%, transparent);
+  animation: star-grow var(--dur) cubic-bezier(0.5, 0, 0.9, 0.4) forwards;
+}
+
+.reveal__whisper {
+  margin: 0;
+  font-family: var(--font-display);
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  font-size: 13px;
+  color: var(--text-dim);
+  animation: whisper 1.6s ease-in-out infinite alternate;
+}
+
+/* ───── Révélation ───── */
+.reveal__content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.reveal__aura {
+  position: absolute;
+  inset: 0;
+}
+
+.reveal__text {
+  position: relative;
+  margin-top: 34vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  max-width: 640px;
+}
+
+.reveal__name {
+  font-size: clamp(40px, 9vw, 96px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow:
+    0 0 20px var(--c1),
+    0 0 60px var(--c1);
+  position: relative;
+}
+
+.reveal__desc {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 16px;
+  animation: fade-up 0.8s 0.6s ease-out backwards;
+}
+
+.reveal__odds {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--rc);
+  animation: fade-up 0.8s 0.9s ease-out backwards;
+}
+
+.reveal__hint {
+  position: absolute;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  animation: fade-up 0.6s calc(var(--dur) * 0.5) ease-out backwards;
+}
+
+.reveal__flash {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: radial-gradient(circle, #fff 0%, color-mix(in srgb, var(--c1) 70%, #fff) 40%, transparent 85%);
+  animation: big-flash 1.1s ease-out forwards;
+}
+
+.reveal__flash.is-soft {
+  background: radial-gradient(circle, color-mix(in srgb, var(--c1) 40%, transparent), transparent 70%);
+  animation-duration: 1.6s;
+}
+
+/* ───── Effets ───── */
+.reveal.fx-shake.phase-burst .reveal__content {
+  animation: big-shake 0.9s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+.reveal.tier-7.fx-shake.phase-burst .reveal__content,
+.reveal.tier-8.fx-shake.phase-burst .reveal__content,
+.reveal.tier-9.fx-shake.phase-burst .reveal__content {
+  animation: big-shake 1.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+.reveal.fx-distort .reveal__aura {
+  filter: url(#reveal-distort);
+}
+
+.reveal.fx-prismatic .reveal__aura,
+.reveal.fx-prismatic .reveal__name {
+  animation: prism 3s linear infinite;
+}
+
+.reveal.fx-glitch .reveal__name::before,
+.reveal.fx-glitch .reveal__name::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  text-shadow: none;
+}
+
+.reveal.fx-glitch .reveal__name::before {
+  color: #00ffd5;
+  mix-blend-mode: screen;
+  animation: glitch-a 1.2s steps(2) infinite;
+}
+
+.reveal.fx-glitch .reveal__name::after {
+  color: #ff00a8;
+  mix-blend-mode: screen;
+  animation: glitch-b 1.2s steps(2) infinite;
+}
+
+[data-no-flashes="true"] .reveal.fx-glitch .reveal__name::before,
+[data-no-flashes="true"] .reveal.fx-glitch .reveal__name::after {
+  animation-duration: 4s;
+  opacity: 0.6;
+}
+
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes star-grow {
+  from {
+    transform: scale(0.2);
+  }
+  to {
+    transform: scale(2.4);
+  }
+}
+
+@keyframes whisper {
+  from {
+    opacity: 0.3;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes big-flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes big-shake {
+  10%,
+  90% {
+    transform: translate(-2px, 1px);
+  }
+  20%,
+  80% {
+    transform: translate(5px, -3px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate(-9px, 4px) rotate(-0.4deg);
+  }
+  40%,
+  60% {
+    transform: translate(9px, -4px) rotate(0.4deg);
+  }
+}
+
+@keyframes prism {
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
+@keyframes glitch-a {
+  0% {
+    clip-path: inset(10% 0 60% 0);
+    transform: translate(-4px, 0);
+  }
+  50% {
+    clip-path: inset(60% 0 10% 0);
+    transform: translate(3px, 0);
+  }
+  100% {
+    clip-path: inset(30% 0 40% 0);
+    transform: translate(-2px, 0);
+  }
+}
+
+@keyframes glitch-b {
+  0% {
+    clip-path: inset(50% 0 20% 0);
+    transform: translate(4px, 0);
+  }
+  50% {
+    clip-path: inset(15% 0 55% 0);
+    transform: translate(-3px, 0);
+  }
+  100% {
+    clip-path: inset(70% 0 5% 0);
+    transform: translate(2px, 0);
+  }
+}
+
+@media (max-width: 600px) {
+  .reveal__text {
+    margin-top: 28vh;
+  }
+}

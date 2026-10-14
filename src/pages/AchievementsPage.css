@@ -1,0 +1,100 @@
+.ach-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.ach {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px;
+}
+
+.ach__icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: var(--text-faint);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ach.is-done {
+  border-color: rgba(255, 201, 77, 0.35);
+  background: linear-gradient(135deg, rgba(255, 201, 77, 0.08), transparent 60%), var(--panel);
+}
+
+.ach.is-done .ach__icon {
+  color: var(--gold);
+  background: rgba(255, 201, 77, 0.14);
+  box-shadow: 0 0 18px rgba(255, 201, 77, 0.25);
+}
+
+.ach.is-secret {
+  opacity: 0.7;
+}
+
+.ach__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ach__body h3 {
+  font-size: 15px;
+}
+
+.ach__body p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.ach__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.ach__progress .progress {
+  flex: 1;
+  height: 6px;
+}
+
+.ach__date {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--gold);
+}
+
+.ach__reward {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.ach__reward span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .ach-list {
+    grid-template-columns: 1fr;
+  }
+
+}

@@ -1,0 +1,34 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "v2": {
+      "players": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid"
+        }
+      },
+      "leaderboard": {
+        ".read": "auth != null",
+        ".indexOn": ["rolls", "bestOdds", "collection", "achievements"]
+      },
+      "settings": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          "soundEnabled": { ".validate": "newData.isBoolean()" },
+          "volume": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
+          "reducedMotion": { ".validate": "newData.isBoolean()" },
+          "noFlashes": { ".validate": "newData.isBoolean()" },
+          "skipCommonReveal": { ".validate": "newData.isBoolean()" },
+          "keybinds": {
+            "$action": {
+              ".validate": "$action.matches(/^(roll|auto|nav[1-7])$/) && newData.isString() && newData.val().length <= 24"
+            }
+          },
+          "$other": { ".validate": false }
+        }
+      }
+    }
+  }
+}

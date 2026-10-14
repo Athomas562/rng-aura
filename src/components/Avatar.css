@@ -1,0 +1,74 @@
+.avatar {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.avatar__figure {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  height: 58%;
+  transform: translate(-50%, -52%);
+  overflow: visible;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--c1) 45%, transparent));
+  transition: filter 0.5s, opacity 0.4s;
+}
+
+.avatar.tier-4 .avatar__figure,
+.avatar.tier-5 .avatar__figure {
+  filter: drop-shadow(0 0 16px color-mix(in srgb, var(--c1) 65%, transparent));
+}
+
+.avatar.tier-6 .avatar__figure,
+.avatar.tier-7 .avatar__figure,
+.avatar.tier-8 .avatar__figure,
+.avatar.tier-9 .avatar__figure {
+  filter: drop-shadow(0 0 22px var(--c1)) drop-shadow(0 0 6px #fff);
+}
+
+.avatar.is-dimmed .avatar__figure {
+  opacity: 0.35;
+  filter: grayscale(0.6) brightness(0.7);
+}
+
+.avatar__body {
+  animation: avatar-bob 4.5s ease-in-out infinite;
+  transform-origin: 100px 240px;
+}
+
+.avatar__eyes {
+  animation: avatar-blink 6s infinite;
+  transform-origin: 100px 80px;
+}
+
+.avatar__emblem {
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.avatar__halo {
+  filter: drop-shadow(0 0 6px var(--c1));
+  animation: avatar-bob 4.5s ease-in-out infinite;
+}
+
+.avatar__crown {
+  filter: drop-shadow(0 0 5px var(--c1));
+}
+
+@keyframes avatar-bob {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes avatar-blink {
+  0%,
+  46%,
+  50%,
+  100% {
+    transform: scaleY(1);
+  }
+  48% {
+    transform: scaleY(0.1);
+  }
+}
