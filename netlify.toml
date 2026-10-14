@@ -1,3 +1,10 @@
 [build]
   command = "npm run build"
   publish = "dist"
+
+# Application monopage (anciennement public/_redirects, retiré car refusé par Cloudflare :
+# sur Cloudflare, c'est `not_found_handling` dans wrangler.jsonc qui joue ce rôle).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
