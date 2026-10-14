@@ -1,0 +1,15 @@
+{
+  // Tests du backend : ils n'importent que la logique serveur (handlers.ts) et le moteur partagé,
+  // jamais firebase-admin ni firebase-functions, et peuvent donc être vérifiés depuis la racine.
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["functions/src/**/*.test.ts"]
+}

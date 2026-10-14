@@ -1,0 +1,16 @@
+{
+  // Frontend RNG Aura : Cloudflare Workers avec uniquement des fichiers statiques (aucun code Worker).
+  // Le backend (Auth, Realtime Database, fonction `api`) reste sur Firebase.
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "rng-aura",
+  "compatibility_date": "2026-10-01",
+  // `npx wrangler deploy` compile d'abord le site, puis publie dist/.
+  "build": {
+    "command": "npm run build"
+  },
+  "assets": {
+    "directory": "./dist",
+    // Application monopage : toute URL inconnue renvoie index.html.
+    "not_found_handling": "single-page-application"
+  }
+}

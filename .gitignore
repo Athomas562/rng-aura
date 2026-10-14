@@ -5,3 +5,5 @@ functions/node_modules
 .firebase
 *.log
 .env.local
+.wrangler
+.dev.vars

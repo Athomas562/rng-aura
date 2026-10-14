@@ -1,0 +1,17 @@
+{
+  // Backend Firebase : vérifié avec ses propres dépendances (functions/node_modules).
+  // La compilation réelle est faite par esbuild (voir package.json), d'où noEmit.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}
