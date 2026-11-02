@@ -209,8 +209,8 @@ describe("rolls", () => {
 
   it("refuse un roll pendant la recharge", () => {
     const s = performRolls(createPlayerState("p", T0), T0, 1, seededRng(1)).state;
-    // le crédit initial permet une rafale, on la vide d'abord
-    const drained = performRolls(s, T0, MAX_ROLL_BATCH, seededRng(2)).state;
+    // aucun crédit de rafale : le roll suivant doit attendre la recharge
+    const drained = s;
     expect(() => performRolls(drained, T0 + 10, 1, seededRng(3))).toThrow(GameError);
     try {
       performRolls(drained, T0 + 10, 1, seededRng(3));
@@ -239,11 +239,12 @@ describe("rolls", () => {
     expect(s.stats.rolls).toBeGreaterThan(60_000 / BASE_ROLL_COOLDOWN_MS - 2);
   });
 
-  it("accorde des rolls groupés pour l'auto-roll après attente", () => {
+  it("une longue pause ne donne pas de crédit : un seul roll accordé, même en en demandant plus", () => {
     const s = performRolls(createPlayerState("p", T0), T0, 1, seededRng(1)).state;
     const later = T0 + 20 * BASE_ROLL_COOLDOWN_MS;
-    expect(grantableRolls(s, later, 4)).toBe(4);
-    expect(grantableRolls(s, later, 100)).toBe(MAX_ROLL_BATCH);
+    expect(grantableRolls(s, later, 4)).toBe(1);
+    expect(grantableRolls(s, later, 100)).toBe(1);
+    expect(MAX_ROLL_BATCH).toBeGreaterThan(1);
   });
 
   it("l'élixir de célérité divise la recharge par 2", () => {

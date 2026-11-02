@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it } from "vitest";
-import { MAX_ROLL_BATCH, createPlayerState, normalizePlayerState, seededRng, type LeaderboardEntry, type PlayerState } from "../shared";
+import { MAX_ROLL_BATCH,
+  ROLL_BURST, createPlayerState, normalizePlayerState, seededRng, type LeaderboardEntry, type PlayerState } from "../shared";
 import { handleApi, toApiError, type Caller } from "../functions/src/handlers";
 import { StoreError, createD1Store } from "./d1Store";
 import { SqliteD1 } from "./testing/sqliteD1";
@@ -216,10 +217,10 @@ describe("store D1 : écritures concurrentes", () => {
     const outcomes = await Promise.allSettled(Array.from({ length: 20 }, () => call({ action: "roll", count: MAX_ROLL_BATCH })));
     const granted = outcomes.reduce((n, o) => n + (o.status === "fulfilled" ? o.value.results!.length : 0), 0);
     const p = saved("uid-alice")!;
-    expect(granted).toBe(MAX_ROLL_BATCH);
-    expect(p.stats.rolls).toBe(MAX_ROLL_BATCH);
-    expect(Object.values(p.inventory).reduce((n, e) => n + e.count, 0)).toBe(MAX_ROLL_BATCH);
-    expect(db.row<{ rolls: number }>("SELECT rolls FROM leaderboard WHERE uid = 'uid-alice'")?.rolls).toBe(MAX_ROLL_BATCH);
+    expect(granted).toBe(ROLL_BURST);
+    expect(p.stats.rolls).toBe(ROLL_BURST);
+    expect(Object.values(p.inventory).reduce((n, e) => n + e.count, 0)).toBe(ROLL_BURST);
+    expect(db.row<{ rolls: number }>("SELECT rolls FROM leaderboard WHERE uid = 'uid-alice'")?.rolls).toBe(ROLL_BURST);
   });
 
   it("une seule potion en stock bue 10 fois en parallèle : une seule réussite", async () => {

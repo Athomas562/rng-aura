@@ -155,6 +155,14 @@ class SoundEngine {
     }
   }
 
+  /** Achat réussi : petite cascade de pièces. */
+  purchase() {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    [1319, 1568, 2093].forEach((f, i) => this.tone(f, t + i * 0.05, 0.18, "triangle", 0.07));
+  }
+
   levelUp() {
     const ctx = this.ready();
     if (!ctx) return;

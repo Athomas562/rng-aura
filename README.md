@@ -9,6 +9,7 @@ shared/        Moteur pur, partagé client/serveur (aucune dépendance)
   auras.ts       Catalogue de 75 auras (données, apparence déclarative, mécaniques spéciales)
   rarities.ts    15 paliers, de Common (1/2) à Beyond (1/1 000 000 000), dont 3 « branches »
   events.ts      Saisons et événements annuels (auras exclusives, bonus de chance)
+  economy.ts     Éclats (gains, plafond), améliorations, potions et cosmétiques de la boutique
   appearance.ts  Apparence dérivée (formes d'Écho, stades d'Yggdrasil, copie de Mimique)
   probability.ts Distribution exacte d'un roll (saisonnières, potion ciblée)
   luck.ts        Calcul de la chance, temps de recharge (seau à jetons)
@@ -64,7 +65,22 @@ Chance maximale théorique : ×41 (×123 pour la rareté ciblée). Oméga (1/2 M
 
 - **Niveau** : XP à chaque roll (selon la rareté), ×10 à la première découverte. Emplacements d'aura supplémentaires aux niveaux 10, 25 et 50.
 - **Talents** : 1 point par niveau, +2 par prestige ; réinitialisation gratuite.
-- **Prestige** : à 10 000 rolls depuis la dernière renaissance. Remet à zéro l'inventaire et les auras équipées ; conserve le codex, le niveau, les talents, les potions, les succès et le record de rareté.
+- **Prestige** : à 10 000 rolls depuis la dernière renaissance. Remet à zéro les Éclats, les améliorations de la boutique et la série ; conserve les auras, le codex, le niveau, les talents, les cosmétiques, les potions, les succès et toutes les catégories du classement.
+- **Rythme des rolls** : un roll par recharge, sans crédit accumulé pendant les pauses (spammer la touche ne donne rien de plus).
+
+### Éclats et boutique
+
+Monnaie gagnée uniquement par des actions réelles, calculée par le serveur : chaque roll (selon la rareté, +1 par 50 de série, ×2 si béni), première découverte, quêtes, étapes de mission, succès, prestige, fusions. Solde plafonné à 50 M ; historique des 40 derniers mouvements (page Statistiques).
+
+Boutique : 6 améliorations à niveaux (recharge −2 %/niv., chance +2 %/niv., plafond de série +4 %/niv., roll béni plus fréquent, durée des potions +5 %/niv., emplacement d'aura), potions à l'unité, traînées de curseur et cadres de profil. Chaque achat est vérifié (solde, niveau max, stock) et débité dans la même écriture atomique que son effet ; les effets passent par les fonctions de calcul existantes (`luck.ts`, `progression.ts`).
+
+### Réglages
+
+| Clé | Synchronisée (Firebase `v2/settings`) |
+| --- | --- |
+| soundEnabled, volume, reducedMotion, noFlashes, skipCommonReveal, keybinds (roll, auto, nav1–nav7) | oui |
+| vfxQuality, calmMode, cursorTrail, uiScale | non : stockées sur l'appareil (les règles publiées les refuseraient) |
+| Raccourcis 8 (Progression), 9 (Quêtes), 0 (Boutique), Échap (passer) | fixes, non configurables |
 - **Quêtes** : 3 par jour et 3 par semaine (identiques pour tous, minuit UTC / lundi), 6 missions à étapes. Chaque récompense est réclamable une fois, dans la même écriture atomique que la récompense.
 
 ### Ajouter une aura ou un effet
@@ -90,6 +106,7 @@ npm run build         # build de production dans dist/
 ## Déploiement (forfait Spark, sans facturation)
 
 - **Site + API** : Cloudflare Workers. Build command vide (`wrangler.jsonc` lance `npm run build`), Deploy command `npx wrangler deploy`.
+- **Ordre de déploiement** : toujours appliquer les migrations D1 (`npx wrangler d1 migrations apply rng-aura --remote`) **avant** de déployer le Worker. Les Éclats et la boutique sont stockés dans l'état JSON du joueur et ne demandent aucune migration supplémentaire au-delà de `0002`.
 - **Données serveur** : Cloudflare D1 (binding `DB`), aucun secret ni compte de service. Une seule fois :
   1. `npx wrangler d1 create rng-aura`, puis copier l'identifiant affiché dans `database_id` de `wrangler.jsonc` ;
   2. `npx wrangler d1 migrations apply rng-aura --remote` (crée les tables, ne supprime rien). La migration `0002_progression.sql` ajoute seulement des colonnes au classement (niveau, prestige, auras spéciales, titre).

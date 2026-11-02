@@ -4,7 +4,7 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { KEY_ACTIONS, defaultSettings } from "../../src/settings/settings";
+import { KEY_ACTIONS, defaultSettings, syncedPart } from "../../src/settings/settings";
 
 type RuleNode = { [key: string]: RuleNode | string | boolean | string[] };
 
@@ -126,7 +126,8 @@ describe("règles candidates : cohérence avec le code", () => {
   const settingsRules = ((candidate.v2 as RuleNode).settings as RuleNode).$uid as RuleNode;
 
   it("valident exactement les champs écrits par l'application", () => {
-    const fields = Object.keys(defaultSettings()).sort();
+    // Seule la partie synchronisée est envoyée à Firebase (voir firebaseBackend.saveSettings).
+    const fields = Object.keys(syncedPart(defaultSettings())).sort();
     const validated = Object.keys(settingsRules).filter((k) => !k.startsWith(".") && !k.startsWith("$")).sort();
     expect(validated).toEqual(fields);
     for (const f of fields) expect(String(settingsRules[".validate"]), f).toContain(`'${f}'`);
@@ -138,5 +139,17 @@ describe("règles candidates : cohérence avec le code", () => {
     const re = new RegExp(rule.match(/matches\(\/(.+?)\/\)/)![1]);
     for (const a of KEY_ACTIONS) expect(re.test(a.id), a.id).toBe(true);
     for (const bad of ["nav8", "roll2", "admin", ""]) expect(re.test(bad), bad).toBe(false);
+  });
+});
+
+describe("réglages locaux (non synchronisés)", () => {
+  it("la partie synchronisée ne contient que les six champs acceptés par les règles", () => {
+    const all = { ...defaultSettings(), calmMode: true, vfxQuality: "high" as const, cursorTrail: false, uiScale: 1.2 };
+    expect(Object.keys(syncedPart(all)).sort()).toEqual(["keybinds", "noFlashes", "reducedMotion", "skipCommonReveal", "soundEnabled", "volume"]);
+  });
+
+  it("firebaseBackend n'envoie que la partie synchronisée", () => {
+    const src = readFileSync(new URL("../../src/backend/firebaseBackend.ts", import.meta.url), "utf8");
+    expect(src).toMatch(/set\(ref\(db, `v2\/settings\/\$\{uid\}`\), syncedPart\(settings\)\)/);
   });
 });

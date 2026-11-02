@@ -16,6 +16,12 @@ import {
   heartbeat,
   isPotionId,
   isTalentId,
+  isUpgradeId,
+  isCosmeticId,
+  buyUpgrade,
+  buyPotion,
+  buyCosmetic,
+  wearCosmetic,
   learnTalent,
   normalizePlayerState,
   performRolls,
@@ -121,7 +127,12 @@ export async function handleApi(
   let leaderboard = true;
   /** Retient les informations annexes d'une action (une transaction rejouée les remplace). */
   const withOutcome = (out: ActionOutcome) => {
-    extra = { achievements: out.achievements, rewards: out.rewards, ...(out.levelUp ? { levelUp: out.levelUp } : {}) };
+    extra = {
+      achievements: out.achievements,
+      rewards: out.rewards,
+      ...(out.levelUp ? { levelUp: out.levelUp } : {}),
+      ...(out.shards > 0 ? { shards: out.shards } : {}),
+    };
     return out.state;
   };
   const run = (fn: (s: PlayerState, now: number) => PlayerState) =>
@@ -236,6 +247,33 @@ export async function handleApi(
       if (scope === "daily" || scope === "weekly") state = await run((s, now) => withOutcome(claimQuest(s, scope, id, now)));
       else if (scope === "mission") state = await run((s, now) => withOutcome(claimMission(s, id, now)));
       else throw new ApiError("invalid-argument", "Type de quête invalide");
+      break;
+    }
+
+    case "buy": {
+      const { kind, id } = input;
+      if (kind === "upgrade") {
+        if (!isUpgradeId(id)) throw new ApiError("invalid-argument", "Amélioration inconnue");
+        state = await run((s, now) => withOutcome(buyUpgrade(s, id, now)));
+      } else if (kind === "potion") {
+        const quantity = input.quantity ?? 1;
+        if (!isPotionId(id)) throw new ApiError("invalid-argument", "Potion inconnue");
+        if (typeof quantity !== "number" || !Number.isInteger(quantity)) throw new ApiError("invalid-argument", "Quantité invalide");
+        state = await run((s, now) => withOutcome(buyPotion(s, id, quantity, now)));
+      } else if (kind === "cosmetic") {
+        if (!isCosmeticId(id)) throw new ApiError("invalid-argument", "Cosmétique inconnu");
+        state = await run((s, now) => withOutcome(buyCosmetic(s, id, now)));
+      } else throw new ApiError("invalid-argument", "Type d'achat invalide");
+      leaderboard = (extra.achievements?.length ?? 0) > 0;
+      break;
+    }
+
+    case "wear": {
+      const { kind, id } = input;
+      if (kind !== "trail" && kind !== "frame") throw new ApiError("invalid-argument", "Type de cosmétique invalide");
+      if (id !== null && !isCosmeticId(id)) throw new ApiError("invalid-argument", "Cosmétique inconnu");
+      state = await run((s) => wearCosmetic(s, kind, id));
+      leaderboard = false;
       break;
     }
 

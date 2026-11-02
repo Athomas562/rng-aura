@@ -11,7 +11,7 @@
   --panel-border-strong: rgba(170, 180, 255, 0.24);
   --text: #eceeff;
   --text-dim: #a2a9cf;
-  --text-faint: #6b7299;
+  --text-faint: #8a91b8; /* contraste ≥ 4,5:1 sur le fond (WCAG AA) */
   --violet: #9b6bff;
   --violet-deep: #5b2bd6;
   --cyan: #3ee0ff;
@@ -402,4 +402,95 @@ button {
   to {
     filter: hue-rotate(360deg);
   }
+}
+
+/* ───────── Accessibilité et structure (refonte) ───────── */
+.skip-link {
+  position: fixed;
+  left: 12px;
+  top: -60px;
+  z-index: 100;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--violet);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+
+.skip-link:focus {
+  top: 12px;
+}
+
+/* Focus toujours visible, y compris sur les boutons stylés. */
+.btn:focus-visible,
+.chip:focus-visible,
+.nav__item:focus-visible,
+.subnav__tab:focus-visible,
+.roll-btn:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+h1[tabindex="-1"]:focus {
+  outline: none;
+}
+
+/* Taille de l'interface (réglage local) */
+.shell__main {
+  zoom: var(--ui-scale, 1);
+}
+
+/* Transition de page : fondu + léger glissement (200 ms), coupée en mode calme. */
+.page-transition {
+  animation: page-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+[data-calm="true"] .page-transition {
+  animation: none;
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.cursor-trail {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 60;
+}
+
+/* Zones tactiles d'au moins 44 px sur écran tactile. */
+@media (pointer: coarse) {
+  .btn,
+  .btn-sm,
+  .chip,
+  .select,
+  .input,
+  .subnav__tab,
+  .nav__item {
+    min-height: 44px;
+  }
+}
+
+/* Boutons : retour visuel à l'appui */
+.btn {
+  transition: transform 0.12s, box-shadow 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+[data-calm="true"] .btn:active:not(:disabled) {
+  transform: none;
 }

@@ -1,4 +1,25 @@
 import { ACHIEVEMENTS, isAchievementMet } from "./achievements";
+import {
+  ACHIEVEMENT_SHARDS,
+  DISCOVERY_SHARDS,
+  LEDGER_LIMIT,
+  MAX_POTIONS_PER_PURCHASE,
+  MISSION_SHARDS,
+  POTION_PRICES,
+  POTION_STOCK_LIMIT,
+  PRESTIGE_SHARDS,
+  QUEST_SHARDS,
+  SECRET_ACHIEVEMENT_SHARDS,
+  SHARD_CAP,
+  getCosmetic,
+  emptyUpgrades,
+  getUpgrade,
+  rollShards,
+  upgradePotionDurationMul,
+  type CosmeticId,
+  type CosmeticKind,
+  type UpgradeId,
+} from "./economy";
 import { getAura, requireAura, type Aura } from "./auras";
 import {
   advanceRollClock,
@@ -20,7 +41,7 @@ import {
   getTitle,
   levelOf,
   runRolls,
-  slotsFor,
+  slotCount,
   talentPointsFor,
   xpForRarity,
 } from "./progression";
@@ -40,7 +61,7 @@ import type { Rng } from "./random";
 import { PRESTIGE_HISTORY_LIMIT, RECENT_LIMIT, discoveredCount, type PlayerState } from "./state";
 import { emptyTalents, getTalent, spentTalentPoints, talentPotionDurationMul, talentXpMul, type TalentId } from "./talents";
 
-export type GameErrorCode = "cooldown" | "invalid" | "not-owned" | "no-potion";
+export type GameErrorCode = "cooldown" | "invalid" | "not-owned" | "no-potion" | "funds";
 
 export class GameError extends Error {
   constructor(
@@ -63,6 +84,8 @@ export interface RollResult {
   isNew: boolean;
   rollNumber: number;
   xp: number;
+  /** Éclats gagnés par ce roll (rareté, série, béni, découverte). */
+  shards: number;
   /** Rareté ciblée par une potion de chance ciblée active pendant ce roll. */
   focus?: RarityId;
 }
@@ -75,6 +98,8 @@ export interface ActionOutcome {
   rewards: PotionReward;
   /** Nouveau niveau atteint pendant l'action. */
   levelUp?: number;
+  /** Éclats gagnés pendant l'action (après plafond). */
+  shards: number;
 }
 
 export interface RollOutcome extends ActionOutcome {
@@ -101,6 +126,38 @@ function discoveryReward(tier: number): PotionId | null {
 
 /** Temps d'inactivité au-delà duquel le temps de jeu cesse de compter. */
 export const ACTIVE_GAP_MS = 90_000;
+
+/** Gains d'Éclats d'une action, groupés par motif pour l'historique. Crédités en une fois à la fin. */
+type Earnings = Map<string, number>;
+
+function earn(eco: Earnings, reason: string, amount: number) {
+  if (amount > 0) eco.set(reason, (eco.get(reason) ?? 0) + Math.floor(amount));
+}
+
+/** Crédite les gains (plafonnés) et les inscrit dans l'historique. Renvoie le total crédité. */
+function settle(state: PlayerState, eco: Earnings, now: number): number {
+  let total = 0;
+  for (const [reason, amount] of eco) {
+    const credited = Math.min(amount, SHARD_CAP - state.shards);
+    if (credited <= 0) continue;
+    state.shards += credited;
+    state.stats.shardsEarned += credited;
+    total += credited;
+    state.ledger.unshift({ at: now, amount: credited, reason, balance: state.shards });
+  }
+  state.ledger = state.ledger.slice(0, LEDGER_LIMIT);
+  return total;
+}
+
+/** Débite un achat après avoir vérifié le solde stocké. */
+function spend(state: PlayerState, cost: number, reason: string, now: number) {
+  if (!Number.isSafeInteger(cost) || cost <= 0) throw new GameError("invalid", "Prix invalide");
+  if (state.shards < cost) throw new GameError("funds", `Il te manque ${(cost - state.shards).toLocaleString("fr-FR")} éclats`);
+  state.shards -= cost;
+  state.stats.shardsSpent += cost;
+  state.ledger.unshift({ at: now, amount: -cost, reason, balance: state.shards });
+  state.ledger = state.ledger.slice(0, LEDGER_LIMIT);
+}
 
 function addReward(into: PotionReward, add: PotionReward) {
   for (const [id, n] of Object.entries(add) as [PotionId, number][]) into[id] = (into[id] ?? 0) + n;
@@ -162,23 +219,25 @@ function begin(input: PlayerState, now: number): PlayerState {
 }
 
 /** Débloque les succès dont la condition est remplie et distribue leurs récompenses. */
-function unlockAchievements(state: PlayerState, now: number, rewards: PotionReward): string[] {
+function unlockAchievements(state: PlayerState, now: number, rewards: PotionReward, eco: Earnings): string[] {
   const unlocked: string[] = [];
   for (const a of ACHIEVEMENTS) {
     if (state.achievements[a.id] || !isAchievementMet(a, state)) continue;
     state.achievements[a.id] = now;
     unlocked.push(a.id);
     if (a.reward) grant(state, a.reward, rewards);
+    earn(eco, "Succès", a.secret ? SECRET_ACHIEVEMENT_SHARDS : ACHIEVEMENT_SHARDS);
   }
   return unlocked;
 }
 
-/** Termine une action : succès, détection de montée de niveau. */
-function finish(state: PlayerState, before: PlayerState, now: number, rewards: PotionReward): ActionOutcome {
-  const achievements = unlockAchievements(state, now, rewards);
+/** Termine une action : succès, crédit des Éclats, détection de montée de niveau. */
+function finish(state: PlayerState, before: PlayerState, now: number, rewards: PotionReward, eco: Earnings = new Map()): ActionOutcome {
+  const achievements = unlockAchievements(state, now, rewards, eco);
+  const shards = settle(state, eco, now);
   const lvBefore = levelOf(before);
   const lvAfter = levelOf(state);
-  return { state, achievements, rewards, ...(lvAfter > lvBefore ? { levelUp: lvAfter } : {}) };
+  return { state, achievements, rewards, shards, ...(lvAfter > lvBefore ? { levelUp: lvAfter } : {}) };
 }
 
 function isBetter(candidateId: string, currentId: string | null): boolean {
@@ -188,7 +247,7 @@ function isBetter(candidateId: string, currentId: string | null): boolean {
 }
 
 /** Ajoute un exemplaire d'une aura (roll ou fusion) : inventaire, codex, XP, récompense de découverte. */
-function obtain(state: PlayerState, aura: Aura, now: number, rewards: PotionReward): { isNew: boolean; xp: number } {
+function obtain(state: PlayerState, aura: Aura, now: number, rewards: PotionReward, eco: Earnings): { isNew: boolean; xp: number } {
   const entry = state.inventory[aura.id];
   if (entry) {
     entry.count += 1;
@@ -205,6 +264,7 @@ function obtain(state: PlayerState, aura: Aura, now: number, rewards: PotionRewa
     const potion = discoveryReward(getRarity(aura.rarity).tier);
     if (potion) grant(state, { [potion]: 1 }, rewards);
     bump(state, "discover");
+    earn(eco, "Premières découvertes", DISCOVERY_SHARDS * (getRarity(aura.rarity).tier + 1));
   }
 
   const xp = Math.round(xpForRarity(aura.rarity) * (isNew ? DISCOVERY_XP_MUL : 1) * talentXpMul(state.talents));
@@ -236,6 +296,7 @@ export function performRolls(input: PlayerState, now: number, requested: number,
 
   const rewards: PotionReward = {};
   const results: RollResult[] = [];
+  const eco: Earnings = new Map();
 
   for (let i = 0; i < granted; i++) {
     const rollNumber = state.stats.rolls + 1;
@@ -253,7 +314,10 @@ export function performRolls(input: PlayerState, now: number, requested: number,
       bump(state, "blessed");
     }
 
-    const { isNew, xp } = obtain(state, aura, now, rewards);
+    const { isNew, xp } = obtain(state, aura, now, rewards, eco);
+    // Éclats du roll (la part « découverte » est comptée par obtain).
+    const shards = rollShards(aura.rarity, streak, luck.blessed, isNew);
+    earn(eco, "Rolls", rollShards(aura.rarity, streak, luck.blessed, false));
 
     bump(state, "rolls");
     bumpMax(state, "streak", streak);
@@ -278,12 +342,13 @@ export function performRolls(input: PlayerState, now: number, requested: number,
       isNew,
       rollNumber,
       xp,
+      shards,
       ...(luck.focus ? { focus: luck.focus.rarity } : {}),
     });
   }
   state.recent = state.recent.slice(0, RECENT_LIMIT);
 
-  return { ...finish(state, input, now, rewards), results };
+  return { ...finish(state, input, now, rewards, eco), results };
 }
 
 /**
@@ -314,7 +379,7 @@ export function drinkPotion(input: PlayerState, potionId: PotionId, now: number,
       if (state.potions.focusTarget !== target) start = now;
       state.potions.focusTarget = target;
     }
-    const duration = Math.round(potion.durationMs * talentPotionDurationMul(state.talents));
+    const duration = Math.round(potion.durationMs * talentPotionDurationMul(state.talents) * upgradePotionDurationMul(state.upgrades));
     state.potions.active[potionId] = Math.min(start + duration, now + POTION_MAX_STACK_MS);
   }
 
@@ -329,12 +394,12 @@ export function drinkPotion(input: PlayerState, potionId: PotionId, now: number,
  * supplémentaires débloqués par le niveau. `null` vide l'emplacement.
  */
 export function equipAura(input: PlayerState, auraId: string | null, slot = 0): PlayerState {
-  if (!Number.isInteger(slot) || slot < 0 || slot >= slotsFor(levelOf(input))) {
+  if (!Number.isInteger(slot) || slot < 0 || slot >= slotCount(input)) {
     throw new GameError("invalid", "Emplacement non débloqué");
   }
   if (auraId !== null && !input.inventory[auraId]) throw new GameError("not-owned", "Aura non possédée");
   const state = clone(input);
-  const extra = slotsFor(levelOf(state)) - 1;
+  const extra = slotCount(state) - 1;
   const slots = Array.from({ length: extra }, (_, i) => state.slots[i] ?? null);
 
   if (slot === 0) {
@@ -386,10 +451,12 @@ export function fuseAura(input: PlayerState, auraId: string, now: number): Fusio
     entry.count -= ing.count;
   }
   const rewards: PotionReward = {};
-  const { isNew, xp } = obtain(state, aura, now, rewards);
+  const eco: Earnings = new Map();
+  const { isNew, xp } = obtain(state, aura, now, rewards, eco);
+  earn(eco, "Fusions", rollShards(aura.rarity, 0, false, false));
   state.stats.fusions += 1;
   bump(state, "fusions");
-  return { ...finish(state, input, now, rewards), auraId, isNew, xp };
+  return { ...finish(state, input, now, rewards, eco), auraId, isNew, xp };
 }
 
 // ───────────── Prestige ─────────────
@@ -412,16 +479,21 @@ export function doPrestige(input: PlayerState, now: number): ActionOutcome {
       { at: now, level, runRolls: runRolls(state), bestAuraId: best, collection: Object.keys(state.inventory).length },
     ].slice(-PRESTIGE_HISTORY_LIMIT),
   };
-  // La partie repart de zéro ; codex, niveau, talents, succès, potions et record de rareté sont conservés.
-  state.inventory = {};
-  state.equipped = null;
-  state.slots = [];
-  state.mimicOf = null;
+  // Les auras sont conservées. Repartent de zéro : Éclats, améliorations de la boutique et série.
+  // Codex, niveau, talents, cosmétiques, succès, potions et record de rareté sont conservés.
+  if (state.shards > 0) {
+    state.ledger.unshift({ at: now, amount: -state.shards, reason: `Renaissance ${level} : remise à zéro`, balance: 0 });
+  }
+  state.shards = 0;
+  state.upgrades = emptyUpgrades();
   state.stats.streak = 0;
+  // L'Écrin est remis à zéro : on retire les emplacements qui n'existent plus.
+  state.slots = state.slots.slice(0, Math.max(0, slotCount(state) - 1));
 
   const rewards: PotionReward = {};
   grant(state, PRESTIGE_REWARD, rewards);
-  return finish(state, input, now, rewards);
+  const eco: Earnings = new Map([[`Prestige ${level}`, PRESTIGE_SHARDS * level]]);
+  return finish(state, input, now, rewards, eco);
 }
 
 // ───────────── Talents, titre, Mimique ─────────────
@@ -484,7 +556,8 @@ export function claimQuest(input: PlayerState, scope: QuestScope, questId: strin
   state.stats.questsClaimed += 1;
   const rewards: PotionReward = {};
   grant(state, quest.reward, rewards);
-  return finish(state, input, now, rewards);
+  const eco: Earnings = new Map([[`Quête : ${quest.name}`, QUEST_SHARDS[scope]]]);
+  return finish(state, input, now, rewards, eco);
 }
 
 export function claimMission(input: PlayerState, missionId: string, now: number): ActionOutcome {
@@ -499,7 +572,8 @@ export function claimMission(input: PlayerState, missionId: string, now: number)
   state.quests.missions[missionId] = stage + 1;
   const rewards: PotionReward = {};
   grant(state, next.reward, rewards);
-  return finish(state, input, now, rewards);
+  const eco: Earnings = new Map([[`Mission : ${mission.name}`, MISSION_SHARDS * (stage + 1)]]);
+  return finish(state, input, now, rewards, eco);
 }
 
 /** Missions dont une étape peut être réclamée (pour un badge dans l'interface). */
@@ -515,6 +589,57 @@ export function claimableCount(state: PlayerState, now: number): number {
     if (next && m.value(state) >= next.target) n++;
   }
   return n;
+}
+
+// ───────────── Boutique ─────────────
+
+/** Achète le niveau suivant d'une amélioration permanente. */
+export function buyUpgrade(input: PlayerState, upgradeId: UpgradeId, now: number): ActionOutcome {
+  const upgrade = getUpgrade(upgradeId);
+  const level = input.upgrades[upgradeId] ?? 0;
+  if (level >= upgrade.maxLevel) throw new GameError("invalid", "Niveau maximal déjà atteint");
+  const state = begin(input, now);
+  spend(state, upgrade.cost(level), `Achat : ${upgrade.name} niv. ${level + 1}`, now);
+  state.upgrades[upgradeId] = level + 1;
+  return finish(state, input, now, {});
+}
+
+/** Achète des potions à l'unité (1 à 10 par achat, stock plafonné). */
+export function buyPotion(input: PlayerState, potionId: PotionId, quantity: number, now: number): ActionOutcome {
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_POTIONS_PER_PURCHASE) {
+    throw new GameError("invalid", `Quantité entre 1 et ${MAX_POTIONS_PER_PURCHASE}`);
+  }
+  const price = POTION_PRICES[potionId];
+  if (!price) throw new GameError("invalid", "Potion non vendue");
+  if (input.potions.owned[potionId] + quantity > POTION_STOCK_LIMIT) {
+    throw new GameError("invalid", `Stock maximal : ${POTION_STOCK_LIMIT}`);
+  }
+  const state = begin(input, now);
+  spend(state, price * quantity, `Achat : ${quantity}× ${POTIONS[potionId].name}`, now);
+  state.potions.owned[potionId] += quantity;
+  return finish(state, input, now, {});
+}
+
+/** Achète un cosmétique (une seule fois) et le porte immédiatement. */
+export function buyCosmetic(input: PlayerState, cosmeticId: CosmeticId, now: number): ActionOutcome {
+  const cosmetic = getCosmetic(cosmeticId);
+  if (input.cosmetics.owned[cosmeticId]) throw new GameError("invalid", "Déjà acheté");
+  const state = begin(input, now);
+  spend(state, cosmetic.price, `Achat : ${cosmetic.name}`, now);
+  state.cosmetics.owned[cosmeticId] = now;
+  state.cosmetics[cosmetic.kind] = cosmeticId;
+  return finish(state, input, now, {});
+}
+
+/** Porte ou retire un cosmétique possédé. */
+export function wearCosmetic(input: PlayerState, kind: CosmeticKind, cosmeticId: CosmeticId | null): PlayerState {
+  if (cosmeticId !== null) {
+    if (!input.cosmetics.owned[cosmeticId]) throw new GameError("not-owned", "Cosmétique non acheté");
+    if (getCosmetic(cosmeticId).kind !== kind) throw new GameError("invalid", "Type de cosmétique incorrect");
+  }
+  const state = clone(input);
+  state.cosmetics[kind] = cosmeticId;
+  return state;
 }
 
 // ───────────── Classement ─────────────

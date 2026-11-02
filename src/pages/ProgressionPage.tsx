@@ -15,7 +15,8 @@ import {
   getRarity,
   getTalent,
   runRolls,
-  slotsFor,
+  slotCount,
+  CURRENCY,
   spentTalentPoints,
   talentPointsFor,
   type Aura,
@@ -37,12 +38,12 @@ function rewardList(r: Partial<Record<PotionId, number>>) {
 
 /** Emplacements d'aura : principale + emplacements débloqués par le niveau. */
 function SlotsSection() {
-  const { state, level, equip, look } = useGame();
-  const total = slotsFor(level.level);
+  const { state, equip, look } = useGame();
+  const total = slotCount(state);
   const owned = Object.keys(state.inventory)
     .map((id) => getAura(id)!)
     .sort((a, b) => b.odds - a.odds);
-  const slots = [state.equipped, ...Array.from({ length: 3 }, (_, i) => state.slots[i] ?? null)];
+  const slots = [state.equipped, ...Array.from({ length: Math.max(3, total - 1) }, (_, i) => state.slots[i] ?? null)];
 
   return (
     <section className="panel prog-section">
@@ -60,7 +61,7 @@ function SlotsSection() {
               <div className="slot__body">
                 <strong>{i === 0 ? "Aura principale" : `Emplacement ${i + 1}`}</strong>
                 {locked ? (
-                  <span className="muted">Débloqué au niveau {SLOT_LEVELS[i - 1]}</span>
+                  <span className="muted">{SLOT_LEVELS[i - 1] ? `Débloqué au niveau ${SLOT_LEVELS[i - 1]}` : "Écrin supplémentaire (boutique)"}</span>
                 ) : (
                   <select
                     className="select select--sm"
@@ -205,10 +206,10 @@ function PrestigeSection() {
           </div>
           <ul className="prestige__rules">
             <li>
-              <strong>Repart de zéro :</strong> inventaire (auras possédées), auras équipées, série.
+              <strong>Repart de zéro :</strong> {CURRENCY.plural}, améliorations de la boutique, série.
             </li>
             <li>
-              <strong>Conservé :</strong> codex, niveau et XP, talents, titres, succès, potions, quêtes, record de rareté.
+              <strong>Conservé :</strong> toutes tes auras, codex, niveau et XP, talents, titres, cosmétiques, succès, potions, quêtes et classement.
             </li>
             <li>
               <strong>Gagné :</strong> +5 % de chance pour toujours, 2 points de talent, {rewardList(PRESTIGE_REWARD)}.
@@ -254,8 +255,8 @@ function PrestigeSection() {
         <Modal title="Confirmer la renaissance" onClose={() => setConfirm(false)}>
           <div className="confirm">
             <p>
-              Ton inventaire actuel ({Object.keys(state.inventory).length} auras différentes) va repartir de zéro. Ton codex, ton niveau, tes talents
-              et tes potions sont conservés.
+              Tes {state.shards.toLocaleString("fr-FR")} {CURRENCY.plural} et tes améliorations de boutique vont repartir de zéro. Tes auras, ton
+              niveau, tes talents, tes potions et ta place au classement sont conservés.
             </p>
             <div className="confirm__actions">
               <button className="btn" onClick={() => setConfirm(false)}>

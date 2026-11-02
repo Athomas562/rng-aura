@@ -1,6 +1,7 @@
 export * from "./rarities";
 export * from "./visuals";
 export * from "./events";
+export * from "./economy";
 export * from "./auras";
 export * from "./appearance";
 export * from "./potions";

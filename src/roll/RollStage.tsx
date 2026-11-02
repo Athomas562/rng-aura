@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { getAura, getRarity, probabilityOf, rollableAuras, type Aura } from "../../shared";
+import { getAura, getCosmetic, getRarity, probabilityOf, rollableAuras, type Aura } from "../../shared";
 import { sound } from "../audio/sound";
 import { Avatar } from "../components/Avatar";
 import { RarityBadge } from "../components/RarityBadge";
@@ -7,6 +7,7 @@ import { FxEngine } from "../effects/fx";
 import { useGame } from "../game/GameContext";
 import { formatLuck, formatOddsN } from "../lib/format";
 import { useSettings } from "../settings/SettingsContext";
+import { vfxDensity } from "../settings/settings";
 import "./RollStage.css";
 
 /** Au-delà de ce palier, la découverte passe en plein écran (RevealOverlay). */
@@ -82,7 +83,7 @@ function useRoulette(active: boolean, discovered: Record<string, unknown>, now: 
 }
 
 export function RollStage() {
-  const { state, reveal, lastResult, skipReveal, look, now } = useGame();
+  const { state, reveal, lastResult, skipReveal, look, now, shardBurst } = useGame();
   const { settings } = useSettings();
   const fxCanvas = useRef<HTMLCanvasElement>(null);
   const fx = useRef<FxEngine | null>(null);
@@ -97,32 +98,49 @@ export function RollStage() {
 
   useEffect(() => {
     const canvas = fxCanvas.current!;
-    fx.current = new FxEngine(canvas, { reduced: settings.reducedMotion, noFlashes: settings.noFlashes });
+    fx.current = new FxEngine(canvas, { reduced: settings.reducedMotion, noFlashes: settings.noFlashes, density: vfxDensity(settings) });
     const ro = new ResizeObserver(() => fx.current?.resize());
     ro.observe(canvas);
     return () => {
       ro.disconnect();
       fx.current?.destroy();
     };
-  }, [settings.reducedMotion, settings.noFlashes]);
+  }, [settings.reducedMotion, settings.noFlashes, settings.vfxQuality]);
 
-  // Effets de découverte dans la scène pour Rare et Epic (les paliers supérieurs passent en plein écran).
+  // Séquence de découverte dans la scène, sobre pour les communes, plus riche pour Rare et Epic
+  // (les raretés supérieures passent en plein écran).
   useEffect(() => {
-    if (phase !== "burst" || !reveal?.aura || tier < 2 || tier >= FULLSCREEN_TIER) return;
+    if (phase !== "burst" || !reveal?.aura || tier >= FULLSCREEN_TIER) return;
     const { primary, secondary } = reveal.aura.visual;
+    if (tier < 2) {
+      fx.current?.burst([primary, secondary], 8 + tier * 8, 0.35);
+      return;
+    }
     fx.current?.shockwave(primary, 0, 0.7);
     fx.current?.burst([primary, secondary, "#ffffff"], 30 + tier * 25, 0.6);
     if (reveal.aura.reveal.includes("lightning")) fx.current?.lightning(primary, 4, 600);
   }, [reveal?.key, phase, tier, reveal?.aura]);
 
+  // Confettis d'éclats quand le roll en rapporte (plus nombreux pour les gros gains).
+  useEffect(() => {
+    if (!shardBurst || shardBurst.amount <= 0) return;
+    fx.current?.confetti(Math.min(60, 6 + Math.round(Math.log2(1 + shardBurst.amount) * 4)));
+  }, [shardBurst?.key]);
+
   const showFlash = phase === "burst" && reveal?.aura?.reveal.includes("flash") && tier < FULLSCREEN_TIER;
   const lastBase = lastResult ? getAura(lastResult.auraId) : undefined;
   const lastAura = lastBase ? look(lastBase) : undefined;
-  const style = { "--rc": reveal?.aura ? getRarity(reveal.aura.rarity).color : "#9b6bff" } as CSSProperties;
+  const frame = state.cosmetics.frame ? getCosmetic(state.cosmetics.frame) : null;
+  const haloColor = shown ? getRarity(shown.rarity).color : "#9b6bff";
+  const style = {
+    "--rc": reveal?.aura ? getRarity(reveal.aura.rarity).color : "#9b6bff",
+    "--halo": haloColor,
+    ...(frame ? { "--f1": frame.colors[0], "--f2": frame.colors[1] ?? frame.colors[0] } : {}),
+  } as CSSProperties;
 
   return (
     <div
-      className={`stage panel phase-${phase ?? "idle"} tier-${tier}`}
+      className={`stage panel phase-${phase ?? "idle"} tier-${tier} ${frame ? `has-frame frame-${frame.id}` : ""}`}
       style={style}
       onClick={phase === "burst" || phase === "omen" ? skipReveal : undefined}
     >
@@ -132,8 +150,12 @@ export function RollStage() {
         <span />
       </div>
 
+      {shown && <div className="stage__halo" aria-hidden="true" />}
       <div className="stage__avatar">
-        <Avatar aura={shown} dimmed={phase === "charge" || phase === "omen"} extras={phase ? [] : extras} />
+        {/* La clé relance l'effet d'entrée (fondu + éclat) à chaque changement d'aura. */}
+        <div key={shown?.id ?? "none"} className="avatar-enter">
+          <Avatar aura={shown} dimmed={phase === "charge" || phase === "omen"} extras={phase ? [] : extras} />
+        </div>
       </div>
 
       <canvas ref={fxCanvas} className="stage__fx" aria-hidden="true" />
@@ -145,7 +167,7 @@ export function RollStage() {
         </div>
       )}
 
-      <div className="stage__caption" aria-live="polite">
+      <div className="stage__caption">
         {phase === "charge" && (
           <div className="stage__roulette">
             <span
@@ -164,6 +186,7 @@ export function RollStage() {
               {reveal.result.isNew && <span className="tag tag--new">Nouvelle !</span>}
               {reveal.result.blessed && <span className="tag tag--blessed">Roll béni</span>}
               {reveal.result.xp > 0 && <span className="tag tag--xp">+{reveal.result.xp} XP</span>}
+              {reveal.result.shards > 0 && <span className="tag tag--shards">+{reveal.result.shards} ✦</span>}
             </div>
             <h2 className="stage__name" style={{ color: reveal.aura.visual.primary }}>
               <RevealName text={reveal.aura.name} durationMs={reveal.durationMs} />

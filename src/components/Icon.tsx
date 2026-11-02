@@ -20,6 +20,7 @@ const ICONS = {
   lock: "M6 11h12v10H6zM8 11V7a4 4 0 0 1 8 0v4",
   check: "M5 12l5 5L20 7",
   volume: "M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11",
+  shop: "M4 9h16l-1.5 11h-13zM8 9V7a4 4 0 0 1 8 0v2M9 13h.01M15 13h.01",
   progression: "M12 3l3 5h-2v5h-2V8H9zM5 21v-4M9 21v-6M15 21v-6M19 21v-9M3 21h18",
   quests: "M7 3h10a2 2 0 0 1 2 2v16l-3-2l-2 2l-2-2l-2 2l-2-2l-3 2V5a2 2 0 0 1 2-2zM9 8h6M9 12h6M9 16h3",
   gift: "M4 10h16v4H4zM5 14h14v7H5zM12 10v11M12 10c-2-5-7-5-6-1c.5 1.5 3 1 6 1c3 0 5.5.5 6-1c1-4-4-4-6 1",

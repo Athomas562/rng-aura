@@ -3,7 +3,7 @@ import { sound } from "../audio/sound";
 import { backend } from "../backend";
 import { Icon } from "../components/Icon";
 import { useGame } from "../game/GameContext";
-import { KEY_ACTIONS, defaultSettings, keyLabel, type KeyAction } from "../settings/settings";
+import { EXTRA_PAGES, KEY_ACTIONS, defaultSettings, keyLabel, type KeyAction, type VfxQuality } from "../settings/settings";
 import { useSettings } from "../settings/SettingsContext";
 import "./SettingsPage.css";
 
@@ -107,6 +107,64 @@ export function SettingsPage() {
           checked={settings.skipCommonReveal}
           onChange={(v) => update({ skipCommonReveal: v })}
         />
+        <Toggle
+          label="Mode calme"
+          hint="Fond statique, pas de transitions de page, de halo animé ni de traînée. Activé automatiquement si tu réduis les animations."
+          checked={settings.calmMode}
+          onChange={(v) => update({ calmMode: v })}
+        />
+        <Toggle
+          label="Traînée du curseur"
+          hint="Affiche la traînée achetée en boutique (souris uniquement)."
+          checked={settings.cursorTrail}
+          onChange={(v) => update({ cursorTrail: v })}
+        />
+        <div className="setting-row">
+          <span>
+            <span className="setting-row__label" id="vfx-label">
+              Qualité des effets visuels
+            </span>
+            <span className="setting-row__hint">Faible : moins de particules, idéal pour les petits appareils.</span>
+          </span>
+          <span className="segmented" role="radiogroup" aria-labelledby="vfx-label">
+            {(
+              [
+                ["low", "Faible"],
+                ["normal", "Normale"],
+                ["high", "Élevée"],
+              ] as [VfxQuality, string][]
+            ).map(([q, label]) => (
+              <button key={q} role="radio" aria-checked={settings.vfxQuality === q} className={`chip ${settings.vfxQuality === q ? "is-active" : ""}`} onClick={() => update({ vfxQuality: q })}>
+                {label}
+              </button>
+            ))}
+          </span>
+        </div>
+        <div className="setting-row">
+          <span>
+            <span className="setting-row__label" id="scale-label">
+              Taille du texte et de l'interface
+            </span>
+            <span className="setting-row__hint">De 90 % à 130 %.</span>
+          </span>
+          <span className="volume">
+            <input
+              type="range"
+              min={0.9}
+              max={1.3}
+              step={0.05}
+              value={settings.uiScale}
+              onChange={(e) => update({ uiScale: Number(e.target.value) })}
+              aria-labelledby="scale-label"
+              aria-valuetext={`${Math.round(settings.uiScale * 100)} %`}
+            />
+            <span className="tabular">{Math.round(settings.uiScale * 100)} %</span>
+          </span>
+        </div>
+        <p className="setting-row__hint settings-note">
+          Ces quatre derniers réglages restent sur cet appareil ; le son, les animations, les flashs, la découverte éclair et les raccourcis sont
+          synchronisés avec ton compte.
+        </p>
       </section>
 
       <section className="panel settings-section">
@@ -122,6 +180,18 @@ export function SettingsPage() {
               </button>
             </li>
           ))}
+        </ul>
+        <ul className="keybinds keybinds--fixed" aria-label="Raccourcis fixes">
+          {EXTRA_PAGES.map((p) => (
+            <li key={p.id}>
+              <span>Aller à : {p.label}</span>
+              <kbd className="keybind-fixed">{keyLabel(p.key)}</kbd>
+            </li>
+          ))}
+          <li>
+            <span>Passer une découverte</span>
+            <kbd className="keybind-fixed">Échap</kbd>
+          </li>
         </ul>
         <button className="btn btn-sm" onClick={() => update({ keybinds: defaultSettings().keybinds })}>
           Rétablir les raccourcis par défaut

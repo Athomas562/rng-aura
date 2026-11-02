@@ -10,6 +10,7 @@ import {
   getAura,
   getRarity,
   getRollCooldownMs,
+  msUntilNextRoll,
   previewNextLuck,
   type PotionId,
   type RarityId,
@@ -245,23 +246,55 @@ export function PotionPanel() {
   );
 }
 
+const RING_R = 70;
+const RING_C = 2 * Math.PI * RING_R;
+
+/**
+ * Bouton ROLL : anneau de recharge, état clair, et pendant une découverte il devient
+ * « Passer » : la révélation ne bloque jamais l'action (Échap ou clic aussi).
+ */
 export function RollControls() {
-  const { rolling, auto, roll, toggleAuto, state, now } = useGame();
+  const { rolling, auto, roll, toggleAuto, state, now, reveal, skipReveal } = useGame();
   const { settings } = useSettings();
-  const fast = getRollCooldownMs(state, now()) < 900;
+  useTick(100);
+  const t = now();
+  const cd = getRollCooldownMs(state, t);
+  const fast = cd < 900;
+  const wait = msUntilNextRoll(state, t);
+  const ready = wait <= 0;
+  const progress = ready ? 1 : 1 - wait / cd;
+  const canSkip = Boolean(reveal && reveal.phase !== "charge");
+  const label = auto ? "AUTO" : canSkip ? "PASSER" : rolling ? "…" : "ROLL";
+  const status = auto
+    ? "Auto-roll en cours"
+    : canSkip
+      ? "Découverte en cours : appuie pour passer"
+      : rolling
+        ? "Tirage…"
+        : ready
+          ? `Prêt · un roll toutes les ${(cd / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 2 })} s`
+          : `Recharge ${(wait / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} s`;
 
   return (
     <div className="roll-controls">
       <button
-        className={`roll-btn ${rolling ? "is-rolling" : ""} ${auto ? "is-auto" : ""}`}
-        onClick={roll}
-        disabled={rolling || auto}
+        className={`roll-btn ${rolling ? "is-rolling" : ""} ${auto ? "is-auto" : ""} ${canSkip ? "is-skip" : ""} ${ready && !rolling ? "is-ready" : ""}`}
+        onClick={canSkip ? skipReveal : roll}
+        disabled={auto || (rolling && !canSkip)}
         aria-keyshortcuts={settings.keybinds.roll}
+        aria-describedby="roll-status"
       >
+        <svg className="roll-btn__cooldown" viewBox="0 0 150 150" aria-hidden="true">
+          <circle cx="75" cy="75" r={RING_R} className="roll-btn__track" />
+          <circle cx="75" cy="75" r={RING_R} className="roll-btn__fill" strokeDasharray={RING_C} strokeDashoffset={RING_C * (1 - progress)} />
+        </svg>
         <span className="roll-btn__ring" aria-hidden="true" />
-        <span className="roll-btn__label">{auto ? "AUTO" : rolling ? "…" : "ROLL"}</span>
+        <span className="roll-btn__label">{label}</span>
         <span className="roll-btn__key">{keyLabel(settings.keybinds.roll)}</span>
       </button>
+      <p id="roll-status" className="roll-status tabular">
+        {status}
+      </p>
       <div className="roll-controls__side">
         <button className={`btn btn-sm ${auto ? "is-active" : ""}`} onClick={toggleAuto} aria-pressed={auto}>
           <Icon name="repeat" size={16} /> Auto-roll {auto ? "ON" : "OFF"}

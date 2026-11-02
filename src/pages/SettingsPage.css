@@ -87,3 +87,26 @@ label.setting-row {
     align-items: flex-start;
   }
 }
+
+.segmented {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.settings-note {
+  margin: 12px 0 0;
+}
+
+.keybinds--fixed {
+  margin-top: 6px;
+}
+
+.keybind-fixed {
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border-strong);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 13px;
+}

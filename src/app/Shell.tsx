@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CursorTrail } from "../effects/CursorTrail";
 import { useGame } from "../game/GameContext";
 import { AchievementsPage } from "../pages/AchievementsPage";
 import { CollectionPage } from "../pages/CollectionPage";
@@ -8,12 +9,14 @@ import { ProgressionPage } from "../pages/ProgressionPage";
 import { QuestsPage } from "../pages/QuestsPage";
 import { RollPage } from "../pages/RollPage";
 import { SettingsPage } from "../pages/SettingsPage";
+import { ShopPage } from "../pages/ShopPage";
 import { StatsPage } from "../pages/StatsPage";
 import { RevealOverlay } from "../roll/RevealOverlay";
-import { EXTRA_PAGES, NAV_ORDER, PAGES, type KeyAction, type PageId } from "../settings/settings";
+import { EXTRA_PAGES, NAV_ORDER, PAGES, groupOf, type KeyAction, type PageId } from "../settings/settings";
 import { useSettings } from "../settings/SettingsContext";
-import { Nav } from "./Nav";
+import { Nav, SubNav } from "./Nav";
 import { Toasts } from "./Toasts";
+import { TopBar } from "./TopBar";
 
 const COMPONENTS: Record<PageId, () => JSX.Element> = {
   roll: RollPage,
@@ -25,6 +28,7 @@ const COMPONENTS: Record<PageId, () => JSX.Element> = {
   settings: SettingsPage,
   progression: ProgressionPage,
   quests: QuestsPage,
+  shop: ShopPage,
 };
 
 function pageFromHash(): PageId {
@@ -56,8 +60,27 @@ function isTyping(target: EventTarget | null): boolean {
 
 export function Shell() {
   const [page, navigate] = useHashPage();
-  const { roll, toggleAuto, skipReveal, reveal } = useGame();
+  const { roll, toggleAuto, skipReveal, reveal, announcement } = useGame();
   const { settings } = useSettings();
+  const mainRef = useRef<HTMLElement>(null);
+  const firstRender = useRef(true);
+  /** Dernière sous-page visitée par groupe (la navigation y revient). */
+  const lastPages = useRef<Record<string, PageId>>({});
+  lastPages.current[groupOf(page).id] = page;
+  const lastOf = useCallback((g: string) => lastPages.current[g], []);
+
+  // Après un changement de page, le focus va sur le titre de la nouvelle page (clavier, lecteurs d'écran).
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    const h1 = mainRef.current?.querySelector<HTMLElement>("h1");
+    if (h1) {
+      h1.tabIndex = -1;
+      h1.focus({ preventScroll: true });
+    }
+  }, [page]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -69,6 +92,8 @@ export function Shell() {
       const kb = settings.keybinds;
       if (e.code === kb.roll) {
         e.preventDefault();
+        // Maintenir la touche ne relance pas en boucle : un appui = une intention.
+        if (e.repeat) return;
         if (reveal && reveal.phase !== "charge") skipReveal();
         else {
           if (page !== "roll") navigate("roll");
@@ -103,12 +128,23 @@ export function Shell() {
   const Page = COMPONENTS[page];
   return (
     <div className="shell">
-      <Nav page={page} onNavigate={navigate} />
-      <main className="shell__main">
-        <Page key={page} />
+      <a className="skip-link" href="#contenu">
+        Aller au contenu
+      </a>
+      <Nav page={page} onNavigate={navigate} lastOf={lastOf} />
+      <main className="shell__main" id="contenu" ref={mainRef}>
+        <TopBar />
+        <SubNav page={page} onNavigate={navigate} />
+        <div className="page-transition" key={page}>
+          <Page />
+        </div>
       </main>
       <RevealOverlay />
       <Toasts />
+      <CursorTrail />
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
     </div>
   );
 }

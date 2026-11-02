@@ -7,7 +7,11 @@ import {
   lookOf,
   msUntilNextRoll,
   requireAura,
+  CURRENCY,
   type ApiRequest,
+  type CosmeticId,
+  type CosmeticKind,
+  type UpgradeId,
   type ApiResponse,
   type Aura,
   type LevelInfo,
@@ -22,6 +26,8 @@ import {
 import { sound } from "../audio/sound";
 import { BackendError, backend, type AuthUser } from "../backend";
 import { useSettings } from "../settings/SettingsContext";
+import { emitAmbient } from "../effects/Backdrop";
+import { revealTiming } from "./revealTiming";
 
 export type RevealPhase = "charge" | "omen" | "burst";
 
@@ -68,12 +74,21 @@ interface GameValue {
   setTitle: (id: string | null) => Promise<void>;
   setMimic: (auraId: string | null) => Promise<void>;
   claim: (scope: QuestScope | "mission", id: string) => Promise<void>;
+  /** Achat en boutique : renvoie true si le serveur l'a accepté. */
+  buy: (kind: "upgrade" | "potion" | "cosmetic", id: UpgradeId | PotionId | CosmeticId, quantity?: number) => Promise<boolean>;
+  wear: (kind: CosmeticKind, id: CosmeticId | null) => Promise<void>;
+  /** Dernière annonce pour les lecteurs d'écran (région aria-live). */
+  announcement: string;
+  /** Couleur de rareté de la dernière aura obtenue (ambiance du fond). */
+  ambient: string | null;
+  /** Éclats gagnés au dernier roll révélé (confettis, « +N »). */
+  shardBurst: { key: number; amount: number } | null;
 }
 
 const Ctx = createContext<GameValue | null>(null);
 
-/** Rolls demandés par requête en auto-roll (le serveur n'accorde que le crédit disponible). */
-const AUTO_BATCH = 4;
+/** Rolls demandés par requête en auto-roll : le serveur n'accorde qu'un roll par recharge. */
+const AUTO_BATCH = 1;
 const HEARTBEAT_MS = 60_000;
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -99,6 +114,9 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
   const [reveal, setReveal] = useState<RevealState | null>(null);
   const [lastResult, setLastResult] = useState<RollResult | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [announcement, setAnnouncement] = useState("");
+  const [ambient, setAmbient] = useState<string | null>(null);
+  const [shardBurst, setShardBurst] = useState<{ key: number; amount: number } | null>(null);
 
   const offset = useRef(initial.serverNow - Date.now());
   const lastApplied = useRef(initial.serverNow);
@@ -142,6 +160,7 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
         pushToast({ kind: "level", title: `Niveau ${res.levelUp} !`, body: "Nouveau point de talent disponible." });
         sound.levelUp();
       }
+      if (res.shards && !res.results?.length) setAnnouncement(`+${res.shards} ${CURRENCY.plural}.`);
     },
     [pushToast],
   );
@@ -201,21 +220,24 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
           const aura = lookOf(requireAura(result.auraId), { rolls: res.state.stats.rolls, inventory: res.state.inventory, mimicOf: res.state.mimicOf });
           const rarity = getRarity(aura.rarity);
           const k = ++revealKey.current;
+          const { omenMs, burstMs } = revealTiming(rarity.tier, { reducedMotion: s.reducedMotion, skipCommonReveal: s.skipCommonReveal, auto: isAuto });
 
-          if (rarity.tier >= 3) {
-            const omenMs = s.reducedMotion ? 400 : Math.min(3600, 700 + (rarity.tier - 3) * 300);
+          if (omenMs > 0) {
             sound.riser(omenMs);
             setReveal({ key: k, phase: "omen", result, aura, durationMs: omenMs });
             await wait(omenMs);
           }
 
-          let burstMs = rarity.revealMs;
-          if (s.reducedMotion) burstMs = Math.min(burstMs, 1400);
-          if (rarity.tier <= 1 && (s.skipCommonReveal || isAuto)) burstMs = 420;
           sound.reveal(rarity.tier);
           sound.rarityAccent(aura.rarity);
           setReveal({ key: k, phase: "burst", result, aura, durationMs: burstMs });
           setLastResult(result);
+          setAmbient(rarity.color);
+          emitAmbient(rarity.color);
+          if (result.shards > 0) setShardBurst({ key: k, amount: result.shards });
+          setAnnouncement(
+            `${aura.name}, rareté ${rarity.label}${result.isNew ? ", nouvelle aura" : ""}. +${result.shards} ${CURRENCY.plural}.`,
+          );
           await wait(burstMs);
         }
         apply(res);
@@ -288,7 +310,7 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
         const rarity = getRarity(aura.rarity);
         const k = ++revealKey.current;
         const s = settingsRef.current;
-        const burstMs = s.reducedMotion ? Math.min(rarity.revealMs, 1400) : rarity.revealMs;
+        const { burstMs } = revealTiming(rarity.tier, { reducedMotion: s.reducedMotion, skipCommonReveal: false, auto: false });
         const result: RollResult = {
           auraId,
           luck: 1,
@@ -296,6 +318,7 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
           isNew: res.fused?.isNew ?? false,
           rollNumber: 0,
           xp: res.fused?.xp ?? 0,
+          shards: res.shards ?? 0,
         };
         sound.fusion();
         sound.reveal(rarity.tier);
@@ -321,7 +344,7 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
       pushToast({
         kind: "level",
         title: `Prestige ${res.state.prestige.level} !`,
-        body: "Bonus de chance permanent : +5 %. Ton codex est conservé.",
+        body: "Bonus de chance permanent : +5 %. Tes auras sont conservées.",
       });
     }
     return res !== null;
@@ -335,6 +358,17 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
     async (scope: QuestScope | "mission", id: string) => void (await send({ action: "claim", scope, id }, () => sound.achievement())),
     [send],
   );
+
+  const buy = useCallback(
+    async (kind: "upgrade" | "potion" | "cosmetic", id: UpgradeId | PotionId | CosmeticId, quantity?: number) => {
+      const req = { action: "buy", kind, id, ...(quantity ? { quantity } : {}) } as ApiRequest;
+      const res = await send(req, () => sound.purchase());
+      if (res) setAnnouncement(`Achat effectué. Solde : ${res.state.shards.toLocaleString("fr-FR")} ${CURRENCY.plural}.`);
+      return res !== null;
+    },
+    [send],
+  );
+  const wear = useCallback(async (kind: CosmeticKind, id: CosmeticId | null) => void (await send({ action: "wear", kind, id }, () => sound.click())), [send]);
 
   const level = useMemo(() => levelInfo(state.xp), [state.xp]);
   const look = useCallback(
@@ -385,6 +419,11 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
       setTitle,
       setMimic,
       claim,
+      buy,
+      wear,
+      announcement,
+      ambient,
+      shardBurst,
     }),
     [
       user,
@@ -410,6 +449,11 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
       setTitle,
       setMimic,
       claim,
+      buy,
+      wear,
+      announcement,
+      ambient,
+      shardBurst,
     ],
   );
 

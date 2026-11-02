@@ -1,3 +1,4 @@
+import type { CosmeticId, CosmeticKind, UpgradeId } from "./economy";
 import type { PotionReward, RollResult } from "./engine";
 import type { PotionId } from "./potions";
 import type { QuestScope } from "./quests";
@@ -19,7 +20,11 @@ export type ApiRequest =
   | { action: "respec" }
   | { action: "title"; titleId: string | null }
   | { action: "mimic"; auraId: string | null }
-  | { action: "claim"; scope: QuestScope | "mission"; id: string };
+  | { action: "claim"; scope: QuestScope | "mission"; id: string }
+  | { action: "buy"; kind: "upgrade"; id: UpgradeId }
+  | { action: "buy"; kind: "potion"; id: PotionId; quantity?: number }
+  | { action: "buy"; kind: "cosmetic"; id: CosmeticId }
+  | { action: "wear"; kind: CosmeticKind; id: CosmeticId | null };
 
 export interface ApiResponse {
   state: PlayerState;
@@ -30,6 +35,8 @@ export interface ApiResponse {
   rewards?: PotionReward;
   /** Nouveau niveau atteint pendant l'action. */
   levelUp?: number;
+  /** Éclats gagnés pendant l'action (après plafond). */
+  shards?: number;
   /** Aura obtenue par fusion. */
   fused?: { auraId: string; isNew: boolean; xp: number };
 }

@@ -9,7 +9,7 @@ import {
 } from "firebase/auth";
 import { get, getDatabase, ref, set } from "firebase/database";
 import { EMAIL_DOMAIN, usernameToEmail, type ApiRequest } from "../../shared";
-import type { Settings } from "../settings/settings";
+import { syncedPart, type Settings } from "../settings/settings";
 import { callApi, fetchLeaderboard } from "./apiClient";
 import { BackendError, type GameBackend } from "./types";
 
@@ -95,7 +95,8 @@ export function createFirebaseBackend(): GameBackend {
     },
 
     async saveSettings(uid, settings) {
-      await set(ref(db, `v2/settings/${uid}`), settings);
+      // Seules les six clés acceptées par les règles Firebase sont envoyées ; le reste reste local.
+      await set(ref(db, `v2/settings/${uid}`), syncedPart(settings));
     },
   };
 }

@@ -13,6 +13,8 @@ interface Effect {
 export interface FxOptions {
   reduced: boolean;
   noFlashes: boolean;
+  /** Multiplicateur de densité (qualité VFX : faible 0,45 / normale 1 / élevée 1,35). */
+  density?: number;
 }
 
 export class FxEngine {
@@ -103,9 +105,54 @@ export class FxEngine {
     });
   }
 
+  private scale(count: number): number {
+    return Math.max(1, Math.round(count * (this.opts.density ?? 1) * (this.opts.reduced ? 1 / 3 : 1)));
+  }
+
+  /** Petits confettis d'éclats dorés qui jaillissent puis retombent (gain de monnaie). */
+  confetti(count: number, colors = ["#ffd36b", "#fff2a8", "#ffb13d"]) {
+    if (this.opts.reduced) return;
+    const n = this.scale(count);
+    const { r } = this.center;
+    const parts = Array.from({ length: n }, () => {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.8;
+      const v = (0.35 + Math.random() * 0.5) * r * 1.2;
+      return { x: 0, y: 0, vx: Math.cos(a) * v, vy: Math.sin(a) * v, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 12, s: 3 + Math.random() * 4, c: colors[Math.floor(Math.random() * colors.length)], life: 1 };
+    });
+    this.add({
+      draw: (g, dt, w, h) => {
+        let alive = false;
+        for (const p of parts) {
+          if (p.life <= 0) continue;
+          alive = true;
+          p.vy += r * 1.6 * dt;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.rot += p.vr * dt;
+          p.life -= dt * 0.9;
+          g.save();
+          g.translate(w / 2 + p.x, h * 0.42 + p.y);
+          g.rotate(p.rot);
+          g.globalAlpha = Math.max(0, p.life);
+          g.fillStyle = p.c;
+          // losange : la forme de l'éclat
+          g.beginPath();
+          g.moveTo(0, -p.s);
+          g.lineTo(p.s * 0.6, 0);
+          g.lineTo(0, p.s);
+          g.lineTo(-p.s * 0.6, 0);
+          g.closePath();
+          g.fill();
+          g.restore();
+        }
+        return alive;
+      },
+    });
+  }
+
   /** Explosion de particules depuis le centre. */
   burst(colors: string[], count: number, speed = 1) {
-    const n = this.opts.reduced ? Math.round(count / 3) : count;
+    const n = this.scale(count);
     const { r } = this.center;
     const parts = Array.from({ length: n }, () => {
       const a = Math.random() * Math.PI * 2;

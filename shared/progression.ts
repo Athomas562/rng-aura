@@ -3,6 +3,7 @@
  * Toutes les valeurs sont calculées par le serveur à partir de l'état stocké.
  */
 import { getAura } from "./auras";
+import { upgradeExtraSlots } from "./economy";
 import type { PotionId } from "./potions";
 import { getRarity, tierOf, type RarityId } from "./rarities";
 import type { PlayerState } from "./state";
@@ -51,6 +52,11 @@ export const SLOT_LEVELS = [10, 25, 50];
 
 export function slotsFor(level: number): number {
   return 1 + SLOT_LEVELS.filter((l) => level >= l).length;
+}
+
+/** Emplacements d'aura du joueur : niveau + Écrin acheté en boutique. */
+export function slotCount(s: PlayerState): number {
+  return slotsFor(levelOf(s)) + upgradeExtraSlots(s.upgrades);
 }
 
 // ───────────── Talents ─────────────

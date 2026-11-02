@@ -169,3 +169,99 @@ describe("classement", () => {
     expect(store.leaderboard.get(player.uid)!.level).toBeGreaterThan(10);
   });
 });
+
+describe("boutique : anti-triche", () => {
+  it.each([
+    [{ action: "buy", kind: "upgrade", id: "infinite_luck" }],
+    [{ action: "buy", kind: "potion", id: "luck", quantity: "5" }],
+    [{ action: "buy", kind: "potion", id: "luck", quantity: 2.5 }],
+    [{ action: "buy", kind: "cosmetic", id: { $ne: 1 } }],
+    [{ action: "buy", kind: "shards", id: "x" }],
+    [{ action: "wear", kind: "hat", id: null }],
+    [{ action: "wear", kind: "trail", id: "trail_inconnu" }],
+  ])("rejette %j avec invalid-argument", async (req) => {
+    expect((await rejected(call(req)))?.code).toBe("invalid-argument");
+  });
+
+  it("ignore un solde, un prix ou un niveau envoyés par le client", async () => {
+    seeded((s) => {
+      s.shards = 100;
+    });
+    const res = await rejected(call({ action: "buy", kind: "upgrade", id: "clover", price: 1, shards: 1e9, level: 19 }));
+    expect(res?.code).toBe("failed-precondition");
+    expect(res?.details?.reason).toBe("funds");
+    expect(store.stored(player.uid).shards).toBe(100);
+    expect(store.stored(player.uid).upgrades.clover).toBe(0);
+  });
+
+  it("10 achats simultanés avec le solde pour un seul : un seul débit", async () => {
+    seeded((s) => {
+      s.shards = 200; // Trèfle doré niveau 1 = 200
+    });
+    const results = await Promise.all(Array.from({ length: 10 }, () => rejected(call({ action: "buy", kind: "upgrade", id: "clover" }))));
+    expect(results.filter((r) => r === null)).toHaveLength(1);
+    const s = store.stored(player.uid);
+    expect(s.upgrades.clover).toBe(1);
+    expect(s.shards).toBe(0);
+    expect(s.stats.shardsSpent).toBe(200);
+  });
+
+  it("achats simultanés de potions : jamais de solde négatif", async () => {
+    seeded((s) => {
+      s.shards = 300; // 5 potions de chance à 60
+    });
+    await Promise.all(Array.from({ length: 12 }, () => rejected(call({ action: "buy", kind: "potion", id: "luck", quantity: 1 }))));
+    const s = store.stored(player.uid);
+    expect(s.shards).toBe(0);
+    expect(s.potions.owned.luck).toBe(2 + 5);
+  });
+
+  it("un cosmétique acheté en parallèle n'est débité qu'une fois", async () => {
+    seeded((s) => {
+      s.shards = 10_000;
+    });
+    await Promise.all(Array.from({ length: 6 }, () => rejected(call({ action: "buy", kind: "cosmetic", id: "frame_gold" }))));
+    expect(store.stored(player.uid).shards).toBe(8_000);
+  });
+
+  it("aucune action ne permet d'ajouter des éclats directement", async () => {
+    await call({ action: "load" });
+    for (const req of [{ action: "earn", amount: 1e6 }, { action: "shards", shards: 1e6 }, { action: "load", shards: 1e6 }]) {
+      await rejected(call(req));
+    }
+    expect(store.stored(player.uid).shards).toBe(0);
+  });
+
+  it("le gain d'un roll est renvoyé au client et égal à la variation du solde", async () => {
+    const res = await call({ action: "roll", count: 1 });
+    expect(res.shards).toBe(store.stored(player.uid).shards);
+    expect(res.results![0].shards).toBeGreaterThan(0);
+  });
+});
+
+describe("prestige et classement", () => {
+  it("la renaissance ne fait baisser aucune catégorie du classement", async () => {
+    seeded((s) => {
+      s.stats.rolls = PRESTIGE_ROLLS;
+      s.xp = 50_000;
+      s.shards = 9_999;
+      s.upgrades.clover = 3;
+      for (const id of ["phenix", "abysse", "mimique", "lueur"]) {
+        s.inventory[id] = { count: 2, firstAt: T0, lastAt: T0, firstRoll: 0 };
+        s.codex[id] = { firstAt: T0, total: 2 };
+      }
+      s.stats.bestAuraId = "mimique";
+      s.equipped = "mimique";
+    });
+    await call({ action: "load" });
+    const before = store.leaderboard.get(player.uid)!;
+    await call({ action: "prestige" });
+    const after = store.leaderboard.get(player.uid)!;
+    for (const k of ["rolls", "bestOdds", "collection", "achievements", "level", "special"] as const) {
+      expect(after[k], k).toBeGreaterThanOrEqual(before[k]);
+    }
+    expect(after.prestige).toBe(before.prestige + 1);
+    expect(after.equipped).toBe("mimique");
+    expect(after.bestAuraId).toBe("mimique");
+  });
+});

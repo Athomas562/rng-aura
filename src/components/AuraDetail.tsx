@@ -13,7 +13,7 @@ import {
   livingRolls,
   livingStageIndex,
   previewNextLuck,
-  slotsFor,
+  slotCount,
   type Aura,
   type LayerSpec,
 } from "../../shared";
@@ -138,14 +138,14 @@ function SpecialInfo({ aura, owned }: { aura: Aura; owned: boolean }) {
 }
 
 export function AuraDetail({ aura: base, onClose }: { aura: Aura; onClose: () => void }) {
-  const { state, now, equip, level, look } = useGame();
+  const { state, now, equip, look } = useGame();
   const aura = look(base);
   const entry = state.inventory[base.id];
   const codex = state.codex[base.id];
   const known = Boolean(codex);
   const equipped = state.equipped === base.id;
   const slotIndex = state.slots.indexOf(base.id);
-  const extraSlots = slotsFor(level.level) - 1;
+  const extraSlots = slotCount(state) - 1;
   const t = now();
   const luck = previewNextLuck(state, t);
   const p = distributionFor(luck, t).find((e) => e.aura.id === base.id)?.p ?? 0;

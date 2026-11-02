@@ -15,15 +15,17 @@ export const PAGES = [
 export const EXTRA_PAGES = [
   { id: "progression", label: "Progression", key: "Digit8" },
   { id: "quests", label: "Quêtes", key: "Digit9" },
+  { id: "shop", label: "Boutique", key: "Digit0" },
 ] as const;
 
 export type PageId = (typeof PAGES)[number]["id"] | (typeof EXTRA_PAGES)[number]["id"];
 
-/** Ordre d'affichage dans la navigation. */
+/** Ordre des pages (raccourcis, hash). */
 export const NAV_ORDER: PageId[] = [
   "roll",
   "inventory",
   "collection",
+  "shop",
   "progression",
   "quests",
   "achievements",
@@ -31,6 +33,21 @@ export const NAV_ORDER: PageId[] = [
   "leaderboard",
   "settings",
 ];
+
+export type NavGroupId = "play" | "shop" | "progress" | "leaderboard" | "settings";
+
+/** Navigation regroupée : 5 entrées, chacune avec ses sous-pages. */
+export const NAV_GROUPS: { id: NavGroupId; label: string; icon: PageId; pages: PageId[] }[] = [
+  { id: "play", label: "Jouer", icon: "roll", pages: ["roll", "inventory", "collection"] },
+  { id: "shop", label: "Boutique", icon: "shop", pages: ["shop"] },
+  { id: "progress", label: "Progression", icon: "progression", pages: ["progression", "quests", "achievements", "stats"] },
+  { id: "leaderboard", label: "Classement", icon: "leaderboard", pages: ["leaderboard"] },
+  { id: "settings", label: "Paramètres", icon: "settings", pages: ["settings"] },
+];
+
+export function groupOf(page: PageId) {
+  return NAV_GROUPS.find((g) => g.pages.includes(page)) ?? NAV_GROUPS[0];
+}
 
 export const PAGE_LABELS: Record<PageId, string> = Object.fromEntries(
   [...PAGES, ...EXTRA_PAGES].map((p) => [p.id, p.label]),
@@ -51,6 +68,14 @@ export const KEY_ACTIONS: { id: KeyAction; label: string }[] = [
   ...PAGES.map((p, i) => ({ id: `nav${i + 1}` as KeyAction, label: `Aller à : ${p.label}` })),
 ];
 
+export type VfxQuality = "low" | "normal" | "high";
+
+/**
+ * Réglages synchronisés avec le compte (Firebase `v2/settings/{uid}`) : uniquement ces six clés,
+ * les seules acceptées par les règles publiées. Les autres réglages restent sur l'appareil.
+ */
+export const SYNCED_KEYS = ["soundEnabled", "volume", "reducedMotion", "noFlashes", "skipCommonReveal", "keybinds"] as const;
+
 export interface Settings {
   soundEnabled: boolean;
   volume: number;
@@ -61,6 +86,36 @@ export interface Settings {
   skipCommonReveal: boolean;
   /** KeyboardEvent.code par action. */
   keybinds: Record<KeyAction, string>;
+  // ── Réglages locaux (non synchronisés) ──
+  /** Densité des effets visuels. */
+  vfxQuality: VfxQuality;
+  /** Mode calme : fond statique, pas de transitions ni de traînée. */
+  calmMode: boolean;
+  /** Traînée de particules du curseur (cosmétique acheté). */
+  cursorTrail: boolean;
+  /** Échelle du texte et de l'interface (0,9 à 1,3). */
+  uiScale: number;
+}
+
+/** Ne garde que les clés synchronisables (envoyées à Firebase). */
+export function syncedPart(s: Settings): Pick<Settings, (typeof SYNCED_KEYS)[number]> {
+  return {
+    soundEnabled: s.soundEnabled,
+    volume: s.volume,
+    reducedMotion: s.reducedMotion,
+    noFlashes: s.noFlashes,
+    skipCommonReveal: s.skipCommonReveal,
+    keybinds: s.keybinds,
+  };
+}
+
+/** Animations décoratives autorisées (fond, transitions, traînée) : ni réduites ni en mode calme. */
+export const decorativeMotion = (s: Settings) => !s.reducedMotion && !s.calmMode;
+
+/** Multiplicateur de densité des particules. */
+export function vfxDensity(s: Settings): number {
+  const q = s.vfxQuality === "low" ? 0.45 : s.vfxQuality === "high" ? 1.35 : 1;
+  return s.reducedMotion ? Math.min(q, 0.5) : q;
 }
 
 export function defaultSettings(): Settings {
@@ -83,6 +138,10 @@ export function defaultSettings(): Settings {
       nav6: "Digit6",
       nav7: "Digit7",
     },
+    vfxQuality: "normal",
+    calmMode: Boolean(prefersReduced),
+    cursorTrail: true,
+    uiScale: 1,
   };
 }
 
@@ -105,6 +164,10 @@ export function sanitizeSettings(raw: unknown): Settings {
     noFlashes: bool("noFlashes"),
     skipCommonReveal: bool("skipCommonReveal"),
     keybinds,
+    vfxQuality: r.vfxQuality === "low" || r.vfxQuality === "high" || r.vfxQuality === "normal" ? r.vfxQuality : d.vfxQuality,
+    calmMode: bool("calmMode"),
+    cursorTrail: bool("cursorTrail"),
+    uiScale: typeof r.uiScale === "number" && r.uiScale >= 0.9 && r.uiScale <= 1.3 ? r.uiScale : d.uiScale,
   };
 }
 

@@ -193,7 +193,11 @@ describe("API du Worker : nom du classement", () => {
 
 describe("API du Worker : GET /api/leaderboard", () => {
   beforeEach(async () => {
-    await post({ action: "roll", count: 3 }, await idToken("uid-alice", "alice@aurarng.local", "Alice"));
+    // un roll par recharge : Alice enchaîne 3 rolls espacés de plus d'une recharge
+    for (let i = 0; i < 3; i++) {
+      await post({ action: "roll", count: 1 }, await idToken("uid-alice", "alice@aurarng.local", "Alice"));
+      clock += 1_000;
+    }
     await post({ action: "roll", count: 1 }, await idToken("uid-bob", "bob@aurarng.local", "bob"));
   });
 

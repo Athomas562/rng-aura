@@ -1,4 +1,16 @@
 import { getAura } from "./auras";
+import {
+  COSMETICS,
+  LEDGER_LIMIT,
+  SHARD_CAP,
+  UPGRADES,
+  emptyUpgrades,
+  getCosmetic,
+  isCosmeticId,
+  type CosmeticId,
+  type LedgerEntry,
+  type UpgradeLevels,
+} from "./economy";
 import { POTION_IDS, type PotionId } from "./potions";
 import { emptyPeriod, type QuestCounter, type QuestPeriod } from "./quests";
 import { isRarityId, type RarityId } from "./rarities";
@@ -40,6 +52,8 @@ export interface PlayerStats {
   blessedRolls: number;
   fusions: number;
   questsClaimed: number;
+  shardsEarned: number;
+  shardsSpent: number;
 }
 
 export interface PrestigeRecord {
@@ -83,6 +97,17 @@ export interface PlayerState {
   quests: { daily: QuestPeriod; weekly: QuestPeriod; missions: Record<string, number> };
   achievements: Record<string, number>;
   recent: RecentRoll[];
+  /** Solde d'Éclats (monnaie), toujours calculé par le serveur. */
+  shards: number;
+  upgrades: UpgradeLevels;
+  cosmetics: {
+    /** Cosmétiques achetés → date d'achat. */
+    owned: Partial<Record<CosmeticId, number>>;
+    trail: CosmeticId | null;
+    frame: CosmeticId | null;
+  };
+  /** Derniers mouvements d'Éclats (plus récent en premier). */
+  ledger: LedgerEntry[];
 }
 
 export const RECENT_LIMIT = 12;
@@ -122,12 +147,18 @@ export function createPlayerState(name: string, now: number): PlayerState {
       blessedRolls: 0,
       fusions: 0,
       questsClaimed: 0,
+      shardsEarned: 0,
+      shardsSpent: 0,
     },
     potions: { owned, active: {}, focusTarget: null, pendingBlessings: 0 },
     curse: null,
     quests: { daily: emptyPeriod(""), weekly: emptyPeriod(""), missions: {} },
     achievements: {},
     recent: [],
+    shards: 0,
+    upgrades: emptyUpgrades(),
+    cosmetics: { owned: {}, trail: null, frame: null },
+    ledger: [],
   };
 }
 
@@ -192,6 +223,8 @@ export function normalizePlayerState(raw: unknown, fallbackName: string, now: nu
     blessedRolls: int(s.blessedRolls),
     fusions: int(s.fusions),
     questsClaimed: int(s.questsClaimed),
+    shardsEarned: int(s.shardsEarned),
+    shardsSpent: int(s.shardsSpent),
   };
 
   const p = obj(r.potions);
@@ -218,7 +251,7 @@ export function normalizePlayerState(raw: unknown, fallbackName: string, now: nu
   const equipped = typeof r.equipped === "string" && inventory[r.equipped] ? r.equipped : null;
   const seen = new Set<string>(equipped ? [equipped] : []);
   const slots = list(r.slots)
-    .slice(0, 3)
+    .slice(0, 4)
     .map((x) => {
       if (typeof x !== "string" || !inventory[x] || seen.has(x)) return null;
       seen.add(x);
@@ -252,6 +285,24 @@ export function normalizePlayerState(raw: unknown, fallbackName: string, now: nu
       ? { boonUntil: num(c.boonUntil), baneUntil: num(c.baneUntil), luck: num(c.luck), mul: Math.min(1, Math.max(0.1, num(c.mul, 1))) }
       : null;
 
+  const upRaw = obj(r.upgrades);
+  const upgrades = emptyUpgrades();
+  for (const u of UPGRADES) upgrades[u.id] = Math.min(u.maxLevel, int(upRaw[u.id]));
+
+  const cos = obj(r.cosmetics);
+  const cosOwned: Partial<Record<CosmeticId, number>> = {};
+  for (const c of COSMETICS) {
+    const at = num(obj(cos.owned)[c.id]);
+    if (at > 0) cosOwned[c.id] = at;
+  }
+  const wear = (v: unknown, kind: "trail" | "frame") => (isCosmeticId(v) && cosOwned[v] && getCosmetic(v).kind === kind ? v : null);
+
+  const ledger: LedgerEntry[] = list(r.ledger)
+    .map((x) => obj(x))
+    .filter((x) => typeof x.reason === "string")
+    .map((x) => ({ at: num(x.at), amount: Math.trunc(num(x.amount)), reason: String(x.reason).slice(0, 80), balance: int(x.balance) }))
+    .slice(0, LEDGER_LIMIT);
+
   const q = obj(r.quests);
   const missions: Record<string, number> = {};
   for (const [k, v] of Object.entries(obj(q.missions))) missions[k] = int(v);
@@ -275,6 +326,10 @@ export function normalizePlayerState(raw: unknown, fallbackName: string, now: nu
     quests: { daily: normalizePeriod(q.daily), weekly: normalizePeriod(q.weekly), missions },
     achievements,
     recent,
+    shards: Math.min(SHARD_CAP, int(r.shards)),
+    upgrades,
+    cosmetics: { owned: cosOwned, trail: wear(cos.trail, "trail"), frame: wear(cos.frame, "frame") },
+    ledger,
   };
 }
 

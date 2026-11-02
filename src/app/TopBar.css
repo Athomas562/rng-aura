@@ -1,0 +1,130 @@
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: -6px 0 18px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: rgba(8, 10, 26, 0.78);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+
+.topbar__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+  font-size: 13px;
+  min-height: 32px;
+}
+
+.topbar__value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.topbar__label,
+.topbar__unit {
+  font-size: 12px;
+}
+
+.topbar__shards {
+  color: var(--gold);
+  background: rgba(255, 201, 77, 0.1);
+  border: 1px solid rgba(255, 201, 77, 0.28);
+}
+
+.topbar__gem {
+  font-size: 15px;
+  text-shadow: 0 0 10px rgba(255, 201, 77, 0.8);
+}
+
+.topbar__xp {
+  width: 64px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.topbar__xp > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--cyan), #7af5ff);
+  transition: width 0.5s ease-out;
+}
+
+.topbar__potions {
+  list-style: none;
+  margin: 0 0 0 auto;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.topbar__potion {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--pc);
+  background: color-mix(in srgb, var(--pc) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pc) 35%, transparent);
+}
+
+.topbar__none {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* Chiffres qui roulent : petit éclat de couleur selon le sens */
+.anim-number.is-up {
+  color: var(--success);
+  transition: color 0.2s;
+}
+
+.anim-number.is-down {
+  color: var(--danger);
+  transition: color 0.2s;
+}
+
+@media (max-width: 600px) {
+  .topbar {
+    gap: 6px;
+    padding: 6px 8px;
+    margin-bottom: 12px;
+    border-radius: var(--radius-sm);
+  }
+
+  .topbar__item {
+    padding: 3px 8px;
+  }
+
+  .topbar__unit,
+  .topbar__none,
+  .topbar__label {
+    display: none;
+  }
+
+  .topbar__xp {
+    width: 40px;
+  }
+
+  .topbar__potions {
+    margin-left: 0;
+  }
+}

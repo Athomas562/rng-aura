@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { MAX_ROLL_BATCH, createPlayerState, normalizePlayerState, seededRng, type PlayerState } from "../shared";
+import { MAX_ROLL_BATCH,
+  ROLL_BURST, createPlayerState, normalizePlayerState, seededRng, type PlayerState } from "../shared";
 import { handleApi, toApiError, type Caller } from "../functions/src/handlers";
 import { DatabaseError, createRestStore } from "./restStore";
 import { FakeDatabase } from "./testing/fakeDatabase";
@@ -125,9 +126,9 @@ describe("store REST : écritures concurrentes", () => {
     const outcomes = await Promise.allSettled(Array.from({ length: 20 }, () => call({ action: "roll", count: MAX_ROLL_BATCH })));
     const granted = outcomes.reduce((n, o) => n + (o.status === "fulfilled" ? o.value.results!.length : 0), 0);
     const saved = normalizePlayerState(db.get("v2/players/uid-alice"), "?", T0);
-    expect(granted).toBe(MAX_ROLL_BATCH);
-    expect(saved.stats.rolls).toBe(MAX_ROLL_BATCH);
-    expect(Object.values(saved.inventory).reduce((n, e) => n + e.count, 0)).toBe(MAX_ROLL_BATCH);
+    expect(granted).toBe(ROLL_BURST);
+    expect(saved.stats.rolls).toBe(ROLL_BURST);
+    expect(Object.values(saved.inventory).reduce((n, e) => n + e.count, 0)).toBe(ROLL_BURST);
     expect(db.requests.some((r) => r.status === 412)).toBe(true);
   });
 

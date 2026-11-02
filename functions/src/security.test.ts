@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AURAS,
   MAX_ROLL_BATCH,
+  ROLL_BURST,
   POTIONS,
   POTION_IDS,
   computeDistribution,
@@ -245,9 +246,24 @@ describe("chance falsifiée", () => {
 });
 
 describe("rolls excessifs et délai entre rolls", () => {
-  it("plafonne une requête à MAX_ROLL_BATCH rolls", async () => {
+  it("n'accorde qu'un roll par recharge, même en demandant un million de rolls", async () => {
+    clock += 60_000; // une longue pause ne se rattrape pas
     const res = await call({ action: "roll", count: 1_000_000 });
-    expect(res.results).toHaveLength(MAX_ROLL_BATCH);
+    expect(res.results).toHaveLength(ROLL_BURST);
+  });
+
+  it("spammer la barre espace après une pause ne donne aucun roll en plus", async () => {
+    await call({ action: "roll", count: 1 });
+    clock += 30_000;
+    let granted = 0;
+    // 30 appui rapprochés (toutes les 50 ms) pendant 1,5 s
+    for (let i = 0; i < 30; i++) {
+      const r = await rejected(call({ action: "roll", count: 1 }).then(() => granted++));
+      void r;
+      clock += 50;
+    }
+    // 1 roll tout de suite + 1 par recharge (900 ms) sur 1,5 s
+    expect(granted).toBeLessThanOrEqual(2);
   });
 
   it("refuse un roll pendant la recharge, avec le délai restant", async () => {
@@ -276,7 +292,7 @@ describe("rolls excessifs et délai entre rolls", () => {
   });
 
   it.each([
-    ["décimal", 2.9, 2],
+    ["décimal", 2.9, 1],
     ["chaîne", "8", 1],
     ["null", null, 1],
     ["Infinity (JSON 1e999) → invalide, 1 par défaut", JSON.parse('{"c":1e999}').c, 1],
@@ -352,9 +368,9 @@ describe("requêtes concurrentes", () => {
       .filter((o): o is PromiseFulfilledResult<Awaited<ReturnType<typeof call>>> => o.status === "fulfilled")
       .reduce((n, o) => n + o.value.results!.length, 0);
     const s = store.stored(player.uid);
-    expect(granted).toBe(MAX_ROLL_BATCH);
-    expect(s.stats.rolls).toBe(MAX_ROLL_BATCH);
-    expect(Object.values(s.inventory).reduce((n, e) => n + e.count, 0)).toBe(MAX_ROLL_BATCH);
+    expect(granted).toBe(ROLL_BURST);
+    expect(s.stats.rolls).toBe(ROLL_BURST);
+    expect(Object.values(s.inventory).reduce((n, e) => n + e.count, 0)).toBe(ROLL_BURST);
     expect(store.retries).toBeGreaterThan(0); // les requêtes se sont bien entrelacées
   });
 

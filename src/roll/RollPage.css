@@ -543,3 +543,88 @@ kbd {
     flex-wrap: wrap;
   }
 }
+
+/* ───── Bouton ROLL : anneau de recharge et retours visuels ───── */
+.roll-btn__cooldown {
+  position: absolute;
+  inset: -12px;
+  width: calc(100% + 24px);
+  height: calc(100% + 24px);
+  rotate: -90deg;
+  pointer-events: none;
+}
+
+.roll-btn__track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 4;
+}
+
+.roll-btn__fill {
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px var(--cyan));
+  transition: stroke-dashoffset 0.1s linear;
+}
+
+.roll-btn.is-ready .roll-btn__fill {
+  stroke: var(--success);
+  filter: drop-shadow(0 0 6px var(--success));
+}
+
+.roll-btn.is-ready:not(:disabled) {
+  animation: roll-ready 2.4s ease-in-out infinite;
+}
+
+.roll-btn:active:not(:disabled) {
+  box-shadow:
+    0 0 0 10px rgba(62, 224, 255, 0.25),
+    0 0 70px rgba(62, 224, 255, 0.7),
+    inset 0 -8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.roll-btn.is-skip {
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.3), transparent 40%),
+    radial-gradient(circle at 50% 60%, #2c8fb8, #123a5c 75%);
+}
+
+.roll-status {
+  margin: 6px 0 0;
+  min-height: 1.4em;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+[data-calm="true"] .roll-btn.is-ready:not(:disabled) {
+  animation: none;
+}
+
+@keyframes roll-ready {
+  50% {
+    box-shadow:
+      0 0 0 8px rgba(94, 230, 160, 0.16),
+      0 0 54px rgba(124, 77, 255, 0.7),
+      inset 0 -8px 20px rgba(0, 0, 0, 0.35);
+  }
+}
+
+.roll-status {
+  flex-basis: 100%;
+  order: 3;
+}
+
+/* Mobile : le bouton ROLL reste à portée de pouce, juste au-dessus de la barre de navigation. */
+@media (max-width: 700px) {
+  .roll-controls {
+    position: sticky;
+    bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 8px);
+    z-index: 10;
+    padding: 10px 8px 6px;
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, transparent, rgba(4, 5, 13, 0.85) 30%);
+  }
+}

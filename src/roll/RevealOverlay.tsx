@@ -6,6 +6,7 @@ import { FxEngine } from "../effects/fx";
 import { useGame } from "../game/GameContext";
 import { formatOddsN } from "../lib/format";
 import { useSettings } from "../settings/SettingsContext";
+import { vfxDensity } from "../settings/settings";
 import { FULLSCREEN_TIER, RevealName, ScrambleName } from "./RollStage";
 import "./RevealOverlay.css";
 
@@ -29,7 +30,7 @@ export function RevealOverlay() {
   useEffect(() => {
     if (!active) return;
     const canvas = canvasRef.current!;
-    fx.current = new FxEngine(canvas, { reduced: settings.reducedMotion, noFlashes: settings.noFlashes });
+    fx.current = new FxEngine(canvas, { reduced: settings.reducedMotion, noFlashes: settings.noFlashes, density: vfxDensity(settings) });
     const onResize = () => fx.current?.resize();
     window.addEventListener("resize", onResize);
     return () => {
@@ -37,7 +38,7 @@ export function RevealOverlay() {
       fx.current?.destroy();
       fx.current = null;
     };
-  }, [active, settings.reducedMotion, settings.noFlashes]);
+  }, [active, settings.reducedMotion, settings.noFlashes, settings.vfxQuality]);
 
   useEffect(() => {
     const engine = fx.current;
@@ -64,6 +65,7 @@ export function RevealOverlay() {
     if (has("corrupt")) engine.corrupt(["#39ff88", "#ff2e88", primary], Math.min(1800, reveal.durationMs * 0.4));
     if (has("dream")) engine.dream([primary, secondary, "#ffffff"], reveal.durationMs);
     if (has("implode") && !settings.reducedMotion) engine.implode(secondary, Math.min(1600, reveal.durationMs * 0.3));
+    if ((reveal.result?.shards ?? 0) > 0) engine.confetti(Math.min(80, 20 + tier * 4));
   }, [active, reveal?.key, reveal?.phase]);
 
   if (!active || !reveal || !aura) return null;
@@ -135,6 +137,7 @@ export function RevealOverlay() {
             <p className="reveal__odds tabular">
               {formatOddsN(aura.odds)}
               {reveal.result?.isNew && <span className="tag tag--new">Nouvelle !</span>}
+              {(reveal.result?.shards ?? 0) > 0 && <span className="tag tag--shards">+{reveal.result!.shards} ✦</span>}
             </p>
           </div>
           <p className="reveal__hint">Touche ou clique pour continuer</p>

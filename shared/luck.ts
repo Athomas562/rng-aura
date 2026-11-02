@@ -1,3 +1,4 @@
+import { upgradeBlessedReduction, upgradeCooldownMul, upgradeLuckBonus, upgradeStreakCapBonus } from "./economy";
 import { activeEvents } from "./events";
 import { PRESTIGE_LUCK } from "./progression";
 import { POTIONS, POTION_IDS, type PotionId } from "./potions";
@@ -15,11 +16,18 @@ import {
 export const BASE_ROLL_COOLDOWN_MS = 900;
 /** Marge tolérée côté serveur pour la latence réseau. */
 export const COOLDOWN_TOLERANCE_MS = 120;
-/** Nombre maximal de rolls accordés en une requête (auto-roll). */
+/** Nombre maximal de rolls demandés en une requête (auto-roll). */
 export const MAX_ROLL_BATCH = 8;
+/**
+ * Crédit maximal accumulé pendant une pause, en rolls. Fixé à 1 : attendre ne permet
+ * jamais d'enchaîner plusieurs rolls d'affilée en spammant (un roll par recharge, point).
+ */
+export const ROLL_BURST = 1;
 
 /** Un roll sur N est « béni » et double la chance. */
 export const BLESSED_EVERY = 10;
+/** Période minimale du roll béni, talents et améliorations compris. */
+export const BLESSED_EVERY_MIN = 5;
 export const BLESSED_MULTIPLIER = 2;
 
 /** Deux rolls séparés de moins de cette durée prolongent la série. */
@@ -50,7 +58,7 @@ export function isPotionActive(state: PlayerState, id: PotionId, now: number): b
 }
 
 export function streakCap(state: PlayerState): number {
-  return STREAK_BONUS_CAP + talentStreakCapBonus(state.talents);
+  return STREAK_BONUS_CAP + talentStreakCapBonus(state.talents) + upgradeStreakCapBonus(state.upgrades);
 }
 
 export function streakBonus(streak: number, cap = STREAK_BONUS_CAP): number {
@@ -69,9 +77,9 @@ export function nextStreak(state: PlayerState, now: number): number {
   return kept ? streak + 1 : 1;
 }
 
-/** Période du roll béni (10, ou moins avec le talent Bénédiction). */
+/** Période du roll béni (10, moins avec le talent Bénédiction et l'Auréole, jamais sous 5). */
 export function blessedEvery(state: PlayerState): number {
-  return BLESSED_EVERY - talentBlessedReduction(state.talents);
+  return Math.max(BLESSED_EVERY_MIN, BLESSED_EVERY - talentBlessedReduction(state.talents) - upgradeBlessedReduction(state.upgrades));
 }
 
 /**
@@ -105,6 +113,7 @@ export function computeLuck(state: PlayerState, now: number, rollNumber: number,
   add(`Série ×${streak}`, streakBonus(streak, streakCap(state)));
   add(`Prestige ${state.prestige.level}`, state.prestige.level * PRESTIGE_LUCK);
   add("Talent Fortune", talentLuckBonus(state.talents));
+  add("Trèfle doré", upgradeLuckBonus(state.upgrades));
   for (const e of activeEvents(now)) add(`Événement : ${e.name}`, e.luckBonus);
 
   const curse = state.curse;
@@ -132,7 +141,7 @@ export function previewNextLuck(state: PlayerState, now: number): LuckBreakdown 
 }
 
 export function getRollCooldownMs(state: PlayerState, now: number): number {
-  let cd = BASE_ROLL_COOLDOWN_MS * talentCooldownMul(state.talents);
+  let cd = BASE_ROLL_COOLDOWN_MS * talentCooldownMul(state.talents) * upgradeCooldownMul(state.upgrades);
   for (const id of POTION_IDS) {
     const { effect } = POTIONS[id];
     if (effect.kind === "cooldownMul" && isPotionActive(state, id, now)) cd *= effect.value;
@@ -142,12 +151,11 @@ export function getRollCooldownMs(state: PlayerState, now: number): number {
 
 /**
  * Seau à jetons : `rollClock` avance d'un temps de recharge par roll accordé.
- * Le crédit accumulé est plafonné à MAX_ROLL_BATCH rolls, ce qui permet à
- * l'auto-roll de grouper ses requêtes sans jamais dépasser le rythme autorisé.
+ * Le crédit accumulé est plafonné à ROLL_BURST roll : une pause ne se « rattrape » pas.
  * La tolérance absorbe la latence réseau sans s'additionner d'une requête à l'autre.
  */
 function effectiveClock(state: PlayerState, now: number, cd: number): number {
-  return Math.max(state.stats.rollClock, now - MAX_ROLL_BATCH * cd);
+  return Math.max(state.stats.rollClock, now - ROLL_BURST * cd);
 }
 
 export function grantableRolls(state: PlayerState, now: number, requested: number): number {

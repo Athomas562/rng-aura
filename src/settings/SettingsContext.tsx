@@ -44,6 +44,9 @@ export function SettingsProvider({ uid, children }: { uid: string | null; childr
     const root = document.documentElement;
     root.dataset.reducedMotion = String(settings.reducedMotion);
     root.dataset.noFlashes = String(settings.noFlashes);
+    root.dataset.calm = String(settings.calmMode || settings.reducedMotion);
+    root.dataset.vfx = settings.vfxQuality;
+    root.style.setProperty("--ui-scale", String(settings.uiScale));
   }, [settings]);
 
   const current = useRef(settings);

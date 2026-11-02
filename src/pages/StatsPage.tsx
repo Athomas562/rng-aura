@@ -2,6 +2,7 @@ import { useMemo, useState, type CSSProperties } from "react";
 import {
   ACHIEVEMENTS,
   AURAS,
+  CURRENCY,
   PRESTIGE_LUCK,
   RARITIES,
   computeDistribution,
@@ -62,6 +63,9 @@ export function StatsPage() {
     { label: "Fusions", value: formatNumber(stats.fusions) },
     { label: "Quêtes réclamées", value: formatNumber(stats.questsClaimed) },
     { label: "XP totale", value: formatNumber(state.xp) },
+    { label: `${CURRENCY.name} (solde)`, value: formatNumber(state.shards) },
+    { label: `${CURRENCY.name} gagnés`, value: formatNumber(stats.shardsEarned) },
+    { label: `${CURRENCY.name} dépensés`, value: formatNumber(stats.shardsSpent) },
     { label: "Chance actuelle", value: formatLuck(luck.total) },
   ];
 
@@ -201,6 +205,41 @@ export function StatsPage() {
                       </tr>
                     );
                   })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="panel stats-section stats-section--wide" aria-labelledby="ledger-title">
+          <h2 className="panel-title" id="ledger-title">
+            Historique des {CURRENCY.plural}
+          </h2>
+          {state.ledger.length === 0 ? (
+            <p className="muted">Aucun mouvement pour l'instant : chaque roll rapporte des {CURRENCY.plural}.</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="odds-table ledger-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Motif</th>
+                    <th>Montant</th>
+                    <th>Solde</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.ledger.map((e, i) => (
+                    <tr key={`${e.at}-${i}`}>
+                      <td>{formatDate(e.at)}</td>
+                      <td>{e.reason}</td>
+                      <td className={`tabular ${e.amount >= 0 ? "is-gain" : "is-spend"}`}>
+                        {e.amount >= 0 ? "+" : "−"}
+                        {formatNumber(Math.abs(e.amount))} ✦
+                      </td>
+                      <td className="tabular">{formatNumber(e.balance)} ✦</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

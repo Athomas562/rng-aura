@@ -136,20 +136,31 @@ describe("prestige", () => {
     expect(code(() => doPrestige(s, T0))).toBe("invalid");
   });
 
-  it("vide l'inventaire mais garde codex, record, niveau et potions, et donne +5 % de chance", () => {
+  it("garde les auras, remet à zéro éclats, améliorations et série, et donne +5 % de chance", () => {
     const s = veteran();
     s.xp = 5_000;
+    s.shards = 12_345;
+    s.upgrades.clover = 4;
+    s.upgrades.slot = 1;
+    s.stats.streak = 300;
     const before = s.potions.owned.hourglass;
     const out = doPrestige(s, T0);
     expect(out.state.prestige.level).toBe(1);
-    expect(out.state.inventory).toEqual({});
-    expect(out.state.equipped).toBeNull();
+    expect(out.state.inventory.phenix.count).toBe(3);
+    expect(out.state.inventory.lueur.count).toBe(50);
+    expect(out.state.equipped).toBe("phenix");
+    expect(Object.values(out.state.upgrades).every((l) => l === 0)).toBe(true);
+    expect(out.state.stats.streak).toBe(0);
+    // seul le bonus de renaissance (et des succès éventuels) reste dans le solde
+    expect(out.state.shards).toBe(out.shards);
+    expect(out.state.ledger.some((e) => e.amount === -12_345)).toBe(true);
     expect(out.state.codex.phenix).toBeDefined();
     expect(out.state.stats.bestAuraId).toBe("phenix");
     expect(out.state.xp).toBe(5_000);
     expect(out.rewards.hourglass).toBeGreaterThanOrEqual(1);
     expect(out.state.potions.owned.hourglass).toBe(before + out.rewards.hourglass!);
     expect(out.state.prestige.history[0]).toMatchObject({ level: 1, runRolls: PRESTIGE_ROLLS, bestAuraId: "phenix", collection: 2 });
+    // +5 % de prestige ; le Trèfle doré (+8 %) a été remis à zéro
     expect(computeLuck(out.state, T0, 1, 1).total).toBeCloseTo(1.05, 12);
     expect(out.achievements).toContain("prestige_1");
   });
@@ -169,7 +180,7 @@ describe("prestige", () => {
     const out = performRolls(s, T0, 1, () => uFor(s, T0, "phenix"));
     expect(out.results[0].isNew).toBe(false);
     expect(out.state.potions.owned.superLuck).toBe(superLuck);
-    expect(out.state.inventory.phenix.count).toBe(1);
+    expect(out.state.inventory.phenix.count).toBe(4);
     expect(out.state.codex.phenix.total).toBe(4);
   });
 });
