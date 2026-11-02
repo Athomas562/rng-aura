@@ -50,7 +50,9 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .nav__item {
@@ -116,11 +118,48 @@
   color: #070818;
 }
 
+.nav__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
 .nav__username {
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.nav__title-tag {
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav__prestige {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  color: #ff9d3d;
+  text-shadow: 0 0 8px rgba(255, 157, 61, 0.6);
+}
+
+.nav__badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #070818;
+  background: var(--gold);
+  box-shadow: 0 0 10px rgba(255, 201, 77, 0.6);
 }
 
 @keyframes logo-spin {
@@ -148,25 +187,45 @@
     display: none;
   }
 
+  /* 9 pages : la barre défile horizontalement sur les petits écrans (la page, elle, ne défile pas). */
   .nav__list {
     flex: 1;
     flex-direction: row;
     justify-content: space-between;
     gap: 2px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .nav__list::-webkit-scrollbar {
+    display: none;
   }
 
   .nav__list li {
-    flex: 1;
+    flex: 1 0 58px;
     min-width: 0;
   }
 
   .nav__item {
+    position: relative;
     flex-direction: column;
     gap: 3px;
     padding: 7px 2px;
     font-size: 10.5px;
     text-align: center;
     height: 100%;
+  }
+
+  .nav__badge {
+    position: absolute;
+    top: 2px;
+    right: 50%;
+    translate: 18px 0;
+    min-width: 16px;
+    height: 16px;
+    font-size: 10px;
+    padding: 0 4px;
   }
 
   .nav__label {

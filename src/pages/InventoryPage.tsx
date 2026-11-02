@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AURAS, RARITIES, getRarity, type Aura, type RarityId } from "../../shared";
+import { AURAS, RARITIES, SPECIAL_LABELS, getRarity, type Aura, type AuraSpecialKind, type RarityId } from "../../shared";
 import { AuraDetail } from "../components/AuraDetail";
 import { AuraIcon } from "../components/AuraIcon";
 import { Icon } from "../components/Icon";
@@ -20,9 +20,10 @@ const SORTS: { id: Sort; label: string }[] = [
 ];
 
 export function InventoryPage() {
-  const { state } = useGame();
+  const { state, look } = useGame();
   const [search, setSearch] = useState("");
   const [rarity, setRarity] = useState<RarityId | "all">("all");
+  const [special, setSpecial] = useState<AuraSpecialKind | "any" | "all">("all");
   const [sort, setSort] = useState<Sort>("rarity-desc");
   const [showMissing, setShowMissing] = useState(false);
   const [selected, setSelected] = useState<Aura | null>(null);
@@ -36,8 +37,10 @@ export function InventoryPage() {
       const owned = Boolean(inv[a.id]);
       if (!owned && !showMissing) return false;
       if (rarity !== "all" && a.rarity !== rarity) return false;
-      // Le nom d'une aura non découverte reste secret : la recherche ne la révèle pas.
-      if (q && !(owned && a.name.toLowerCase().includes(q))) return false;
+      if (special === "any" && !a.special) return false;
+      if (special !== "all" && special !== "any" && a.special?.kind !== special) return false;
+      // Le nom d'une aura jamais découverte reste secret : la recherche ne la révèle pas.
+      if (q && !(state.codex[a.id] && (a.name.toLowerCase().includes(q) || look(a).name.toLowerCase().includes(q)))) return false;
       return true;
     });
     const tier = (a: Aura) => getRarity(a.rarity).tier;
@@ -50,7 +53,7 @@ export function InventoryPage() {
       name: (a, b) => a.name.localeCompare(b.name, "fr"),
     };
     return items.sort((a, b) => cmp[sort](a, b) || tier(b) - tier(a));
-  }, [state.inventory, search, rarity, sort, showMissing]);
+  }, [state.inventory, state.codex, search, rarity, special, sort, showMissing, look]);
 
   return (
     <div className="page">
@@ -84,6 +87,20 @@ export function InventoryPage() {
             </option>
           ))}
         </select>
+        <select
+          className="select"
+          value={special}
+          onChange={(e) => setSpecial(e.target.value as AuraSpecialKind | "any" | "all")}
+          aria-label="Filtrer par mécanique spéciale"
+        >
+          <option value="all">Toutes les mécaniques</option>
+          <option value="any">Auras spéciales uniquement</option>
+          {(Object.keys(SPECIAL_LABELS) as AuraSpecialKind[]).map((k) => (
+            <option key={k} value={k}>
+              {SPECIAL_LABELS[k]}
+            </option>
+          ))}
+        </select>
         <select className="select" value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Trier">
           {SORTS.map((s) => (
             <option key={s.id} value={s.id}>
@@ -102,16 +119,21 @@ export function InventoryPage() {
         <p className="empty">{ownedCount === 0 ? "Ton inventaire est vide. Lance un roll !" : "Aucune aura ne correspond à ces filtres."}</p>
       ) : (
         <ul className="inv-grid">
-          {list.map((a) => {
+          {list.map((base) => {
+            const a = look(base);
             const entry = state.inventory[a.id];
+            const known = Boolean(state.codex[a.id]);
             const equipped = state.equipped === a.id;
+            const inSlot = state.slots.includes(a.id);
             return (
               <li key={a.id}>
-                <button className={`inv-card ${entry ? "" : "is-missing"} ${equipped ? "is-equipped" : ""}`} onClick={() => setSelected(a)}>
+                <button className={`inv-card ${entry ? "" : "is-missing"} ${equipped ? "is-equipped" : ""}`} onClick={() => setSelected(base)}>
                   {equipped && <span className="inv-card__equipped">Équipée</span>}
-                  <AuraIcon aura={a} size={64} locked={!entry} />
+                  {!equipped && inSlot && <span className="inv-card__equipped">Emplacement</span>}
+                  {a.special && <span className="inv-card__special">{SPECIAL_LABELS[a.special.kind]}</span>}
+                  <AuraIcon aura={a} size={64} locked={!known} />
                   <span className="inv-card__name" style={{ color: entry ? a.visual.primary : undefined }}>
-                    {entry ? a.name : "???"}
+                    {known ? a.name : "???"}
                   </span>
                   <RarityBadge rarity={a.rarity} />
                   <span className="inv-card__meta tabular">
@@ -120,6 +142,8 @@ export function InventoryPage() {
                         ×{formatNumber(entry.count)}
                         <span title={`Première obtention : ${formatDate(entry.firstAt)}`}> · {formatDay(entry.firstAt)}</span>
                       </>
+                    ) : known ? (
+                      "Plus possédée (prestige)"
                     ) : (
                       "Non découverte"
                     )}

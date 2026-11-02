@@ -1,4 +1,5 @@
-import { AURAS, type Aura } from "./auras";
+import { rollableAuras, type Aura } from "./auras";
+import type { RarityId } from "./rarities";
 
 export interface DistributionEntry {
   aura: Aura;
@@ -6,21 +7,32 @@ export interface DistributionEntry {
   p: number;
 }
 
+export interface DistributionOptions {
+  /** Instant du roll : détermine les auras saisonnières disponibles. Sans `now`, aucune saisonnière. */
+  now?: number;
+  /** Potion de chance ciblée : multiplie la chance d'une seule rareté. */
+  focus?: { rarity: RarityId; mul: number } | null;
+  /** Remplace la liste des auras tirables (tests). */
+  auras?: readonly Aura[];
+}
+
 /**
  * Distribution exacte d'un roll pour une chance donnée.
  *
  * Règles :
- * 1. Les auras non-fallback sont servies de la plus rare à la plus commune.
- *    Chacune reçoit `min(luck / odds, probabilité restante)`.
- * 2. La probabilité restante est partagée entre les auras fallback,
+ * 1. Les auras tirables non-fallback sont servies de la plus rare à la plus commune.
+ *    Chacune reçoit `min(chance × focus / odds, probabilité restante)`.
+ * 2. La probabilité restante est partagée entre les auras fallback (communes),
  *    proportionnellement à `1 / odds`.
  *
  * La chance augmente donc la probabilité de chaque aura rare et « pousse »
  * les communes hors de la distribution quand elle devient très grande.
  * La somme vaut toujours exactement 1 (aux arrondis flottants près).
+ * Les auras de fusion ne sont jamais tirées ; les saisonnières seulement pendant leur événement.
  */
-export function computeDistribution(luck: number, auras: readonly Aura[] = AURAS): DistributionEntry[] {
+export function computeDistribution(luck: number, opts: DistributionOptions = {}): DistributionEntry[] {
   if (!Number.isFinite(luck) || luck <= 0) throw new Error(`Chance invalide : ${luck}`);
+  const auras = opts.auras ?? rollableAuras(opts.now);
 
   const ranked = auras.filter((a) => !a.fallback).sort((a, b) => b.odds - a.odds);
   const fallbacks = auras.filter((a) => a.fallback);
@@ -29,7 +41,8 @@ export function computeDistribution(luck: number, auras: readonly Aura[] = AURAS
   const out: DistributionEntry[] = [];
   let remaining = 1;
   for (const aura of ranked) {
-    const p = Math.min(luck / aura.odds, remaining);
+    const boost = opts.focus && opts.focus.rarity === aura.rarity ? opts.focus.mul : 1;
+    const p = Math.min((luck * boost) / aura.odds, remaining);
     remaining -= p;
     out.push({ aura, p });
   }
@@ -58,9 +71,9 @@ export function pickFromDistribution(dist: readonly DistributionEntry[], u: numb
   return dist[dist.length - 1].aura;
 }
 
-/** Probabilité exacte d'une aura pour une chance donnée. */
-export function probabilityOf(auraId: string, luck: number): number {
-  return computeDistribution(luck).find((e) => e.aura.id === auraId)?.p ?? 0;
+/** Probabilité exacte d'une aura pour une chance donnée (0 si elle n'est pas tirable). */
+export function probabilityOf(auraId: string, luck: number, opts: DistributionOptions = {}): number {
+  return computeDistribution(luck, opts).find((e) => e.aura.id === auraId)?.p ?? 0;
 }
 
 /** Formate une probabilité en « 1 sur N » lisible. */

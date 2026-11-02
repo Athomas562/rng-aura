@@ -1,10 +1,22 @@
 import { getAura } from "./auras";
 import { POTION_IDS, type PotionId } from "./potions";
+import { emptyPeriod, type QuestCounter, type QuestPeriod } from "./quests";
+import { isRarityId, type RarityId } from "./rarities";
+import { TALENTS, emptyTalents, type TalentRanks } from "./talents";
 
 export interface InventoryEntry {
   count: number;
   firstAt: number;
   lastAt: number;
+  /** Numéro du roll de la première obtention dans la partie en cours (auras vivantes). */
+  firstRoll: number;
+}
+
+/** Codex : toutes les auras découvertes un jour, conservé au prestige. */
+export interface CodexEntry {
+  firstAt: number;
+  /** Nombre total d'obtentions, toutes parties confondues. */
+  total: number;
 }
 
 export interface RecentRoll {
@@ -25,26 +37,57 @@ export interface PlayerStats {
   maxStreak: number;
   bestAuraId: string | null;
   potionsUsed: number;
+  blessedRolls: number;
+  fusions: number;
+  questsClaimed: number;
+}
+
+export interface PrestigeRecord {
+  at: number;
+  /** Niveau de prestige atteint par cette renaissance. */
+  level: number;
+  runRolls: number;
+  /** Aura la plus rare possédée juste avant la renaissance. */
+  bestAuraId: string | null;
+  collection: number;
 }
 
 export interface PlayerState {
   version: 2;
   name: string;
   createdAt: number;
+  /** Aura principale (avatar, classement). */
   equipped: string | null;
+  /** Emplacements supplémentaires débloqués par le niveau. */
+  slots: (string | null)[];
+  /** Aura copiée par Mimique. */
+  mimicOf: string | null;
+  title: string | null;
   inventory: Record<string, InventoryEntry>;
+  codex: Record<string, CodexEntry>;
+  xp: number;
+  talents: TalentRanks;
+  prestige: { level: number; runStartRolls: number; history: PrestigeRecord[] };
   stats: PlayerStats;
   potions: {
     owned: Record<PotionId, number>;
     /** Timestamp de fin de chaque potion active. */
     active: Partial<Record<PotionId, number>>;
+    /** Rareté visée par la potion de chance ciblée. */
+    focusTarget: RarityId | null;
+    /** Bénédictions garanties restantes. */
+    pendingBlessings: number;
   };
+  /** Malédiction en cours (Marque maudite) : bonus jusqu'à boonUntil, malus jusqu'à baneUntil. */
+  curse: { boonUntil: number; baneUntil: number; luck: number; mul: number } | null;
+  quests: { daily: QuestPeriod; weekly: QuestPeriod; missions: Record<string, number> };
   achievements: Record<string, number>;
   recent: RecentRoll[];
 }
 
 export const RECENT_LIMIT = 12;
-export const STARTER_POTIONS: Partial<Record<PotionId, number>> = { luck: 2, speed: 1 };
+export const PRESTIGE_HISTORY_LIMIT = 20;
+export const STARTER_POTIONS: Partial<Record<PotionId, number>> = { luck: 2, speed: 1, blessing: 1 };
 
 export function emptyPotionCounts(): Record<PotionId, number> {
   return Object.fromEntries(POTION_IDS.map((id) => [id, 0])) as Record<PotionId, number>;
@@ -58,7 +101,14 @@ export function createPlayerState(name: string, now: number): PlayerState {
     name,
     createdAt: now,
     equipped: null,
+    slots: [],
+    mimicOf: null,
+    title: null,
     inventory: {},
+    codex: {},
+    xp: 0,
+    talents: emptyTalents(),
+    prestige: { level: 0, runStartRolls: 0, history: [] },
     stats: {
       rolls: 0,
       playTimeMs: 0,
@@ -69,20 +119,36 @@ export function createPlayerState(name: string, now: number): PlayerState {
       maxStreak: 0,
       bestAuraId: null,
       potionsUsed: 0,
+      blessedRolls: 0,
+      fusions: 0,
+      questsClaimed: 0,
     },
-    potions: { owned, active: {} },
+    potions: { owned, active: {}, focusTarget: null, pendingBlessings: 0 },
+    curse: null,
+    quests: { daily: emptyPeriod(""), weekly: emptyPeriod(""), missions: {} },
     achievements: {},
     recent: [],
   };
 }
 
 const num = (v: unknown, d = 0): number => (typeof v === "number" && Number.isFinite(v) ? v : d);
+const int = (v: unknown, d = 0): number => Math.max(0, Math.floor(num(v, d)));
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : Object.values(obj(v)));
+
+function normalizePeriod(raw: unknown): QuestPeriod {
+  const r = obj(raw);
+  const counters: Partial<Record<QuestCounter, number>> = {};
+  for (const [k, v] of Object.entries(obj(r.counters))) counters[k as QuestCounter] = int(v);
+  const claimed: Record<string, number> = {};
+  for (const [k, v] of Object.entries(obj(r.claimed))) claimed[k] = num(v);
+  return { key: typeof r.key === "string" ? r.key : "", counters, claimed };
+}
 
 /**
  * Reconstruit un état complet et valide à partir de données brutes
- * (la Realtime Database supprime les objets vides et peut renvoyer des tableaux).
+ * (anciennes sauvegardes sans les nouveaux champs, objets vides supprimés, tableaux…).
  * Les auras inconnues du catalogue sont ignorées.
  */
 export function normalizePlayerState(raw: unknown, fallbackName: string, now: number): PlayerState {
@@ -94,12 +160,25 @@ export function normalizePlayerState(raw: unknown, fallbackName: string, now: nu
   for (const [id, e] of Object.entries(obj(r.inventory))) {
     if (!getAura(id)) continue;
     const entry = obj(e);
-    const count = Math.max(0, Math.floor(num(entry.count)));
-    if (count > 0) inventory[id] = { count, firstAt: num(entry.firstAt), lastAt: num(entry.lastAt) };
+    const count = int(entry.count);
+    if (count > 0) inventory[id] = { count, firstAt: num(entry.firstAt), lastAt: num(entry.lastAt), firstRoll: int(entry.firstRoll) };
+  }
+
+  // Codex : les anciennes sauvegardes n'en ont pas, il se déduit alors de l'inventaire.
+  const codex: Record<string, CodexEntry> = {};
+  for (const [id, e] of Object.entries(obj(r.codex))) {
+    if (!getAura(id)) continue;
+    const entry = obj(e);
+    codex[id] = { firstAt: num(entry.firstAt), total: int(entry.total) };
+  }
+  for (const [id, e] of Object.entries(inventory)) {
+    const c = codex[id];
+    if (!c) codex[id] = { firstAt: e.firstAt, total: e.count };
+    else c.total = Math.max(c.total, e.count);
   }
 
   const s = obj(r.stats);
-  const bestAuraId = typeof s.bestAuraId === "string" && inventory[s.bestAuraId] ? s.bestAuraId : null;
+  const bestAuraId = typeof s.bestAuraId === "string" && codex[s.bestAuraId] ? s.bestAuraId : null;
   const stats: PlayerStats = {
     rolls: num(s.rolls),
     playTimeMs: num(s.playTimeMs),
@@ -110,6 +189,9 @@ export function normalizePlayerState(raw: unknown, fallbackName: string, now: nu
     maxStreak: num(s.maxStreak),
     bestAuraId,
     potionsUsed: num(s.potionsUsed),
+    blessedRolls: int(s.blessedRolls),
+    fusions: int(s.fusions),
+    questsClaimed: int(s.questsClaimed),
   };
 
   const p = obj(r.potions);
@@ -118,36 +200,90 @@ export function normalizePlayerState(raw: unknown, fallbackName: string, now: nu
   const owned = emptyPotionCounts();
   const active: Partial<Record<PotionId, number>> = {};
   for (const id of POTION_IDS) {
-    owned[id] = Math.max(0, Math.floor(num(ownedRaw[id])));
+    owned[id] = int(ownedRaw[id]);
     const until = num(activeRaw[id]);
     if (until > 0) active[id] = until;
   }
+  const focusTarget = isRarityId(p.focusTarget) ? p.focusTarget : null;
 
   const achievements: Record<string, number> = {};
   for (const [id, at] of Object.entries(obj(r.achievements))) achievements[id] = num(at);
 
-  const recentRaw = Array.isArray(r.recent) ? r.recent : Object.values(obj(r.recent));
-  const recent: RecentRoll[] = recentRaw
+  const recent: RecentRoll[] = list(r.recent)
     .map((x) => obj(x))
     .filter((x) => typeof x.auraId === "string" && getAura(x.auraId as string))
     .map((x) => ({ auraId: x.auraId as string, at: num(x.at), luck: num(x.luck, 1) }))
     .slice(0, RECENT_LIMIT);
 
   const equipped = typeof r.equipped === "string" && inventory[r.equipped] ? r.equipped : null;
+  const seen = new Set<string>(equipped ? [equipped] : []);
+  const slots = list(r.slots)
+    .slice(0, 3)
+    .map((x) => {
+      if (typeof x !== "string" || !inventory[x] || seen.has(x)) return null;
+      seen.add(x);
+      return x;
+    });
+  const mimicOf = typeof r.mimicOf === "string" && inventory[r.mimicOf] && getAura(r.mimicOf)?.special?.kind !== "mimic" ? r.mimicOf : null;
+
+  const talentsRaw = obj(r.talents);
+  const talents = emptyTalents();
+  for (const t of TALENTS) talents[t.id] = Math.min(t.maxRank, int(talentsRaw[t.id]));
+
+  const pr = obj(r.prestige);
+  const prestige = {
+    level: Math.min(10, int(pr.level)),
+    runStartRolls: Math.min(stats.rolls, int(pr.runStartRolls)),
+    history: list(pr.history)
+      .map((x) => obj(x))
+      .map((x) => ({
+        at: num(x.at),
+        level: int(x.level),
+        runRolls: int(x.runRolls),
+        bestAuraId: typeof x.bestAuraId === "string" && getAura(x.bestAuraId) ? x.bestAuraId : null,
+        collection: int(x.collection),
+      }))
+      .slice(-PRESTIGE_HISTORY_LIMIT),
+  };
+
+  const c = obj(r.curse);
+  const curse =
+    num(c.baneUntil) > 0
+      ? { boonUntil: num(c.boonUntil), baneUntil: num(c.baneUntil), luck: num(c.luck), mul: Math.min(1, Math.max(0.1, num(c.mul, 1))) }
+      : null;
+
+  const q = obj(r.quests);
+  const missions: Record<string, number> = {};
+  for (const [k, v] of Object.entries(obj(q.missions))) missions[k] = int(v);
 
   return {
     version: 2,
     name: typeof r.name === "string" && r.name ? r.name : fallbackName,
     createdAt: num(r.createdAt, now),
     equipped,
+    slots,
+    mimicOf,
+    title: typeof r.title === "string" ? r.title : null,
     inventory,
+    codex,
+    xp: int(r.xp),
+    talents,
+    prestige,
     stats,
-    potions: { owned, active },
+    potions: { owned, active, focusTarget, pendingBlessings: Math.min(5, int(p.pendingBlessings)) },
+    curse,
+    quests: { daily: normalizePeriod(q.daily), weekly: normalizePeriod(q.weekly), missions },
     achievements,
     recent,
   };
 }
 
+/** Nombre d'auras différentes découvertes un jour (codex, conservé au prestige). */
 export function discoveredCount(state: PlayerState): number {
+  return Object.keys(state.codex).length;
+}
+
+/** Nombre d'auras différentes possédées dans la partie en cours. */
+export function ownedCount(state: PlayerState): number {
   return Object.keys(state.inventory).length;
 }

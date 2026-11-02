@@ -22,6 +22,9 @@ const ORDER_COLUMN: Record<LeaderboardCategory, string> = {
   bestOdds: "best_odds",
   collection: "collection",
   achievements: "achievements",
+  level: "level",
+  prestige: "prestige",
+  special: "special",
 };
 
 interface LeaderboardSqlRow {
@@ -33,6 +36,10 @@ interface LeaderboardSqlRow {
   collection: number;
   achievements: number;
   equipped: string | null;
+  level: number;
+  prestige: number;
+  special: number;
+  title: string | null;
 }
 
 export interface D1Store extends PlayerStore {
@@ -75,15 +82,31 @@ export function createD1Store(db: D1Database, options: { maxAttempts?: number; n
       // Ne remplace jamais une entrée plus récente (requêtes simultanées terminées dans le désordre).
       await db
         .prepare(
-          `INSERT INTO leaderboard (uid, name, rolls, best_odds, best_aura_id, collection, achievements, equipped, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO leaderboard (uid, name, rolls, best_odds, best_aura_id, collection, achievements, equipped, level, prestige, special, title, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(uid) DO UPDATE SET
              name = excluded.name, rolls = excluded.rolls, best_odds = excluded.best_odds,
              best_aura_id = excluded.best_aura_id, collection = excluded.collection,
-             achievements = excluded.achievements, equipped = excluded.equipped, updated_at = excluded.updated_at
+             achievements = excluded.achievements, equipped = excluded.equipped,
+             level = excluded.level, prestige = excluded.prestige, special = excluded.special, title = excluded.title,
+             updated_at = excluded.updated_at
            WHERE excluded.updated_at >= leaderboard.updated_at`,
         )
-        .bind(uid, entry.name, entry.rolls, entry.bestOdds, entry.bestAuraId, entry.collection, entry.achievements, entry.equipped, entry.updatedAt)
+        .bind(
+          uid,
+          entry.name,
+          entry.rolls,
+          entry.bestOdds,
+          entry.bestAuraId,
+          entry.collection,
+          entry.achievements,
+          entry.equipped,
+          entry.level,
+          entry.prestige,
+          entry.special,
+          entry.title,
+          entry.updatedAt,
+        )
         .run();
     },
 
@@ -98,7 +121,7 @@ export function createD1Store(db: D1Database, options: { maxAttempts?: number; n
       if (!column) throw new StoreError("Catégorie inconnue");
       const { results } = await db
         .prepare(
-          `SELECT uid, name, rolls, best_odds, best_aura_id, collection, achievements, equipped
+          `SELECT uid, name, rolls, best_odds, best_aura_id, collection, achievements, equipped, level, prestige, special, title
            FROM leaderboard ORDER BY ${column} DESC, updated_at ASC LIMIT ?`,
         )
         .bind(limit)
@@ -113,6 +136,10 @@ export function createD1Store(db: D1Database, options: { maxAttempts?: number; n
         collection: r.collection,
         achievements: r.achievements,
         equipped: r.equipped,
+        level: r.level,
+        prestige: r.prestige,
+        special: r.special,
+        title: r.title,
       }));
     },
   };

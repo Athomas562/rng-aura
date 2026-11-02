@@ -440,3 +440,106 @@ kbd {
     bottom: 16px;
   }
 }
+
+/* ───── Extension : niveau, événement, malédiction ───── */
+.level-meter {
+  margin: 4px 0 14px;
+}
+
+.level-meter__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.level-meter__head .tabular {
+  margin-left: auto;
+}
+
+.level-meter__level {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.level-meter__prestige {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ff9d3d;
+}
+
+.progress--xp > span {
+  background: linear-gradient(90deg, var(--cyan), #7af5ff);
+}
+
+.event-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-color: color-mix(in srgb, var(--ec) 45%, transparent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ec) 16%, transparent), var(--panel));
+  color: var(--ec);
+}
+
+.event-banner > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.event-banner strong {
+  font-family: var(--font-display);
+}
+
+.event-banner span {
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+
+.event-banner__time {
+  white-space: nowrap;
+}
+
+.luck-value.is-cursed {
+  color: var(--danger);
+}
+
+.curse-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+}
+
+.curse-note.is-boon {
+  color: var(--gold);
+  background: rgba(255, 201, 77, 0.08);
+}
+
+.curse-note.is-bane {
+  color: var(--danger);
+  background: rgba(255, 92, 122, 0.1);
+}
+
+.select--sm {
+  margin-top: 6px;
+  padding: 4px 30px 4px 8px;
+  font-size: 12.5px;
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .event-banner {
+    flex-wrap: wrap;
+  }
+}

@@ -46,7 +46,7 @@ export function createLayer(spec: LayerSpec, env: AuraEnv): LayerInstance | null
 }
 
 /** Couches dessinées derrière le personnage ; les autres passent devant. */
-export const BACK_LAYERS: ReadonlySet<LayerSpec["type"]> = new Set(["rays", "starfield", "void", "halo", "rings"]);
+export const BACK_LAYERS: ReadonlySet<LayerSpec["type"]> = new Set(["rays", "starfield", "void", "halo", "rings", "ripple"]);
 
 // ───────────────────────── Implémentations ─────────────────────────
 
@@ -262,3 +262,29 @@ registerLayer("glitch", (spec) => {
     },
   };
 });
+
+registerLayer("ripple", (spec) => ({
+  draw(g, t, _dt, env) {
+    // Anneaux ondulés qui s'éloignent (ou se rapprochent si speed < 0) du centre.
+    g.globalCompositeOperation = "lighter";
+    g.lineWidth = Math.max(1, env.r * 0.02);
+    for (let i = 0; i < spec.count; i++) {
+      let phase = (t * spec.speed * env.speed * 0.5 + i / spec.count) % 1;
+      if (phase < 0) phase += 1;
+      const R = env.r * (0.4 + phase * 1.6);
+      const alpha = Math.sin(phase * Math.PI) * 0.5;
+      g.strokeStyle = rgba(i % 2 ? env.secondary : env.primary, alpha);
+      g.beginPath();
+      for (let k = 0; k <= 64; k++) {
+        const a = (k / 64) * Math.PI * 2;
+        const wobble = 1 + 0.04 * Math.sin(a * 6 + t * 2 + i);
+        const x = env.cx + Math.cos(a) * R * wobble;
+        const y = env.cy + Math.sin(a) * R * wobble * 0.85;
+        if (k === 0) g.moveTo(x, y);
+        else g.lineTo(x, y);
+      }
+      g.stroke();
+    }
+    g.globalCompositeOperation = "source-over";
+  },
+}));

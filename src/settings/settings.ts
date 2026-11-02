@@ -8,7 +8,40 @@ export const PAGES = [
   { id: "settings", label: "Paramètres" },
 ] as const;
 
-export type PageId = (typeof PAGES)[number]["id"];
+/**
+ * Pages ajoutées par l'extension. Leurs raccourcis (8 et 9) sont fixes : les règles
+ * Firebase des paramètres synchronisés n'acceptent que roll, auto et nav1 à nav7.
+ */
+export const EXTRA_PAGES = [
+  { id: "progression", label: "Progression", key: "Digit8" },
+  { id: "quests", label: "Quêtes", key: "Digit9" },
+] as const;
+
+export type PageId = (typeof PAGES)[number]["id"] | (typeof EXTRA_PAGES)[number]["id"];
+
+/** Ordre d'affichage dans la navigation. */
+export const NAV_ORDER: PageId[] = [
+  "roll",
+  "inventory",
+  "collection",
+  "progression",
+  "quests",
+  "achievements",
+  "stats",
+  "leaderboard",
+  "settings",
+];
+
+export const PAGE_LABELS: Record<PageId, string> = Object.fromEntries(
+  [...PAGES, ...EXTRA_PAGES].map((p) => [p.id, p.label]),
+) as Record<PageId, string>;
+
+/** Raccourci d'une page : configurable pour les 7 pages d'origine, fixe pour les nouvelles. */
+export function pageShortcut(page: PageId, keybinds: Record<KeyAction, string>): string {
+  const i = PAGES.findIndex((p) => p.id === page);
+  if (i >= 0) return keybinds[`nav${i + 1}` as KeyAction];
+  return EXTRA_PAGES.find((p) => p.id === page)?.key ?? "";
+}
 
 export type KeyAction = "roll" | "auto" | "nav1" | "nav2" | "nav3" | "nav4" | "nav5" | "nav6" | "nav7";
 

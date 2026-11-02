@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { AURAS, getAura, getRarity, probabilityOf, type Aura } from "../../shared";
+import { getAura, getRarity, probabilityOf, rollableAuras, type Aura } from "../../shared";
 import { sound } from "../audio/sound";
 import { Avatar } from "../components/Avatar";
 import { RarityBadge } from "../components/RarityBadge";
@@ -27,30 +27,73 @@ export function RevealName({ text, durationMs }: { text: string; durationMs: num
   );
 }
 
-function useRoulette(active: boolean, discovered: Record<string, unknown>) {
-  const [aura, setAura] = useState<Aura>(AURAS[0]);
+const GLYPHS = "▓▒░█▚▞#%&?¿§∆Ω∞⌘※";
+
+/**
+ * Nom illisible (Beyond) : les lettres se mélangent et changent de signe,
+ * puis se fixent une à une. Sans animation, le nom s'affiche directement.
+ */
+export function ScrambleName({ text, durationMs }: { text: string; durationMs: number }) {
+  const { settings } = useSettings();
+  const chars = [...text];
+  const [shown, setShown] = useState(() => (settings.reducedMotion ? text : chars.map(() => " ").join("")));
+  useEffect(() => {
+    if (settings.reducedMotion) {
+      setShown(text);
+      return;
+    }
+    const start = performance.now();
+    const settle = durationMs * 0.6;
+    const id = setInterval(() => {
+      const t = performance.now() - start;
+      const fixed = Math.floor((t / settle) * chars.length);
+      if (fixed >= chars.length) {
+        setShown(text);
+        clearInterval(id);
+        return;
+      }
+      setShown(
+        chars
+          .map((c, i) => (i < fixed || c === " " ? c : i % 3 === Math.floor(t / 90) % 3 ? chars[(i * 7 + Math.floor(t / 60)) % chars.length] : GLYPHS[Math.floor(Math.random() * GLYPHS.length)]))
+          .join(""),
+      );
+    }, 60);
+    return () => clearInterval(id);
+  }, [text, durationMs, settings.reducedMotion]);
+  return (
+    <span className="scramble-name" aria-label={text}>
+      <span aria-hidden="true">{shown}</span>
+    </span>
+  );
+}
+
+function useRoulette(active: boolean, discovered: Record<string, unknown>, now: number) {
+  const pool = rollableAuras(now);
+  const [aura, setAura] = useState<Aura>(pool[0]);
   useEffect(() => {
     if (!active) return;
     const id = setInterval(() => {
-      setAura(AURAS[Math.floor(Math.random() * AURAS.length)]);
+      setAura(pool[Math.floor(Math.random() * pool.length)]);
       sound.tick();
     }, 75);
     return () => clearInterval(id);
-  }, [active]);
+  }, [active, pool]);
   return { aura, known: Boolean(discovered[aura.id]) };
 }
 
 export function RollStage() {
-  const { state, reveal, lastResult, skipReveal } = useGame();
+  const { state, reveal, lastResult, skipReveal, look, now } = useGame();
   const { settings } = useSettings();
   const fxCanvas = useRef<HTMLCanvasElement>(null);
   const fx = useRef<FxEngine | null>(null);
 
-  const equipped = state.equipped ? getAura(state.equipped) ?? null : null;
+  const equippedBase = state.equipped ? getAura(state.equipped) : undefined;
+  const equipped = equippedBase ? look(equippedBase) : null;
+  const extras = state.slots.map((id) => (id ? getAura(id) : undefined)).filter((a): a is Aura => Boolean(a)).map(look);
   const phase = reveal?.phase;
   const shown = phase === "burst" && reveal?.aura ? reveal.aura : phase ? null : equipped;
   const tier = reveal?.aura ? getRarity(reveal.aura.rarity).tier : -1;
-  const roulette = useRoulette(phase === "charge", state.inventory);
+  const roulette = useRoulette(phase === "charge", state.codex, now());
 
   useEffect(() => {
     const canvas = fxCanvas.current!;
@@ -73,7 +116,8 @@ export function RollStage() {
   }, [reveal?.key, phase, tier, reveal?.aura]);
 
   const showFlash = phase === "burst" && reveal?.aura?.reveal.includes("flash") && tier < FULLSCREEN_TIER;
-  const lastAura = lastResult ? getAura(lastResult.auraId) : undefined;
+  const lastBase = lastResult ? getAura(lastResult.auraId) : undefined;
+  const lastAura = lastBase ? look(lastBase) : undefined;
   const style = { "--rc": reveal?.aura ? getRarity(reveal.aura.rarity).color : "#9b6bff" } as CSSProperties;
 
   return (
@@ -89,7 +133,7 @@ export function RollStage() {
       </div>
 
       <div className="stage__avatar">
-        <Avatar aura={shown} dimmed={phase === "charge" || phase === "omen"} />
+        <Avatar aura={shown} dimmed={phase === "charge" || phase === "omen"} extras={phase ? [] : extras} />
       </div>
 
       <canvas ref={fxCanvas} className="stage__fx" aria-hidden="true" />
@@ -119,6 +163,7 @@ export function RollStage() {
               <RarityBadge rarity={reveal.aura.rarity} />
               {reveal.result.isNew && <span className="tag tag--new">Nouvelle !</span>}
               {reveal.result.blessed && <span className="tag tag--blessed">Roll béni</span>}
+              {reveal.result.xp > 0 && <span className="tag tag--xp">+{reveal.result.xp} XP</span>}
             </div>
             <h2 className="stage__name" style={{ color: reveal.aura.visual.primary }}>
               <RevealName text={reveal.aura.name} durationMs={reveal.durationMs} />
@@ -129,7 +174,16 @@ export function RollStage() {
                 <span>
                   {" "}
                   · chance {formatLuck(reveal.result.luck)} → 1 sur{" "}
-                  {Math.round(1 / probabilityOf(reveal.aura.id, reveal.result.luck)).toLocaleString("fr-FR")}
+                  {Math.round(
+                    1 /
+                      Math.max(
+                        1e-12,
+                        probabilityOf(reveal.aura.id, reveal.result.luck, {
+                          now: now(),
+                          focus: reveal.result.focus ? { rarity: reveal.result.focus, mul: 3 } : null,
+                        }),
+                      ),
+                  ).toLocaleString("fr-FR")}
                 </span>
               )}
             </p>

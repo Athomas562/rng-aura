@@ -5,15 +5,25 @@
  */
 import {
   GameError,
+  claimMission,
+  claimQuest,
   createPlayerState,
+  doPrestige,
   drinkPotion,
   equipAura,
+  fuseAura,
   getAura,
   heartbeat,
   isPotionId,
+  isTalentId,
+  learnTalent,
   normalizePlayerState,
   performRolls,
+  resetTalents,
+  setMimic,
+  setTitle,
   toLeaderboardEntry,
+  type ActionOutcome,
   EMAIL_DOMAIN,
   USERNAME_RE,
   type ApiResponse,
@@ -109,6 +119,11 @@ export async function handleApi(
   // Chaque action renvoie l'état final + des informations annexes calculées dans la même transaction.
   let extra: Omit<ApiResponse, "state" | "serverNow"> = {};
   let leaderboard = true;
+  /** Retient les informations annexes d'une action (une transaction rejouée les remplace). */
+  const withOutcome = (out: ActionOutcome) => {
+    extra = { achievements: out.achievements, rewards: out.rewards, ...(out.levelUp ? { levelUp: out.levelUp } : {}) };
+    return out.state;
+  };
   const run = (fn: (s: PlayerState, now: number) => PlayerState) =>
     store.updatePlayer(uid, (raw) => {
       const now = deps.now();
@@ -141,7 +156,8 @@ export async function handleApi(
       const count = Number.isFinite(input.count) ? (input.count as number) : 1;
       state = await run((s, now) => {
         const out = performRolls(s, now, count, rng);
-        extra = { results: out.results, achievements: out.achievements, rewards: out.rewards };
+        withOutcome(out);
+        extra.results = out.results;
         return out.state;
       });
       break;
@@ -150,31 +166,78 @@ export async function handleApi(
     case "potion": {
       const id = input.potionId;
       if (!isPotionId(id)) throw new ApiError("invalid-argument", "Potion inconnue");
-      state = await run((s, now) => {
-        const out = drinkPotion(s, id, now);
-        extra = { achievements: out.achievements, rewards: out.rewards };
-        return out.state;
-      });
+      state = await run((s, now) => withOutcome(drinkPotion(s, id, now, input.target)));
       break;
     }
 
     case "equip": {
       const auraId = input.auraId;
+      const slot = input.slot ?? 0;
       if (auraId !== null && (typeof auraId !== "string" || !getAura(auraId))) {
         throw new ApiError("invalid-argument", "Aura inconnue");
       }
-      state = await run((s) => equipAura(s, auraId));
+      if (typeof slot !== "number" || !Number.isInteger(slot)) throw new ApiError("invalid-argument", "Emplacement invalide");
+      state = await run((s) => equipAura(s, auraId, slot));
       break;
     }
 
     case "heartbeat":
+      state = await run((s, now) => withOutcome(heartbeat(s, now)));
+      leaderboard = (extra.achievements?.length ?? 0) > 0 || extra.levelUp !== undefined;
+      break;
+
+    case "fuse": {
+      const auraId = input.auraId;
+      if (typeof auraId !== "string" || !getAura(auraId)) throw new ApiError("invalid-argument", "Aura inconnue");
       state = await run((s, now) => {
-        const out = heartbeat(s, now);
-        extra = { achievements: out.achievements, rewards: out.rewards };
+        const out = fuseAura(s, auraId, now);
+        withOutcome(out);
+        extra.fused = { auraId: out.auraId, isNew: out.isNew, xp: out.xp };
         return out.state;
       });
-      leaderboard = (extra.achievements?.length ?? 0) > 0;
       break;
+    }
+
+    case "prestige":
+      state = await run((s, now) => withOutcome(doPrestige(s, now)));
+      break;
+
+    case "talent": {
+      const talentId = input.talentId;
+      if (!isTalentId(talentId)) throw new ApiError("invalid-argument", "Talent inconnu");
+      state = await run((s) => learnTalent(s, talentId));
+      leaderboard = false;
+      break;
+    }
+
+    case "respec":
+      state = await run((s) => resetTalents(s));
+      leaderboard = false;
+      break;
+
+    case "title": {
+      const titleId = input.titleId;
+      if (titleId !== null && (typeof titleId !== "string" || titleId.length > 40)) throw new ApiError("invalid-argument", "Titre invalide");
+      state = await run((s) => setTitle(s, titleId));
+      break;
+    }
+
+    case "mimic": {
+      const auraId = input.auraId;
+      if (auraId !== null && (typeof auraId !== "string" || !getAura(auraId))) throw new ApiError("invalid-argument", "Aura inconnue");
+      state = await run((s) => setMimic(s, auraId));
+      leaderboard = false;
+      break;
+    }
+
+    case "claim": {
+      const { scope, id } = input;
+      if (typeof id !== "string" || id.length > 40) throw new ApiError("invalid-argument", "Quête invalide");
+      if (scope === "daily" || scope === "weekly") state = await run((s, now) => withOutcome(claimQuest(s, scope, id, now)));
+      else if (scope === "mission") state = await run((s, now) => withOutcome(claimMission(s, id, now)));
+      else throw new ApiError("invalid-argument", "Type de quête invalide");
+      break;
+    }
 
     default:
       throw new ApiError("invalid-argument", "Action inconnue");

@@ -4,11 +4,13 @@ import { AchievementsPage } from "../pages/AchievementsPage";
 import { CollectionPage } from "../pages/CollectionPage";
 import { InventoryPage } from "../pages/InventoryPage";
 import { LeaderboardPage } from "../pages/LeaderboardPage";
+import { ProgressionPage } from "../pages/ProgressionPage";
+import { QuestsPage } from "../pages/QuestsPage";
 import { RollPage } from "../pages/RollPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { StatsPage } from "../pages/StatsPage";
 import { RevealOverlay } from "../roll/RevealOverlay";
-import { PAGES, type KeyAction, type PageId } from "../settings/settings";
+import { EXTRA_PAGES, NAV_ORDER, PAGES, type KeyAction, type PageId } from "../settings/settings";
 import { useSettings } from "../settings/SettingsContext";
 import { Nav } from "./Nav";
 import { Toasts } from "./Toasts";
@@ -21,11 +23,13 @@ const COMPONENTS: Record<PageId, () => JSX.Element> = {
   stats: StatsPage,
   leaderboard: LeaderboardPage,
   settings: SettingsPage,
+  progression: ProgressionPage,
+  quests: QuestsPage,
 };
 
 function pageFromHash(): PageId {
   const id = window.location.hash.replace(/^#\/?/, "");
-  return (PAGES.find((p) => p.id === id)?.id ?? "roll") as PageId;
+  return NAV_ORDER.find((p) => p === id) ?? "roll";
 }
 
 /** Navigation par hash (#/inventory) : le bouton retour du navigateur fonctionne. */
@@ -83,6 +87,14 @@ export function Shell() {
           navigate(p.id);
         }
       });
+      // Raccourcis fixes des nouvelles pages, sauf si la touche sert déjà à une action configurée.
+      if (!Object.values(kb).includes(e.code)) {
+        const extra = EXTRA_PAGES.find((p) => p.key === e.code);
+        if (extra && !e.repeat) {
+          e.preventDefault();
+          navigate(extra.id);
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

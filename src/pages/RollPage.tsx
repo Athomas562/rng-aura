@@ -1,4 +1,4 @@
-import { LuckPanel, PotionPanel, RecentRolls, RollControls, StatsPanel } from "../roll/Panels";
+import { EventBanner, LuckPanel, PotionPanel, RecentRolls, RollControls, StatsPanel } from "../roll/Panels";
 import { RollStage } from "../roll/RollStage";
 import "../roll/RollPage.css";
 
@@ -6,6 +6,7 @@ export function RollPage() {
   return (
     <div className="page roll-page">
       <div className="roll-page__center">
+        <EventBanner />
         <RollStage />
         <RollControls />
         <RecentRolls />

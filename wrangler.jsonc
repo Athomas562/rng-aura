@@ -25,7 +25,7 @@
       "binding": "DB",
       "database_name": "rng-aura",
       // À renseigner avec l'identifiant affiché par `npx wrangler d1 create rng-aura`.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "bbd737a4-fa14-4406-8fe2-ee3828aec0a6",
       "migrations_dir": "migrations"
     }
   ],

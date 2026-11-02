@@ -2,6 +2,7 @@
   position: relative;
   width: 100%;
   height: 100%;
+  container-type: size;
 }
 
 .avatar__figure {
@@ -15,16 +16,41 @@
   transition: filter 0.5s, opacity 0.4s;
 }
 
-.avatar.tier-4 .avatar__figure,
-.avatar.tier-5 .avatar__figure {
+.avatar.glow-1 .avatar__figure {
   filter: drop-shadow(0 0 16px color-mix(in srgb, var(--c1) 65%, transparent));
 }
 
-.avatar.tier-6 .avatar__figure,
-.avatar.tier-7 .avatar__figure,
-.avatar.tier-8 .avatar__figure,
-.avatar.tier-9 .avatar__figure {
+.avatar.glow-2 .avatar__figure {
   filter: drop-shadow(0 0 22px var(--c1)) drop-shadow(0 0 6px #fff);
+}
+
+/* Auras des emplacements supplémentaires : petites orbes en orbite. */
+.avatar__orbit {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.avatar__satellite {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: -15px 0 0 -15px;
+  animation: avatar-orbit 14s linear infinite;
+  animation-delay: calc(-14s * var(--i) / var(--n));
+}
+
+@keyframes avatar-orbit {
+  from {
+    transform: rotate(0deg) translateX(min(34cqmin, 150px)) rotate(0deg) scale(0.9);
+  }
+  to {
+    transform: rotate(360deg) translateX(min(34cqmin, 150px)) rotate(-360deg) scale(0.9);
+  }
+}
+
+[data-reduced-motion="true"] .avatar__satellite {
+  animation-duration: 60s;
 }
 
 .avatar.is-dimmed .avatar__figure {

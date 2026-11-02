@@ -277,9 +277,35 @@ button {
   white-space: nowrap;
 }
 
-.rarity-badge.tier-9 {
+.rarity-badge.rarity-infinity {
   background: linear-gradient(90deg, rgba(255, 80, 200, 0.25), rgba(80, 200, 255, 0.25), rgba(255, 230, 80, 0.25));
   color: #fff;
+}
+
+.rarity-badge.rarity-corrupted {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  text-shadow: 1px 0 #ff2e88, -1px 0 #1affd5;
+}
+
+.rarity-badge.rarity-dream {
+  background: linear-gradient(90deg, rgba(255, 184, 240, 0.22), rgba(155, 184, 255, 0.22));
+}
+
+.rarity-badge.rarity-primordial {
+  background: linear-gradient(90deg, rgba(255, 157, 61, 0.25), rgba(255, 226, 168, 0.18));
+}
+
+.rarity-badge.rarity-void {
+  background: #05040f;
+  border-color: rgba(140, 123, 255, 0.7);
+  box-shadow: 0 0 10px rgba(140, 123, 255, 0.45);
+}
+
+.rarity-badge.rarity-beyond {
+  color: #05050a;
+  background: #f4f4f4;
+  border-color: #fff;
+  letter-spacing: 0.3em;
 }
 
 /* ───────── Barres de progression ───────── */

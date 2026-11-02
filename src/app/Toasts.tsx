@@ -2,7 +2,7 @@ import { Icon } from "../components/Icon";
 import { useGame } from "../game/GameContext";
 import "./Toasts.css";
 
-const ICON = { achievement: "achievements", reward: "flask", error: "close", info: "star" } as const;
+const ICON = { achievement: "achievements", reward: "flask", error: "close", info: "star", level: "progression" } as const;
 
 export function Toasts() {
   const { toasts, dismissToast } = useGame();

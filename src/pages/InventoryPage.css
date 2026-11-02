@@ -155,3 +155,15 @@
     flex: 1 1 100%;
   }
 }
+
+.inv-card__special {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #070818;
+  background: linear-gradient(90deg, #ffd36b, #ff7ad9);
+}

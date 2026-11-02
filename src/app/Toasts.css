@@ -47,6 +47,11 @@
   color: var(--success);
 }
 
+.toast--level .toast__icon {
+  background: rgba(62, 224, 255, 0.16);
+  color: var(--cyan);
+}
+
 .toast--error {
   border-color: rgba(255, 92, 122, 0.4);
 }

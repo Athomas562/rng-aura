@@ -17,7 +17,8 @@ export type ParticleKind =
   | "shard"
   | "feather"
   | "star"
-  | "glyph";
+  | "glyph"
+  | "bit";
 
 export type Motion = "rise" | "fall" | "orbit" | "drift" | "spiral-in" | "spiral-out";
 
@@ -37,7 +38,9 @@ export type LayerSpec =
   | { type: "rays"; count: number; speed: number }
   | { type: "starfield"; count: number }
   | { type: "void"; radius: number }
-  | { type: "glitch"; rate: number };
+  | { type: "glitch"; rate: number }
+  /** Ondulations concentriques (rêve, eau). */
+  | { type: "ripple"; count: number; speed: number };
 
 export type SigilId =
   | "dot"
@@ -71,7 +74,51 @@ export type SigilId =
   | "paradox"
   | "void"
   | "infinity"
-  | "ouroboros";
+  | "ouroboros"
+  | "smoke"
+  | "whisper"
+  | "firefly"
+  | "dune"
+  | "tide"
+  | "thorn"
+  | "aurora"
+  | "moon"
+  | "venom"
+  | "valkyrie"
+  | "tentacle"
+  | "mask"
+  | "seed"
+  | "sprout"
+  | "tree"
+  | "hydra"
+  | "curse"
+  | "crescent"
+  | "error"
+  | "pixel"
+  | "virus"
+  | "lotus"
+  | "comet"
+  | "galaxy"
+  | "genesis"
+  | "chaos"
+  | "breath"
+  | "ether"
+  | "dream"
+  | "lucid"
+  | "nightmare"
+  | "eternity"
+  | "blackhole"
+  | "horizon"
+  | "unknown"
+  | "omega"
+  | "pumpkin"
+  | "snowflake"
+  | "bloom"
+  | "midnight"
+  | "geyser"
+  | "stormember"
+  | "twilight"
+  | "darknova";
 
 export interface AuraVisual {
   primary: string;

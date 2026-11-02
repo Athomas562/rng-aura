@@ -108,7 +108,7 @@ class SoundEngine {
     this.tone(80, t, d, "sawtooth", 0.05, 320);
   }
 
-  /** Son de découverte, de plus en plus riche selon le palier (0 → 9). */
+  /** Son de découverte, de plus en plus riche selon le rang de rareté (0 → 14). */
   reveal(tier: number) {
     const ctx = this.ready();
     if (!ctx) return;
@@ -133,6 +133,49 @@ class SoundEngine {
       for (const detune of [0.995, 1, 1.006]) this.tone(base * detune, t + 0.4, 2.4, "sawtooth", 0.05);
       this.tone(55, t + 0.2, 2.5, "sine", 0.3, 30);
     }
+    // Void et Beyond : grondement grave et accord descendant, comme aspiré.
+    if (tier >= 13) {
+      this.tone(36, t, 3.5, "sine", 0.35, 22);
+      [3, 2.5, 2, 1.5].forEach((m, i) => this.tone(base * m, t + 1 + i * 0.25, 1.4, "sine", 0.05, base * m * 0.5));
+    }
+  }
+
+  /** Sons propres aux raretés « branche » (joués en plus de reveal). */
+  rarityAccent(rarity: string) {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    if (rarity === "corrupted") {
+      for (let i = 0; i < 8; i++) this.tone(200 + Math.random() * 1800, t + i * 0.06, 0.05, "square", 0.05);
+    } else if (rarity === "primordial") {
+      this.tone(65, t, 2.5, "sine", 0.3, 130);
+      this.noise(t, 2, 0.1, 300, 2500);
+    } else if (rarity === "dream") {
+      [1, 1.25, 1.5, 1.875].forEach((m, i) => this.tone(660 * m, t + i * 0.18, 1.6, "sine", 0.05, 660 * m * 0.98));
+    }
+  }
+
+  levelUp() {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    [392, 523, 659, 784, 1047].forEach((f, i) => this.tone(f, t + i * 0.07, 0.3, "triangle", 0.09));
+  }
+
+  fusion() {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.noise(t, 0.9, 0.16, 400, 5000);
+    this.tone(180, t, 0.9, "sawtooth", 0.06, 720);
+  }
+
+  prestige() {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    this.tone(60, t, 2.4, "sine", 0.3, 240);
+    [523, 659, 784, 1047, 1319].forEach((f, i) => this.tone(f, t + 0.6 + i * 0.12, 1.2, "triangle", 0.08));
   }
 
   potion() {

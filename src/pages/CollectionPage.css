@@ -112,3 +112,29 @@
     font-size: 10px;
   }
 }
+
+.coll-tile.is-past {
+  opacity: 0.75;
+}
+
+.coll-tile__special {
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffd36b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tier-section.rarity-corrupted h2 {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  text-shadow: 2px 0 #ff2e88, -2px 0 #1affd5;
+}
+
+.tier-section.rarity-dream h2 {
+  text-shadow: 0 0 14px var(--rc);
+  filter: blur(0.3px);
+}
+
+.tier-section.rarity-beyond h2 {
+  letter-spacing: 0.3em;
+}

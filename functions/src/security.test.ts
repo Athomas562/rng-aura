@@ -14,8 +14,12 @@ import {
   createPlayerState,
   getRarity,
   normalizePlayerState,
+  distributionFor,
+  emptyTalents,
   previewNextLuck,
   probabilityOf,
+  rollableAuras,
+  TALENTS,
   type LeaderboardEntry,
   type PlayerState,
 } from "../../shared/index";
@@ -103,7 +107,7 @@ const rejected = (p: Promise<unknown>) => p.then(() => null, (e: unknown) => e a
 /** Valeur de `u` qui tombe au milieu de la tranche d'une aura pour une chance donnée. */
 function uFor(auraId: string, luck: number): number {
   let acc = 0;
-  for (const { aura, p } of computeDistribution(luck)) {
+  for (const { aura, p } of computeDistribution(luck, { now: clock })) {
     if (aura.id === auraId) {
       if (p === 0) throw new Error(`${auraId} impossible avec une chance de ${luck}`);
       return acc + p / 2;
@@ -129,44 +133,53 @@ beforeEach(() => {
 
 // ─────────────────────────────────────────────────────────────
 
-describe("probabilités des 32 auras", () => {
-  it("le catalogue contient exactement 32 auras, toutes obtenables à chance ×1", () => {
-    expect(AURAS).toHaveLength(32);
-    const dist = computeDistribution(1);
-    for (const a of AURAS) expect(probabilityOf(a.id, 1), a.id).toBeGreaterThan(0);
+describe("probabilités du catalogue étendu", () => {
+  it("toutes les auras tirables sont obtenables à chance ×1, fusions et saisonnières hors saison exclues", () => {
+    const rollable = rollableAuras(T0);
+    const dist = computeDistribution(1, { now: T0 });
+    for (const a of rollable) expect(probabilityOf(a.id, 1, { now: T0 }), a.id).toBeGreaterThan(0);
+    for (const a of AURAS.filter((x) => !rollable.includes(x))) expect(probabilityOf(a.id, 1, { now: T0 }), a.id).toBe(0);
+    expect(AURAS.filter((a) => a.special?.kind === "fusion").every((a) => !rollable.includes(a))).toBe(true);
     expect(dist.reduce((s, e) => s + e.p, 0)).toBeCloseTo(1, 12);
   });
 
-  it("chaque aura rare vaut exactement 1/N à chance ×1", () => {
-    for (const a of AURAS.filter((x) => !x.fallback)) expect(probabilityOf(a.id, 1), a.id).toBeCloseTo(1 / a.odds, 15);
+  it("chaque aura rare tirable vaut exactement 1/N à chance ×1", () => {
+    for (const a of rollableAuras(T0).filter((x) => !x.fallback)) expect(probabilityOf(a.id, 1, { now: T0 }), a.id).toBeCloseTo(1 / a.odds, 15);
   });
 
-  it("la chance maximale atteignable est ×25,2 et Ouroboros demande ~10 M de rolls", () => {
-    const s = createPlayerState("x", T0);
-    for (const id of POTION_IDS) s.potions.active[id] = T0 + 60_000;
-    // potions (1 + 1 + 4) + série plafonnée (+0,3), × sablier 2, × roll béni 2
-    const max = computeLuck(s, T0, 10, 10_000).total;
-    expect(max).toBeCloseTo(25.2, 10);
-    const expectedRolls = 1 / probabilityOf("ouroboros", max);
-    expect(expectedRolls).toBeGreaterThan(9.8e6);
-    expect(expectedRolls).toBeLessThan(10e6);
-    // avec l'élixir de célérité (450 ms par roll), en continu : ~52 jours
-    const days = (expectedRolls * 0.45) / 86_400;
-    expect(days).toBeGreaterThan(50);
+  it("la chance maximale atteignable est ×41 et Oméga demande encore plus de 16 M de rolls", () => {
+    const HALLOWEEN = Date.UTC(2026, 9, 31);
+    const s = createPlayerState("x", HALLOWEEN);
+    for (const id of POTION_IDS) s.potions.active[id] = HALLOWEEN + 60_000;
+    s.potions.focusTarget = "beyond";
+    s.prestige.level = 10;
+    s.talents = emptyTalents();
+    for (const t of TALENTS) s.talents[t.id] = t.maxRank;
+    s.curse = { boonUntil: HALLOWEEN + 60_000, baneUntil: HALLOWEEN + 120_000, luck: 3, mul: 0.5 };
+    // (1 + potions 5 + série 0,5 + prestige 0,5 + Fortune 0,15 + événement 0,1 + malédiction 3) × sablier 2 × béni 2
+    const luck = computeLuck(s, HALLOWEEN, 7, 10_000);
+    expect(luck.total).toBeCloseTo(41, 10);
+    expect(luck.focus).toEqual({ rarity: "beyond", mul: 3 });
+    const p = distributionFor(luck, HALLOWEEN).find((e) => e.aura.id === "omega")!.p;
+    expect(1 / p).toBeGreaterThan(16e6);
+    // recharge minimale : 900 ms × 0,8 (talent) × 0,5 (célérité) = 360 ms → plus de 2 mois en continu
+    const days = ((1 / p) * 0.36) / 86_400;
+    expect(days).toBeGreaterThan(60);
   });
 
-  it("un joueur peut obtenir les 32 auras via le vrai chemin serveur", async () => {
-    for (const a of AURAS) {
+  it("un joueur peut obtenir toutes les auras tirables via le vrai chemin serveur", async () => {
+    const rollable = rollableAuras(T0);
+    for (const a of rollable) {
       const res = await rollExactly(a.id);
       expect(res.results![0].auraId).toBe(a.id);
       expect(res.results![0].isNew).toBe(true);
     }
     const s = store.stored(player.uid);
-    expect(Object.keys(s.inventory)).toHaveLength(32);
-    expect(s.achievements.collect_all).toBeDefined();
+    expect(Object.keys(s.inventory)).toHaveLength(rollable.length);
     expect(s.achievements.beyond).toBeDefined();
-    expect(s.stats.bestAuraId).toBe("ouroboros");
-    expect(store.leaderboard.get(player.uid)).toMatchObject({ collection: 32, bestOdds: 250_000_000, rolls: 32 });
+    expect(s.achievements.first_void).toBeDefined();
+    expect(s.stats.bestAuraId).toBe("omega");
+    expect(store.leaderboard.get(player.uid)).toMatchObject({ collection: rollable.length, bestOdds: 2_000_000_000, rolls: rollable.length });
   });
 });
 
@@ -315,12 +328,12 @@ describe("récompenses réclamées plusieurs fois", () => {
       await call({ action: "roll", count: 1 });
     }
     const s = store.stored(player.uid);
-    // 2 de départ + 1 (Premier roll) + 1 (palier 100) + 2 (Déjà-vu : 100× la même commune)
-    expect(s.achievements.dupes_100).toBeDefined();
-    expect(s.potions.owned.luck).toBe(6);
+    // 2 de départ + 1 (Premier roll) + 1 (palier 100)
+    expect(s.achievements.rolls_100).toBeDefined();
+    expect(s.potions.owned.luck).toBe(4);
     clock += 1_000;
     await call({ action: "roll", count: 1 });
-    expect(store.stored(player.uid).potions.owned.luck).toBe(6);
+    expect(store.stored(player.uid).potions.owned.luck).toBe(4);
   });
 
   it("boire une potion la consomme : impossible de la réutiliser", async () => {

@@ -1,14 +1,16 @@
-import { AURAS } from "../../shared";
+import { AURAS, claimableCount, getTitle } from "../../shared";
 import { Icon } from "../components/Icon";
 import { useGame } from "../game/GameContext";
-import { PAGES, keyLabel, type KeyAction, type PageId } from "../settings/settings";
+import { NAV_ORDER, PAGE_LABELS, keyLabel, pageShortcut, type PageId } from "../settings/settings";
 import { useSettings } from "../settings/SettingsContext";
 import "./Nav.css";
 
 export function Nav({ page, onNavigate }: { page: PageId; onNavigate: (p: PageId) => void }) {
-  const { state, user } = useGame();
+  const { state, user, now, level } = useGame();
   const { settings } = useSettings();
-  const discovered = Object.keys(state.inventory).length;
+  const discovered = Object.keys(state.codex).length;
+  const claimable = claimableCount(state, now());
+  const title = state.title ? getTitle(state.title) : undefined;
 
   return (
     <nav className="nav" aria-label="Navigation principale">
@@ -19,28 +21,49 @@ export function Nav({ page, onNavigate }: { page: PageId; onNavigate: (p: PageId
         </span>
       </div>
       <ul className="nav__list">
-        {PAGES.map((p, i) => (
-          <li key={p.id}>
-            <button
-              className={`nav__item ${page === p.id ? "is-active" : ""}`}
-              onClick={() => onNavigate(p.id)}
-              aria-current={page === p.id ? "page" : undefined}
-              title={`${p.label} (${keyLabel(settings.keybinds[`nav${i + 1}` as KeyAction])})`}
-            >
-              <Icon name={p.id} size={20} />
-              <span className="nav__label">{p.label}</span>
-              {p.id === "collection" && (
-                <span className="nav__count tabular">
-                  {discovered}/{AURAS.length}
-                </span>
-              )}
-            </button>
-          </li>
-        ))}
+        {NAV_ORDER.map((id) => {
+          const key = pageShortcut(id, settings.keybinds);
+          return (
+            <li key={id}>
+              <button
+                className={`nav__item ${page === id ? "is-active" : ""}`}
+                onClick={() => onNavigate(id)}
+                aria-current={page === id ? "page" : undefined}
+                title={key ? `${PAGE_LABELS[id]} (${keyLabel(key)})` : PAGE_LABELS[id]}
+              >
+                <Icon name={id} size={20} />
+                <span className="nav__label">{PAGE_LABELS[id]}</span>
+                {id === "collection" && (
+                  <span className="nav__count tabular">
+                    {discovered}/{AURAS.length}
+                  </span>
+                )}
+                {id === "quests" && claimable > 0 && (
+                  <span className="nav__badge tabular" aria-label={`${claimable} récompense(s) à réclamer`}>
+                    {claimable}
+                  </span>
+                )}
+                {id === "progression" && <span className="nav__count tabular">niv. {level.level}</span>}
+              </button>
+            </li>
+          );
+        })}
       </ul>
       <div className="nav__user">
         <span className="nav__avatar">{user.name.slice(0, 1).toUpperCase()}</span>
-        <span className="nav__username">{state.name}</span>
+        <span className="nav__who">
+          <span className="nav__username">{state.name}</span>
+          {title && (
+            <span className="nav__title-tag" style={{ color: title.color }}>
+              {title.name}
+            </span>
+          )}
+        </span>
+        {state.prestige.level > 0 && (
+          <span className="nav__prestige tabular" title={`Prestige ${state.prestige.level}`}>
+            ✦{state.prestige.level}
+          </span>
+        )}
       </div>
     </nav>
   );

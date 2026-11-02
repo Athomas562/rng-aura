@@ -167,6 +167,18 @@
   border: 1px solid rgba(255, 201, 77, 0.4);
 }
 
+.tag--xp {
+  background: rgba(62, 224, 255, 0.14);
+  color: var(--cyan);
+  border: 1px solid rgba(62, 224, 255, 0.35);
+}
+
+.tag--muted {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  border: 1px solid var(--panel-border);
+}
+
 .stage__name {
   font-size: clamp(30px, 4.6vw, 46px);
   font-weight: 800;

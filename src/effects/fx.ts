@@ -221,6 +221,168 @@ export class FxEngine {
     });
   }
 
+  /** Création (Primordial) : des poussières dispersées s'assemblent en anneau, puis la lumière jaillit. */
+  genesis(color: string, overMs: number) {
+    const n = this.opts.reduced ? 50 : 180;
+    let t = 0;
+    const dur = overMs / 1000;
+    const parts = Array.from({ length: n }, (_, i) => ({
+      x0: Math.random(),
+      y0: Math.random(),
+      a: (i / n) * Math.PI * 2,
+      c: Math.random() < 0.3 ? "#ffffff" : color,
+    }));
+    this.add({
+      draw: (g, dt, w, h) => {
+        t += dt;
+        const p = Math.min(1, t / (dur * 0.6));
+        const e = easeOut(p);
+        const ring = Math.min(w, h) * 0.22;
+        g.globalCompositeOperation = "lighter";
+        for (const q of parts) {
+          const tx = w / 2 + Math.cos(q.a + t * 0.6) * ring;
+          const ty = h / 2 + Math.sin(q.a + t * 0.6) * ring;
+          const x = q.x0 * w + (tx - q.x0 * w) * e;
+          const y = q.y0 * h + (ty - q.y0 * h) * e;
+          const s = 6 + 6 * e;
+          g.globalAlpha = 0.3 + 0.6 * e;
+          g.drawImage(glowSprite(q.c), x - s / 2, y - s / 2, s, s);
+        }
+        // naissance de la lumière au centre
+        const light = Math.max(0, (t - dur * 0.5) / (dur * 0.5));
+        if (light > 0) {
+          const R = Math.max(w, h) * 0.7 * easeOut(light);
+          const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(1, R));
+          const a = (this.opts.noFlashes ? 0.25 : 0.55) * (1 - light);
+          grad.addColorStop(0, rgba("#ffffff", a));
+          grad.addColorStop(0.4, rgba(color, a * 0.7));
+          grad.addColorStop(1, rgba(color, 0));
+          g.globalAlpha = 1;
+          g.fillStyle = grad;
+          g.fillRect(0, 0, w, h);
+        }
+        g.globalAlpha = 1;
+        g.globalCompositeOperation = "source-over";
+        return t < dur;
+      },
+    });
+  }
+
+  /** Aspiration (Void, Beyond) : tout file vers un point noir qui grossit puis se referme. */
+  implode(color: string, overMs: number) {
+    const n = this.opts.reduced ? 60 : 220;
+    let t = 0;
+    const dur = overMs / 1000;
+    const parts = Array.from({ length: n }, () => ({ a: Math.random() * Math.PI * 2, d: 0.6 + Math.random() * 0.8, v: 0.5 + Math.random() }));
+    this.add({
+      draw: (g, dt, w, h) => {
+        t += dt;
+        const R = Math.hypot(w, h) / 2;
+        const p = Math.min(1, t / dur);
+        g.globalCompositeOperation = "lighter";
+        g.lineCap = "round";
+        for (const q of parts) {
+          const speed = q.v * (0.4 + p * 2.2);
+          q.d -= speed * dt;
+          q.a += dt * (1.5 + 2 / Math.max(0.08, q.d));
+          if (q.d < 0.03) q.d = 0.9 + Math.random() * 0.5;
+          const x1 = w / 2 + Math.cos(q.a) * q.d * R;
+          const y1 = h / 2 + Math.sin(q.a) * q.d * R;
+          const x0 = w / 2 + Math.cos(q.a - 0.15) * (q.d + 0.05) * R;
+          const y0 = h / 2 + Math.sin(q.a - 0.15) * (q.d + 0.05) * R;
+          g.strokeStyle = rgba(color, 0.6 * Math.min(1, q.d * 2));
+          g.lineWidth = 1 + (1 - q.d) * 2;
+          g.beginPath();
+          g.moveTo(x0, y0);
+          g.lineTo(x1, y1);
+          g.stroke();
+        }
+        g.globalCompositeOperation = "source-over";
+        // trou noir central qui grandit puis se referme
+        const hole = Math.sin(p * Math.PI) * Math.min(w, h) * 0.18;
+        if (hole > 1) {
+          const grad = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, hole);
+          grad.addColorStop(0, "rgba(0,0,0,1)");
+          grad.addColorStop(0.75, "rgba(0,0,0,0.95)");
+          grad.addColorStop(1, rgba(color, 0));
+          g.fillStyle = grad;
+          g.beginPath();
+          g.arc(w / 2, h / 2, hole, 0, Math.PI * 2);
+          g.fill();
+        }
+        return t < dur;
+      },
+    });
+  }
+
+  /** Corruption : blocs de couleurs et bandes décalées qui déchirent l'écran. */
+  corrupt(colors: string[], overMs: number) {
+    let t = 0;
+    const dur = overMs / 1000;
+    let blocks: { x: number; y: number; w: number; h: number; c: string; life: number }[] = [];
+    const rate = this.opts.noFlashes ? 6 : 26;
+    this.add({
+      draw: (g, dt, w, h) => {
+        t += dt;
+        if (t < dur) {
+          const spawn = Math.round(rate * dt * 10 * (this.opts.reduced ? 0.4 : 1));
+          for (let i = 0; i < spawn; i++) {
+            const bw = 10 + Math.random() * w * 0.3;
+            blocks.push({
+              x: Math.random() * w,
+              y: Math.random() * h,
+              w: bw,
+              h: 2 + Math.random() * 24,
+              c: colors[Math.floor(Math.random() * colors.length)],
+              life: 1,
+            });
+          }
+        }
+        g.globalCompositeOperation = "lighter";
+        for (const b of blocks) {
+          g.fillStyle = rgba(b.c, (this.opts.noFlashes ? 0.18 : 0.45) * b.life);
+          g.fillRect(b.x - b.w / 2, b.y, b.w, b.h);
+          b.life -= dt * 6;
+        }
+        blocks = blocks.filter((b) => b.life > 0);
+        g.globalCompositeOperation = "source-over";
+        return t < dur || blocks.length > 0;
+      },
+    });
+  }
+
+  /** Rêve : grandes bulles floues qui montent lentement. */
+  dream(colors: string[], overMs: number) {
+    const n = this.opts.reduced ? 10 : 34;
+    let t = 0;
+    const dur = overMs / 1000;
+    const bubbles = Array.from({ length: n }, () => ({
+      x: Math.random(),
+      y: 0.6 + Math.random() * 0.6,
+      r: 20 + Math.random() * 70,
+      v: 0.03 + Math.random() * 0.08,
+      p: Math.random() * 10,
+      c: colors[Math.floor(Math.random() * colors.length)],
+    }));
+    this.add({
+      draw: (g, dt, w, h) => {
+        t += dt;
+        const fade = Math.min(1, t / 0.6) * Math.min(1, Math.max(0, (dur - t) / 0.8));
+        g.globalCompositeOperation = "lighter";
+        for (const b of bubbles) {
+          b.y -= b.v * dt;
+          const x = (b.x + Math.sin(t * 0.7 + b.p) * 0.03) * w;
+          const y = b.y * h;
+          g.globalAlpha = 0.35 * fade;
+          g.drawImage(glowSprite(b.c), x - b.r, y - b.r, b.r * 2, b.r * 2);
+        }
+        g.globalAlpha = 1;
+        g.globalCompositeOperation = "source-over";
+        return t < dur;
+      },
+    });
+  }
+
   /** Particules aspirées vers le centre (présage, effondrement). */
   converge(color: string, overMs: number) {
     const n = this.opts.reduced ? 30 : 110;

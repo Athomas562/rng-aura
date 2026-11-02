@@ -152,7 +152,12 @@
 
 .reveal.tier-7.fx-shake.phase-burst .reveal__content,
 .reveal.tier-8.fx-shake.phase-burst .reveal__content,
-.reveal.tier-9.fx-shake.phase-burst .reveal__content {
+.reveal.tier-9.fx-shake.phase-burst .reveal__content,
+.reveal.tier-10.fx-shake.phase-burst .reveal__content,
+.reveal.tier-11.fx-shake.phase-burst .reveal__content,
+.reveal.tier-12.fx-shake.phase-burst .reveal__content,
+.reveal.tier-13.fx-shake.phase-burst .reveal__content,
+.reveal.tier-14.fx-shake.phase-burst .reveal__content {
   animation: big-shake 1.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
 }
 
@@ -190,6 +195,102 @@
 [data-no-flashes="true"] .reveal.fx-glitch .reveal__name::after {
   animation-duration: 4s;
   opacity: 0.6;
+}
+
+/* Corruption : décalage RVB et sauts du contenu */
+.reveal.fx-corrupt.phase-burst .reveal__content {
+  animation: corrupt-jolt 1.4s steps(1) 2;
+}
+
+.reveal.fx-corrupt .reveal__name {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  text-shadow:
+    3px 0 #ff2e88,
+    -3px 0 #1affd5,
+    0 0 30px var(--c1);
+}
+
+[data-no-flashes="true"] .reveal.fx-corrupt.phase-burst .reveal__content {
+  animation: none;
+}
+
+/* Rêve : tout émerge d'un flou qui ondule */
+.reveal.fx-dream .reveal__aura {
+  filter: url(#reveal-dream);
+}
+
+.reveal.fx-dream.phase-burst .reveal__text {
+  animation: dream-focus 2.4s ease-out both;
+}
+
+/* Aspiration : le contenu surgit du point central */
+.reveal.fx-implode.phase-burst .reveal__content {
+  animation: implode-out 1.2s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+.reveal.rarity-void .reveal__backdrop,
+.reveal.rarity-beyond .reveal__backdrop {
+  background:
+    radial-gradient(circle at 50% 45%, rgba(0, 0, 0, 1) 0 12%, color-mix(in srgb, var(--c1) 18%, transparent) 30%, transparent 60%),
+    #010103;
+}
+
+.reveal.rarity-beyond .reveal__name {
+  letter-spacing: 0.08em;
+}
+
+/* Création : un lever de lumière chaude */
+.reveal.fx-genesis.phase-burst .reveal__backdrop {
+  animation: genesis-dawn 3s ease-out both;
+}
+
+.tag--special {
+  align-self: center;
+  color: #070818;
+  background: linear-gradient(90deg, #ffd36b, #ff7ad9);
+}
+
+@keyframes corrupt-jolt {
+  0%,
+  100% {
+    transform: none;
+    filter: none;
+  }
+  8% {
+    transform: translate(-12px, 4px) skewX(-6deg);
+    filter: hue-rotate(80deg);
+  }
+  12% {
+    transform: translate(10px, -2px);
+    filter: invert(0.15);
+  }
+  40% {
+    transform: translate(0, 6px) scaleY(1.04);
+  }
+  44% {
+    transform: none;
+  }
+}
+
+@keyframes dream-focus {
+  from {
+    filter: blur(18px);
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes implode-out {
+  from {
+    transform: scale(0.05);
+    opacity: 0;
+  }
+}
+
+@keyframes genesis-dawn {
+  from {
+    filter: brightness(0);
+  }
 }
 
 @keyframes reveal-in {

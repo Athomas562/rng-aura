@@ -20,7 +20,10 @@ import {
   performRolls,
   pickFromDistribution,
   probabilityOf,
+  RARITIES,
+  oddsRange,
   rarityForOdds,
+  rollableAuras,
   secureRng,
   seededRng,
   toLeaderboardEntry,
@@ -47,12 +50,28 @@ describe("catalogue", () => {
     expect(new Set(AURAS.map((a) => a.id)).size).toBe(AURAS.length);
   });
 
-  it("range chaque aura dans le palier correspondant à ses chances", () => {
-    for (const a of AURAS) expect(rarityForOdds(a.odds).id, a.id).toBe(a.rarity);
+  it("range chaque aura dans la plage de chances de son palier", () => {
+    for (const a of AURAS) {
+      const [min, max] = oddsRange(a.rarity);
+      expect(a.odds, a.id).toBeGreaterThanOrEqual(min);
+      expect(a.odds, a.id).toBeLessThan(max);
+    }
   });
 
-  it("couvre les 10 paliers de rareté", () => {
-    expect(new Set(AURAS.map((a) => a.rarity)).size).toBe(10);
+  it("les auras des paliers principaux tombent exactement dans leur palier", () => {
+    const branches = new Set(RARITIES.filter((r) => r.branch).map((r) => r.id));
+    for (const a of AURAS.filter((x) => !branches.has(x.rarity))) expect(rarityForOdds(a.odds).id, a.id).toBe(a.rarity);
+  });
+
+  it("couvre les 15 paliers de rareté, dont les 5 nouveaux", () => {
+    expect(RARITIES).toHaveLength(15);
+    expect(new Set(AURAS.map((a) => a.rarity)).size).toBe(15);
+    for (const id of ["corrupted", "primordial", "dream", "void", "beyond"]) expect(AURAS.some((a) => a.rarity === id), id).toBe(true);
+  });
+
+  it("propose au moins 70 auras, dont une de chaque mécanique spéciale", () => {
+    expect(AURAS.length).toBeGreaterThanOrEqual(70);
+    for (const k of ["echo", "mimic", "seasonal", "fusion", "cursed", "living"]) expect(AURAS.some((a) => a.special?.kind === k), k).toBe(true);
   });
 
   it("ne marque comme fallback que des auras communes", () => {
@@ -67,8 +86,16 @@ describe("distribution", () => {
     for (const e of dist) expect(e.p).toBeGreaterThanOrEqual(0);
   });
 
-  it("donne exactement 1/odds aux auras non communes à chance 1", () => {
-    for (const a of AURAS.filter((x) => !x.fallback)) expect(probabilityOf(a.id, 1)).toBeCloseTo(1 / a.odds, 15);
+  it("donne exactement 1/odds aux auras tirables non communes à chance 1", () => {
+    for (const a of rollableAuras().filter((x) => !x.fallback)) expect(probabilityOf(a.id, 1)).toBeCloseTo(1 / a.odds, 15);
+  });
+
+  it("garde les communes majoritaires à chance 1 et encore présentes sur un roll béni", () => {
+    const commons = (luck: number) => computeDistribution(luck).filter((e) => e.aura.fallback).reduce((s, e) => s + e.p, 0);
+    expect(commons(1)).toBeGreaterThan(0.5);
+    expect(commons(2)).toBeGreaterThan(0);
+    const rare = rollableAuras().filter((a) => !a.fallback).reduce((s, a) => s + 1 / a.odds, 0);
+    expect(rare).toBeLessThan(0.5);
   });
 
   it("multiplie les chances rares par la chance", () => {
@@ -81,10 +108,10 @@ describe("distribution", () => {
   });
 
   it("élimine les communes avec une chance énorme, en servant d'abord les plus rares", () => {
-    const dist = computeDistribution(1e9);
-    expect(probabilityOf("lueur", 1e9)).toBe(0);
-    // ouroboros (1/250M) est saturé à 1, rien ne reste pour les autres
-    expect(dist[0].aura.id).toBe("ouroboros");
+    const dist = computeDistribution(2e9);
+    expect(probabilityOf("lueur", 2e9)).toBe(0);
+    // Oméga (1/2 Md) est saturé à 1, rien ne reste pour les autres
+    expect(dist[0].aura.id).toBe("omega");
     expect(dist[0].p).toBe(1);
   });
 
@@ -244,7 +271,8 @@ describe("rolls", () => {
 
   it("garde la meilleure aura selon la rareté", () => {
     const s = createPlayerState("p", T0);
-    s.inventory.phenix = { count: 1, firstAt: T0, lastAt: T0 };
+    s.inventory.phenix = { count: 1, firstAt: T0, lastAt: T0, firstRoll: 0 };
+    s.codex.phenix = { firstAt: T0, total: 1 };
     s.stats.bestAuraId = "phenix";
     const out = performRolls(s, T0, 1, () => 0.999999); // tire une commune
     expect(out.state.stats.bestAuraId).toBe("phenix");
@@ -252,8 +280,9 @@ describe("rolls", () => {
 
   it("donne une aura ultra-rare quand u tombe dans sa tranche", () => {
     const out = performRolls(createPlayerState("p", T0), T0, 1, () => 0);
-    expect(out.results[0].auraId).toBe("ouroboros");
+    expect(out.results[0].auraId).toBe("omega");
     expect(out.achievements).toContain("beyond");
+    expect(out.achievements).toContain("first_beyond");
     expect(out.achievements).toContain("first_legendary");
   });
 });
@@ -358,11 +387,13 @@ describe("normalisation", () => {
 describe("classement", () => {
   it("dérive l'entrée de l'état", () => {
     const s = createPlayerState("p", T0);
-    s.inventory.phenix = { count: 1, firstAt: T0, lastAt: T0 };
+    s.inventory.phenix = { count: 1, firstAt: T0, lastAt: T0, firstRoll: 1 };
+    s.codex.phenix = { firstAt: T0, total: 1 };
+    s.codex.mimique = { firstAt: T0, total: 1 };
     s.stats.bestAuraId = "phenix";
     s.stats.rolls = 42;
     const e = toLeaderboardEntry(s, T0);
-    expect(e).toMatchObject({ name: "p", rolls: 42, bestOdds: 1_500, collection: 1 });
+    expect(e).toMatchObject({ name: "p", rolls: 42, bestOdds: 1_500, collection: 2, level: 1, prestige: 0, special: 1 });
     expect(getRarity("legendary").tier).toBe(4);
   });
 });

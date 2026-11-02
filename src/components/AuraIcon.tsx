@@ -21,7 +21,7 @@ export function AuraIcon({ aura, size = 56, locked = false, animated = true }: P
   } as CSSProperties;
   return (
     <div
-      className={`aura-icon tier-${tier} ${locked ? "is-locked" : ""} ${animated ? "is-animated" : ""} ${
+      className={`aura-icon tier-${tier} rarity-${aura.rarity} ${locked ? "is-locked" : ""} ${animated ? "is-animated" : ""} ${
         aura.visual.hueShift && !locked ? "is-prismatic" : ""
       }`}
       style={style}

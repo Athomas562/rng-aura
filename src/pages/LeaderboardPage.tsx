@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ACHIEVEMENTS, AURAS, getAura } from "../../shared";
+import { ACHIEVEMENTS, AURAS, SPECIAL_AURAS, getAura, getTitle } from "../../shared";
 import { backend, type LeaderboardCategory, type LeaderboardRow } from "../backend";
 import { AuraIcon } from "../components/AuraIcon";
 import { Icon } from "../components/Icon";
@@ -12,6 +12,9 @@ const TABS: { id: LeaderboardCategory; label: string }[] = [
   { id: "bestOdds", label: "Aura la plus rare" },
   { id: "collection", label: "Collection" },
   { id: "achievements", label: "Succès" },
+  { id: "level", label: "Niveau" },
+  { id: "prestige", label: "Prestige" },
+  { id: "special", label: "Auras spéciales" },
 ];
 
 const LIMIT = 50;
@@ -24,6 +27,12 @@ function MainValue({ row, tab }: { row: LeaderboardRow; tab: LeaderboardCategory
       return <>{row.collection} / {AURAS.length} auras</>;
     case "achievements":
       return <>{row.achievements} / {ACHIEVEMENTS.length} succès</>;
+    case "level":
+      return <>niveau {row.level}</>;
+    case "prestige":
+      return <>prestige {row.prestige}</>;
+    case "special":
+      return <>{row.special} / {SPECIAL_AURAS.length} spéciales</>;
     case "bestOdds": {
       const aura = row.bestAuraId ? getAura(row.bestAuraId) : undefined;
       return aura ? (
@@ -96,6 +105,7 @@ export function LeaderboardPage() {
           <ol className="lb-list">
             {rows.map((row, i) => {
               const equipped = row.equipped ? getAura(row.equipped) : undefined;
+              const title = row.title ? getTitle(row.title) : undefined;
               const me = row.me;
               return (
                 <li key={row.rank} className={`lb-row ${me ? "is-me" : ""} rank-${row.rank}`}>
@@ -110,8 +120,14 @@ export function LeaderboardPage() {
                   <span className="lb-name">
                     {row.name}
                     {me && <span className="lb-me">toi</span>}
+                    {row.prestige > 0 && <span className="lb-prestige tabular">✦{row.prestige}</span>}
+                    {title && (
+                      <span className="lb-title" style={{ color: title.color }}>
+                        {title.name}
+                      </span>
+                    )}
                     <span className="lb-sub tabular">
-                      {formatNumber(row.rolls)} rolls · {row.collection} auras · {row.achievements} succès
+                      niv. {row.level} · {formatNumber(row.rolls)} rolls · {row.collection} auras · {row.achievements} succès
                     </span>
                   </span>
                   <span className="lb-value tabular">

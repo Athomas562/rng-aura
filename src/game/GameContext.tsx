@@ -3,14 +3,21 @@ import {
   POTIONS,
   getAchievement,
   getRarity,
+  levelInfo,
+  lookOf,
   msUntilNextRoll,
   requireAura,
+  type ApiRequest,
   type ApiResponse,
   type Aura,
+  type LevelInfo,
   type PlayerState,
   type PotionId,
   type PotionReward,
+  type QuestScope,
+  type RarityId,
   type RollResult,
+  type TalentId,
 } from "../../shared";
 import { sound } from "../audio/sound";
 import { BackendError, backend, type AuthUser } from "../backend";
@@ -29,7 +36,7 @@ export interface RevealState {
 
 export interface Toast {
   id: number;
-  kind: "achievement" | "reward" | "error" | "info";
+  kind: "achievement" | "reward" | "error" | "info" | "level";
   title: string;
   body?: string;
 }
@@ -47,9 +54,20 @@ interface GameValue {
   roll: () => void;
   toggleAuto: () => void;
   skipReveal: () => void;
-  drink: (id: PotionId) => Promise<void>;
-  equip: (auraId: string | null) => Promise<void>;
+  drink: (id: PotionId, target?: RarityId) => Promise<void>;
+  equip: (auraId: string | null, slot?: number) => Promise<void>;
   dismissToast: (id: number) => void;
+  /** Niveau, XP dans le niveau et XP nécessaire. */
+  level: LevelInfo;
+  /** Apparence d'une aura pour ce joueur (Écho, Vivante, Mimique). */
+  look: (aura: Aura) => Aura;
+  fuse: (auraId: string) => Promise<boolean>;
+  prestige: () => Promise<boolean>;
+  learnTalent: (id: TalentId) => Promise<void>;
+  respec: () => Promise<void>;
+  setTitle: (id: string | null) => Promise<void>;
+  setMimic: (auraId: string | null) => Promise<void>;
+  claim: (scope: QuestScope | "mission", id: string) => Promise<void>;
 }
 
 const Ctx = createContext<GameValue | null>(null);
@@ -120,6 +138,10 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
       if (res.rewards && Object.keys(res.rewards).length) {
         pushToast({ kind: "reward", title: "Potions obtenues", body: rewardText(res.rewards) });
       }
+      if (res.levelUp) {
+        pushToast({ kind: "level", title: `Niveau ${res.levelUp} !`, body: "Nouveau point de talent disponible." });
+        sound.levelUp();
+      }
     },
     [pushToast],
   );
@@ -176,12 +198,12 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
         }
 
         for (const result of res.results ?? []) {
-          const aura = requireAura(result.auraId);
+          const aura = lookOf(requireAura(result.auraId), { rolls: res.state.stats.rolls, inventory: res.state.inventory, mimicOf: res.state.mimicOf });
           const rarity = getRarity(aura.rarity);
           const k = ++revealKey.current;
 
           if (rarity.tier >= 3) {
-            const omenMs = s.reducedMotion ? 400 : 700 + (rarity.tier - 3) * 380;
+            const omenMs = s.reducedMotion ? 400 : Math.min(3600, 700 + (rarity.tier - 3) * 300);
             sound.riser(omenMs);
             setReveal({ key: k, phase: "omen", result, aura, durationMs: omenMs });
             await wait(omenMs);
@@ -191,6 +213,7 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
           if (s.reducedMotion) burstMs = Math.min(burstMs, 1400);
           if (rarity.tier <= 1 && (s.skipCommonReveal || isAuto)) burstMs = 420;
           sound.reveal(rarity.tier);
+          sound.rarityAccent(aura.rarity);
           setReveal({ key: k, phase: "burst", result, aura, durationMs: burstMs });
           setLastResult(result);
           await wait(burstMs);
@@ -224,28 +247,99 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
 
   const skipReveal = useCallback(() => skipRef.current?.(), []);
 
-  const drink = useCallback(
-    async (id: PotionId) => {
+  /** Envoie une intention au serveur ; renvoie la réponse, ou null en cas d'erreur (déjà signalée). */
+  const send = useCallback(
+    async (req: ApiRequest, onOk?: () => void): Promise<ApiResponse | null> => {
       try {
-        apply(await backend.call({ action: "potion", potionId: id }));
-        sound.potion();
+        const res = await backend.call(req);
+        apply(res);
+        onOk?.();
+        return res;
       } catch (e) {
         handleError(e);
+        return null;
       }
     },
     [apply, handleError],
   );
 
+  const drink = useCallback(
+    async (id: PotionId, target?: RarityId) => {
+      await send({ action: "potion", potionId: id, ...(target ? { target } : {}) }, () => sound.potion());
+    },
+    [send],
+  );
+
   const equip = useCallback(
-    async (auraId: string | null) => {
+    async (auraId: string | null, slot = 0) => {
+      await send({ action: "equip", auraId, ...(slot ? { slot } : {}) }, () => sound.click());
+    },
+    [send],
+  );
+
+  /** Fusion : le serveur consomme les ingrédients ; l'aura obtenue est révélée comme un roll. */
+  const fuse = useCallback(
+    async (auraId: string) => {
+      if (busy.current) return false;
+      busy.current = true;
       try {
-        apply(await backend.call({ action: "equip", auraId }));
-        sound.click();
+        const res = await backend.call({ action: "fuse", auraId });
+        const aura = lookOf(requireAura(auraId), { rolls: res.state.stats.rolls, inventory: res.state.inventory, mimicOf: res.state.mimicOf });
+        const rarity = getRarity(aura.rarity);
+        const k = ++revealKey.current;
+        const s = settingsRef.current;
+        const burstMs = s.reducedMotion ? Math.min(rarity.revealMs, 1400) : rarity.revealMs;
+        const result: RollResult = {
+          auraId,
+          luck: 1,
+          blessed: false,
+          isNew: res.fused?.isNew ?? false,
+          rollNumber: 0,
+          xp: res.fused?.xp ?? 0,
+        };
+        sound.fusion();
+        sound.reveal(rarity.tier);
+        setReveal({ key: k, phase: "burst", result, aura, durationMs: burstMs });
+        await wait(burstMs);
+        apply(res);
+        pushToast({ kind: "reward", title: `Fusion réussie : ${aura.name}`, body: `+${result.xp} XP` });
+        return true;
       } catch (e) {
         handleError(e);
+        return false;
+      } finally {
+        setReveal(null);
+        busy.current = false;
       }
     },
-    [apply, handleError],
+    [apply, handleError, pushToast],
+  );
+
+  const prestige = useCallback(async () => {
+    const res = await send({ action: "prestige" }, () => sound.prestige());
+    if (res) {
+      pushToast({
+        kind: "level",
+        title: `Prestige ${res.state.prestige.level} !`,
+        body: "Bonus de chance permanent : +5 %. Ton codex est conservé.",
+      });
+    }
+    return res !== null;
+  }, [send, pushToast]);
+
+  const learnTalent = useCallback(async (id: TalentId) => void (await send({ action: "talent", talentId: id }, () => sound.click())), [send]);
+  const respec = useCallback(async () => void (await send({ action: "respec" }, () => sound.click())), [send]);
+  const setTitle = useCallback(async (id: string | null) => void (await send({ action: "title", titleId: id }, () => sound.click())), [send]);
+  const setMimic = useCallback(async (auraId: string | null) => void (await send({ action: "mimic", auraId }, () => sound.click())), [send]);
+  const claim = useCallback(
+    async (scope: QuestScope | "mission", id: string) => void (await send({ action: "claim", scope, id }, () => sound.achievement())),
+    [send],
+  );
+
+  const level = useMemo(() => levelInfo(state.xp), [state.xp]);
+  const look = useCallback(
+    (aura: Aura) => lookOf(aura, { rolls: state.stats.rolls, inventory: state.inventory, mimicOf: state.mimicOf }),
+    [state.stats.rolls, state.inventory, state.mimicOf],
   );
 
   // Signal d'activité : compte le temps de jeu côté serveur tant que l'onglet est visible.
@@ -282,8 +376,41 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
       drink,
       equip,
       dismissToast,
+      level,
+      look,
+      fuse,
+      prestige,
+      learnTalent,
+      respec,
+      setTitle,
+      setMimic,
+      claim,
     }),
-    [user, state, now, rolling, auto, reveal, lastResult, toasts, roll, toggleAuto, skipReveal, drink, equip, dismissToast],
+    [
+      user,
+      state,
+      now,
+      rolling,
+      auto,
+      reveal,
+      lastResult,
+      toasts,
+      roll,
+      toggleAuto,
+      skipReveal,
+      drink,
+      equip,
+      dismissToast,
+      level,
+      look,
+      fuse,
+      prestige,
+      learnTalent,
+      respec,
+      setTitle,
+      setMimic,
+      claim,
+    ],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

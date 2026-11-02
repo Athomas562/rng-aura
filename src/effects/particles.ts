@@ -206,6 +206,19 @@ export function drawParticle(g: CanvasRenderingContext2D, p: Particle, kind: Par
       g.drawImage(sprite, p.x - gs / 2, p.y - gs / 2, gs, gs);
       break;
     }
+    case "bit": {
+      // Pixel corrompu : carré net qui saute de temps en temps sur une grille.
+      const grid = Math.max(2, s * 1.4);
+      const jump = Math.sin(p.phase + p.rot * 3) > 0.92 ? grid * 2 : 0;
+      const x = Math.round((p.x + jump) / grid) * grid;
+      const y = Math.round(p.y / grid) * grid;
+      g.globalAlpha = alpha * 0.5;
+      g.drawImage(glowSprite(p.color), x - s * 2, y - s * 2, s * 4, s * 4);
+      g.globalAlpha = alpha;
+      g.fillStyle = p.color;
+      g.fillRect(x - grid / 2, y - grid / 2, grid, grid);
+      break;
+    }
     default: {
       g.save();
       g.translate(p.x, p.y);

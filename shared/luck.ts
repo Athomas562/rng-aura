@@ -1,5 +1,15 @@
+import { activeEvents } from "./events";
+import { PRESTIGE_LUCK } from "./progression";
 import { POTIONS, POTION_IDS, type PotionId } from "./potions";
+import type { RarityId } from "./rarities";
 import type { PlayerState } from "./state";
+import {
+  talentBlessedReduction,
+  talentCooldownMul,
+  talentLuckBonus,
+  talentStreakCapBonus,
+  talentStreakWindowMs,
+} from "./talents";
 
 /** Temps de recharge de base entre deux rolls (ms). */
 export const BASE_ROLL_COOLDOWN_MS = 900;
@@ -14,7 +24,7 @@ export const BLESSED_MULTIPLIER = 2;
 
 /** Deux rolls séparés de moins de cette durée prolongent la série. */
 export const STREAK_WINDOW_MS = 20_000;
-/** +2 % de chance tous les 10 rolls de série, plafonné à +30 %. */
+/** +2 % de chance tous les 10 rolls de série, plafonné à +30 % (plus avec le talent Endurance). */
 export const STREAK_STEP = 10;
 export const STREAK_BONUS_PER_STEP = 0.02;
 export const STREAK_BONUS_CAP = 0.3;
@@ -29,20 +39,39 @@ export interface LuckBreakdown {
   total: number;
   parts: LuckPart[];
   blessed: boolean;
+  /** Bénédiction garantie consommée par ce roll (béni grâce à la potion). */
+  usedBlessing: boolean;
+  /** Potion de chance ciblée active : multiplicateur supplémentaire pour une rareté. */
+  focus: { rarity: RarityId; mul: number } | null;
 }
 
 export function isPotionActive(state: PlayerState, id: PotionId, now: number): boolean {
   return (state.potions.active[id] ?? 0) > now;
 }
 
-export function streakBonus(streak: number): number {
-  return Math.min(STREAK_BONUS_CAP, Math.floor(streak / STREAK_STEP) * STREAK_BONUS_PER_STEP);
+export function streakCap(state: PlayerState): number {
+  return STREAK_BONUS_CAP + talentStreakCapBonus(state.talents);
+}
+
+export function streakBonus(streak: number, cap = STREAK_BONUS_CAP): number {
+  return Math.min(cap, Math.floor(streak / STREAK_STEP) * STREAK_BONUS_PER_STEP);
+}
+
+export function streakWindowMs(state: PlayerState): number {
+  return STREAK_WINDOW_MS + talentStreakWindowMs(state.talents);
 }
 
 /** Série qu'aurait le prochain roll s'il était lancé à `now`. */
 export function nextStreak(state: PlayerState, now: number): number {
   const { lastRollAt, streak } = state.stats;
-  return lastRollAt > 0 && now - lastRollAt <= STREAK_WINDOW_MS ? streak + 1 : 1;
+  if (lastRollAt <= 0) return 1;
+  const kept = now - lastRollAt <= streakWindowMs(state) || isPotionActive(state, "streakGuard", now);
+  return kept ? streak + 1 : 1;
+}
+
+/** Période du roll béni (10, ou moins avec le talent Bénédiction). */
+export function blessedEvery(state: PlayerState): number {
+  return BLESSED_EVERY - talentBlessedReduction(state.talents);
 }
 
 /**
@@ -56,32 +85,45 @@ export function computeLuck(state: PlayerState, now: number, rollNumber: number,
   const parts: LuckPart[] = [];
   let additive = 1;
   let multiplier = 1;
+  const add = (label: string, value: number) => {
+    if (value <= 0) return;
+    additive += value;
+    parts.push({ label, kind: "add", value });
+  };
+  const mul = (label: string, value: number) => {
+    multiplier *= value;
+    parts.push({ label, kind: "mul", value });
+  };
 
   for (const id of POTION_IDS) {
     if (!isPotionActive(state, id, now)) continue;
     const { effect, name } = POTIONS[id];
-    if (effect.kind === "luckAdd") {
-      additive += effect.value;
-      parts.push({ label: name, kind: "add", value: effect.value });
-    } else if (effect.kind === "luckMul") {
-      multiplier *= effect.value;
-      parts.push({ label: name, kind: "mul", value: effect.value });
-    }
+    if (effect.kind === "luckAdd") add(name, effect.value);
+    else if (effect.kind === "luckMul") mul(name, effect.value);
   }
 
-  const sb = streakBonus(streak);
-  if (sb > 0) {
-    additive += sb;
-    parts.push({ label: `Série ×${streak}`, kind: "add", value: sb });
-  }
+  add(`Série ×${streak}`, streakBonus(streak, streakCap(state)));
+  add(`Prestige ${state.prestige.level}`, state.prestige.level * PRESTIGE_LUCK);
+  add("Talent Fortune", talentLuckBonus(state.talents));
+  for (const e of activeEvents(now)) add(`Événement : ${e.name}`, e.luckBonus);
 
-  const blessed = rollNumber > 0 && rollNumber % BLESSED_EVERY === 0;
-  if (blessed) {
-    multiplier *= BLESSED_MULTIPLIER;
-    parts.push({ label: "Roll béni", kind: "mul", value: BLESSED_MULTIPLIER });
-  }
+  const curse = state.curse;
+  if (curse && now < curse.boonUntil) add("Marque maudite (bonus)", curse.luck);
+  else if (curse && now < curse.baneUntil) mul("Marque maudite (malus)", curse.mul);
 
-  return { total: additive * multiplier, parts, blessed };
+  const natural = rollNumber > 0 && rollNumber % blessedEvery(state) === 0;
+  const usedBlessing = !natural && state.potions.pendingBlessings > 0;
+  const blessed = natural || usedBlessing;
+  if (blessed) mul(usedBlessing ? "Bénédiction garantie" : "Roll béni", BLESSED_MULTIPLIER);
+
+  const focusTarget = state.potions.focusTarget;
+  const focusEffect = POTIONS.focus.effect;
+  const focus =
+    focusTarget && isPotionActive(state, "focus", now) && focusEffect.kind === "focus"
+      ? { rarity: focusTarget, mul: focusEffect.value }
+      : null;
+
+  return { total: additive * multiplier, parts, blessed, usedBlessing, focus };
 }
 
 /** Chance du prochain roll si on le lançait maintenant. */
@@ -90,7 +132,7 @@ export function previewNextLuck(state: PlayerState, now: number): LuckBreakdown 
 }
 
 export function getRollCooldownMs(state: PlayerState, now: number): number {
-  let cd = BASE_ROLL_COOLDOWN_MS;
+  let cd = BASE_ROLL_COOLDOWN_MS * talentCooldownMul(state.talents);
   for (const id of POTION_IDS) {
     const { effect } = POTIONS[id];
     if (effect.kind === "cooldownMul" && isPotionActive(state, id, now)) cd *= effect.value;

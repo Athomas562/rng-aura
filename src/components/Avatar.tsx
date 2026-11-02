@@ -1,6 +1,7 @@
 import { useId, type CSSProperties } from "react";
-import { getRarity, type Aura } from "../../shared";
+import { getRarity, tierOf, type Aura } from "../../shared";
 import { AuraCanvas } from "../effects/AuraCanvas";
+import { AuraIcon } from "./AuraIcon";
 import { Sigil } from "./Sigil";
 import "./Avatar.css";
 
@@ -8,7 +9,12 @@ interface Props {
   aura: Aura | null;
   /** Atténue le personnage (pendant le tirage). */
   dimmed?: boolean;
+  /** Auras des emplacements supplémentaires, en orbite autour du personnage. */
+  extras?: Aura[];
 }
+
+const HALO_TIER = tierOf("divine");
+const CROWN_TIER = tierOf("legendary");
 
 const NEUTRAL = { primary: "#8a93c9", secondary: "#2a2f5a" };
 
@@ -17,14 +23,14 @@ const NEUTRAL = { primary: "#8a93c9", secondary: "#2a2f5a" };
  * derrière lui, les particules et éclairs devant. L'aura recolore aussi
  * le personnage (liseré, yeux, emblème) et ajoute couronne/halo aux paliers élevés.
  */
-export function Avatar({ aura, dimmed = false }: Props) {
+export function Avatar({ aura, dimmed = false, extras = [] }: Props) {
   const colors = aura?.visual ?? NEUTRAL;
   const tier = aura ? getRarity(aura.rarity).tier : -1;
   const id = useId().replace(/:/g, "");
   const style = { "--c1": colors.primary, "--c2": colors.secondary } as CSSProperties;
 
   return (
-    <div className={`avatar tier-${tier} ${dimmed ? "is-dimmed" : ""}`} style={style}>
+    <div className={`avatar tier-${tier} glow-${tier >= tierOf("corrupted") ? 2 : tier >= CROWN_TIER ? 1 : 0} ${dimmed ? "is-dimmed" : ""}`} style={style}>
       {aura && <AuraCanvas key={`b-${aura.id}`} aura={aura} part="back" radius={0.3} centerY={0.5} />}
       <svg className="avatar__figure keep-motion" viewBox="0 0 200 260" aria-hidden="true">
         <defs>
@@ -45,7 +51,7 @@ export function Avatar({ aura, dimmed = false }: Props) {
 
         <ellipse cx="100" cy="246" rx="52" ry="8" fill={colors.primary} opacity="0.18" />
 
-        {tier >= 6 && (
+        {tier >= HALO_TIER && (
           <ellipse className="avatar__halo" cx="100" cy="30" rx="30" ry="7" fill="none" stroke={colors.primary} strokeWidth="3" />
         )}
 
@@ -84,7 +90,7 @@ export function Avatar({ aura, dimmed = false }: Props) {
               </svg>
             </g>
           )}
-          {tier >= 4 && (
+          {tier >= CROWN_TIER && (
             <path
               className="avatar__crown"
               d="M80 30l6-14l8 10l6-14l6 14l8-10l6 14"
@@ -97,6 +103,15 @@ export function Avatar({ aura, dimmed = false }: Props) {
         </g>
       </svg>
       {aura && <AuraCanvas key={`f-${aura.id}`} aura={aura} part="front" radius={0.3} centerY={0.5} />}
+      {extras.length > 0 && !dimmed && (
+        <div className="avatar__orbit" aria-hidden="true">
+          {extras.map((x, i) => (
+            <span key={x.id} className="avatar__satellite" style={{ "--i": i, "--n": extras.length } as CSSProperties}>
+              <AuraIcon aura={x} size={30} animated={false} />
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

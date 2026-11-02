@@ -53,9 +53,9 @@ describe("store REST : opérations de base", () => {
   });
 
   it("écrit le classement sous v2/leaderboard", async () => {
-    const entry = { name: "Alice", rolls: 1, bestOdds: 7, bestAuraId: "brise", collection: 1, achievements: 1, equipped: null, updatedAt: T0 };
+    const entry = { name: "Alice", rolls: 1, bestOdds: 7, bestAuraId: "brise", collection: 1, achievements: 1, equipped: null, level: 1, prestige: 0, special: 0, title: null, updatedAt: T0 };
     await store().writeLeaderboard("uid-alice", entry);
-    expect(db.get("v2/leaderboard/uid-alice")).toEqual({ ...entry, equipped: undefined }); // null supprimé en JSON RTDB
+    expect(db.get("v2/leaderboard/uid-alice")).toEqual({ ...entry, equipped: undefined, title: undefined }); // null supprimé en JSON RTDB
   });
 
   it("réserve un pseudo libre, le garde pour son propriétaire, le refuse aux autres", async () => {

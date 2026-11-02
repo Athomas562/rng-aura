@@ -25,7 +25,7 @@
 
 .stats-cols {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   gap: 18px;
 }
 
@@ -140,4 +140,40 @@
   .bars li {
     grid-template-columns: 84px 1fr 48px;
   }
+}
+
+.stats-section--wide {
+  grid-column: 1 / -1;
+}
+
+.stats-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.stats-section__head .panel-title {
+  margin: 0;
+}
+
+.stats-section__head .select--sm {
+  width: auto;
+  margin: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.aura-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.odds-table tr.is-focus td {
+  background: rgba(255, 122, 217, 0.08);
 }

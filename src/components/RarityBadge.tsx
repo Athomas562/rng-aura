@@ -4,7 +4,7 @@ import { getRarity, type RarityId } from "../../shared";
 export function RarityBadge({ rarity }: { rarity: RarityId }) {
   const r = getRarity(rarity);
   return (
-    <span className={`rarity-badge tier-${r.tier}`} style={{ "--rc": r.color } as CSSProperties}>
+    <span className={`rarity-badge tier-${r.tier} rarity-${r.id}`} style={{ "--rc": r.color } as CSSProperties}>
       {r.label}
     </span>
   );

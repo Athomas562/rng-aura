@@ -20,6 +20,18 @@ const ICONS = {
   lock: "M6 11h12v10H6zM8 11V7a4 4 0 0 1 8 0v4",
   check: "M5 12l5 5L20 7",
   volume: "M4 9h4l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11",
+  progression: "M12 3l3 5h-2v5h-2V8H9zM5 21v-4M9 21v-6M15 21v-6M19 21v-9M3 21h18",
+  quests: "M7 3h10a2 2 0 0 1 2 2v16l-3-2l-2 2l-2-2l-2 2l-2-2l-3 2V5a2 2 0 0 1 2-2zM9 8h6M9 12h6M9 16h3",
+  gift: "M4 10h16v4H4zM5 14h14v7H5zM12 10v11M12 10c-2-5-7-5-6-1c.5 1.5 3 1 6 1c3 0 5.5.5 6-1c1-4-4-4-6 1",
+  fusion: "M7 4a4 4 0 1 0 0 8a4 4 0 1 0 0-8M17 4a4 4 0 1 0 0 8a4 4 0 1 0 0-8M12 14v7M9 18l3 3l3-3M9 9.5c1 1 2 1.5 3 1.5s2-.5 3-1.5",
+  crown: "M3 18h18M4 18L3 7l5 4l4-7l4 7l5-4l-1 11",
+  tree: "M12 22v-7M8 15h8M12 3l6 7h-3l4 5H5l4-5H6z",
+  skull: "M12 3a8 8 0 0 0-8 8c0 3 1.5 5 4 6v3h8v-3c2.5-1 4-3 4-6a8 8 0 0 0-8-8M9 11h.01M15 11h.01M10 20v-2M14 20v-2",
+  calendar: "M4 6h16v15H4zM4 10h16M9 3v5M15 3v5",
+  target: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 7a5 5 0 1 0 0 10a5 5 0 1 0 0-10M12 11a1 1 0 1 0 0 2a1 1 0 1 0 0-2",
+  shield: "M12 3l8 3v6c0 5-3.5 8-8 9c-4.5-1-8-4-8-9V6z",
+  drop: "M12 3c3 5 6 8 6 11a6 6 0 0 1-12 0c0-3 3-6 6-11",
+  sparkle: "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z",
 } as const;
 
 export type IconName = keyof typeof ICONS;

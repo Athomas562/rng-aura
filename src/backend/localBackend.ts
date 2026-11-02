@@ -121,7 +121,7 @@ export function createLocalBackend(): GameBackend {
     async leaderboard(category, limit) {
       const viewer = db.session?.uid;
       return Object.entries(read().leaderboard)
-        .sort(([, a], [, b]) => b[category] - a[category] || a.updatedAt - b.updatedAt)
+        .sort(([, a], [, b]) => (b[category] ?? 0) - (a[category] ?? 0) || a.updatedAt - b.updatedAt)
         .slice(0, limit)
         .map(([uid, e], i) => ({
           rank: i + 1,
@@ -133,6 +133,10 @@ export function createLocalBackend(): GameBackend {
           collection: e.collection,
           achievements: e.achievements,
           equipped: e.equipped,
+          level: e.level ?? 1,
+          prestige: e.prestige ?? 0,
+          special: e.special ?? 0,
+          title: e.title ?? null,
         }));
     },
 

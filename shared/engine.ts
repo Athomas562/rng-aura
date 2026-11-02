@@ -1,5 +1,5 @@
 import { ACHIEVEMENTS, isAchievementMet } from "./achievements";
-import { requireAura, getAura } from "./auras";
+import { getAura, requireAura, type Aura } from "./auras";
 import {
   advanceRollClock,
   computeLuck,
@@ -7,12 +7,38 @@ import {
   isPotionActive,
   msUntilNextRoll,
   nextStreak,
+  type LuckBreakdown,
 } from "./luck";
-import { POTIONS, POTION_MAX_STACK_MS, type PotionId } from "./potions";
-import { computeDistribution, pickFromDistribution } from "./probability";
-import { getRarity } from "./rarities";
+import { FOCUS_TARGETS, MAX_PENDING_BLESSINGS, POTIONS, POTION_MAX_STACK_MS, type PotionId } from "./potions";
+import { computeDistribution, pickFromDistribution, type DistributionEntry } from "./probability";
+import {
+  DISCOVERY_XP_MUL,
+  PRESTIGE_MAX,
+  PRESTIGE_REWARD,
+  PRESTIGE_ROLLS,
+  canPrestige,
+  getTitle,
+  levelOf,
+  runRolls,
+  slotsFor,
+  talentPointsFor,
+  xpForRarity,
+} from "./progression";
+import {
+  MISSIONS,
+  TIER_COUNTERS,
+  emptyPeriod,
+  getMission,
+  periodKey,
+  questProgress,
+  questsFor,
+  type QuestCounter,
+  type QuestScope,
+} from "./quests";
+import { getRarity, isRarityId, tierOf, type RarityId } from "./rarities";
 import type { Rng } from "./random";
-import { RECENT_LIMIT, discoveredCount, type PlayerState } from "./state";
+import { PRESTIGE_HISTORY_LIMIT, RECENT_LIMIT, discoveredCount, type PlayerState } from "./state";
+import { emptyTalents, getTalent, spentTalentPoints, talentPotionDurationMul, talentXpMul, type TalentId } from "./talents";
 
 export type GameErrorCode = "cooldown" | "invalid" | "not-owned" | "no-potion";
 
@@ -33,16 +59,22 @@ export interface RollResult {
   auraId: string;
   luck: number;
   blessed: boolean;
+  /** Première découverte (codex) : jamais redonnée après un prestige. */
   isNew: boolean;
   rollNumber: number;
+  xp: number;
+  /** Rareté ciblée par une potion de chance ciblée active pendant ce roll. */
+  focus?: RarityId;
 }
 
 export interface ActionOutcome {
   state: PlayerState;
   /** Succès débloqués par cette action. */
   achievements: string[];
-  /** Potions gagnées par cette action (paliers, découvertes, succès). */
+  /** Potions gagnées par cette action (paliers, découvertes, succès, quêtes). */
   rewards: PotionReward;
+  /** Nouveau niveau atteint pendant l'action. */
+  levelUp?: number;
 }
 
 export interface RollOutcome extends ActionOutcome {
@@ -55,13 +87,15 @@ export const ROLL_MILESTONE_REWARDS: { every: number; potion: PotionId }[] = [
   { every: 250, potion: "speed" },
   { every: 500, potion: "superLuck" },
   { every: 1_000, potion: "hourglass" },
+  { every: 1_500, potion: "focus" },
+  { every: 2_000, potion: "blessing" },
 ];
 
-/** Potion offerte à la première découverte d'une aura de ce palier ou plus. */
+/** Potion offerte à la première découverte d'une aura de ce rang ou plus. */
 function discoveryReward(tier: number): PotionId | null {
-  if (tier >= 5) return "hourglass";
-  if (tier >= 4) return "superLuck";
-  if (tier >= 3) return "luck";
+  if (tier >= tierOf("mythical")) return "hourglass";
+  if (tier >= tierOf("legendary")) return "superLuck";
+  if (tier >= tierOf("epic")) return "luck";
   return null;
 }
 
@@ -72,8 +106,9 @@ function addReward(into: PotionReward, add: PotionReward) {
   for (const [id, n] of Object.entries(add) as [PotionId, number][]) into[id] = (into[id] ?? 0) + n;
 }
 
-function grant(state: PlayerState, reward: PotionReward) {
+function grant(state: PlayerState, reward: PotionReward, rewards?: PotionReward) {
   for (const [id, n] of Object.entries(reward) as [PotionId, number][]) state.potions.owned[id] += n;
+  if (rewards) addReward(rewards, reward);
 }
 
 function clone(state: PlayerState): PlayerState {
@@ -87,10 +122,43 @@ function touch(state: PlayerState, now: number) {
   if (now > last) state.stats.lastActiveAt = now;
 }
 
-function pruneExpiredPotions(state: PlayerState, now: number) {
+function pruneExpired(state: PlayerState, now: number) {
   for (const [id, until] of Object.entries(state.potions.active) as [PotionId, number][]) {
     if (until <= now) delete state.potions.active[id];
   }
+  if (!state.potions.active.focus) state.potions.focusTarget = null;
+  if (state.curse && state.curse.baneUntil <= now) state.curse = null;
+}
+
+/** Remet à zéro la progression des quêtes quand la journée ou la semaine change. */
+export function refreshQuests(state: PlayerState, now: number) {
+  for (const scope of ["daily", "weekly"] as const) {
+    const key = periodKey(scope, now);
+    if (state.quests[scope].key !== key) state.quests[scope] = emptyPeriod(key);
+  }
+}
+
+function bump(state: PlayerState, counter: QuestCounter, by = 1) {
+  for (const scope of ["daily", "weekly"] as const) {
+    const c = state.quests[scope].counters;
+    c[counter] = (c[counter] ?? 0) + by;
+  }
+}
+
+function bumpMax(state: PlayerState, counter: QuestCounter, value: number) {
+  for (const scope of ["daily", "weekly"] as const) {
+    const c = state.quests[scope].counters;
+    c[counter] = Math.max(c[counter] ?? 0, value);
+  }
+}
+
+/** Préparation commune à toutes les actions. */
+function begin(input: PlayerState, now: number): PlayerState {
+  const state = clone(input);
+  pruneExpired(state, now);
+  refreshQuests(state, now);
+  touch(state, now);
+  return state;
 }
 
 /** Débloque les succès dont la condition est remplie et distribue leurs récompenses. */
@@ -100,18 +168,57 @@ function unlockAchievements(state: PlayerState, now: number, rewards: PotionRewa
     if (state.achievements[a.id] || !isAchievementMet(a, state)) continue;
     state.achievements[a.id] = now;
     unlocked.push(a.id);
-    if (a.reward) {
-      grant(state, a.reward);
-      addReward(rewards, a.reward);
-    }
+    if (a.reward) grant(state, a.reward, rewards);
   }
   return unlocked;
+}
+
+/** Termine une action : succès, détection de montée de niveau. */
+function finish(state: PlayerState, before: PlayerState, now: number, rewards: PotionReward): ActionOutcome {
+  const achievements = unlockAchievements(state, now, rewards);
+  const lvBefore = levelOf(before);
+  const lvAfter = levelOf(state);
+  return { state, achievements, rewards, ...(lvAfter > lvBefore ? { levelUp: lvAfter } : {}) };
 }
 
 function isBetter(candidateId: string, currentId: string | null): boolean {
   if (!currentId) return true;
   const current = getAura(currentId);
   return !current || requireAura(candidateId).odds > current.odds;
+}
+
+/** Ajoute un exemplaire d'une aura (roll ou fusion) : inventaire, codex, XP, récompense de découverte. */
+function obtain(state: PlayerState, aura: Aura, now: number, rewards: PotionReward): { isNew: boolean; xp: number } {
+  const entry = state.inventory[aura.id];
+  if (entry) {
+    entry.count += 1;
+    entry.lastAt = now;
+  } else {
+    state.inventory[aura.id] = { count: 1, firstAt: now, lastAt: now, firstRoll: state.stats.rolls };
+  }
+
+  const codex = state.codex[aura.id];
+  const isNew = !codex;
+  if (codex) codex.total += 1;
+  else {
+    state.codex[aura.id] = { firstAt: now, total: 1 };
+    const potion = discoveryReward(getRarity(aura.rarity).tier);
+    if (potion) grant(state, { [potion]: 1 }, rewards);
+    bump(state, "discover");
+  }
+
+  const xp = Math.round(xpForRarity(aura.rarity) * (isNew ? DISCOVERY_XP_MUL : 1) * talentXpMul(state.talents));
+  state.xp += xp;
+  bump(state, "xp", xp);
+
+  if (isBetter(aura.id, state.stats.bestAuraId)) state.stats.bestAuraId = aura.id;
+  if (!state.equipped) state.equipped = aura.id;
+  return { isNew, xp };
+}
+
+/** Distribution utilisée par le serveur pour un roll (saisonnières selon `now`, potion ciblée). */
+export function distributionFor(luck: Pick<LuckBreakdown, "total" | "focus">, now: number): DistributionEntry[] {
+  return computeDistribution(luck.total, { now, focus: luck.focus });
 }
 
 /**
@@ -124,10 +231,8 @@ export function performRolls(input: PlayerState, now: number, requested: number,
     throw new GameError("cooldown", "Recharge en cours", msUntilNextRoll(input, now));
   }
 
-  const state = clone(input);
+  const state = begin(input, now);
   state.stats.rollClock = advanceRollClock(input, now, granted);
-  pruneExpiredPotions(state, now);
-  touch(state, now);
 
   const rewards: PotionReward = {};
   const results: RollResult[] = [];
@@ -136,80 +241,283 @@ export function performRolls(input: PlayerState, now: number, requested: number,
     const rollNumber = state.stats.rolls + 1;
     const streak = nextStreak(state, now);
     const luck = computeLuck(state, now, rollNumber, streak);
-    const aura = pickFromDistribution(computeDistribution(luck.total), rng());
+    if (luck.usedBlessing) state.potions.pendingBlessings -= 1;
+    const aura = pickFromDistribution(distributionFor(luck, now), rng());
 
     state.stats.rolls = rollNumber;
     state.stats.streak = streak;
     state.stats.maxStreak = Math.max(state.stats.maxStreak, streak);
     state.stats.lastRollAt = now;
-
-    const entry = state.inventory[aura.id];
-    const isNew = !entry;
-    if (entry) {
-      entry.count += 1;
-      entry.lastAt = now;
-    } else {
-      state.inventory[aura.id] = { count: 1, firstAt: now, lastAt: now };
-      const potion = discoveryReward(getRarity(aura.rarity).tier);
-      if (potion) {
-        grant(state, { [potion]: 1 });
-        addReward(rewards, { [potion]: 1 });
-      }
+    if (luck.blessed) {
+      state.stats.blessedRolls += 1;
+      bump(state, "blessed");
     }
-    if (isBetter(aura.id, state.stats.bestAuraId)) state.stats.bestAuraId = aura.id;
-    if (!state.equipped) state.equipped = aura.id;
+
+    const { isNew, xp } = obtain(state, aura, now, rewards);
+
+    bump(state, "rolls");
+    bumpMax(state, "streak", streak);
+    const tier = getRarity(aura.rarity).tier;
+    for (const t of TIER_COUNTERS) if (tier >= tierOf(t.rarity)) bump(state, t.key);
+
+    // Marque maudite : bonus immédiat, puis malus.
+    const sp = aura.special;
+    if (sp?.kind === "cursed") {
+      state.curse = { boonUntil: now + sp.boonMs, baneUntil: now + sp.boonMs + sp.baneMs, luck: sp.boonLuck, mul: sp.baneMul };
+    }
 
     for (const m of ROLL_MILESTONE_REWARDS) {
-      if (rollNumber % m.every === 0) {
-        grant(state, { [m.potion]: 1 });
-        addReward(rewards, { [m.potion]: 1 });
-      }
+      if (rollNumber % m.every === 0) grant(state, { [m.potion]: 1 }, rewards);
     }
 
     state.recent.unshift({ auraId: aura.id, at: now, luck: luck.total });
-    results.push({ auraId: aura.id, luck: luck.total, blessed: luck.blessed, isNew, rollNumber });
+    results.push({
+      auraId: aura.id,
+      luck: luck.total,
+      blessed: luck.blessed,
+      isNew,
+      rollNumber,
+      xp,
+      ...(luck.focus ? { focus: luck.focus.rarity } : {}),
+    });
   }
   state.recent = state.recent.slice(0, RECENT_LIMIT);
 
-  const achievements = unlockAchievements(state, now, rewards);
-  return { state, results, achievements, rewards };
+  return { ...finish(state, input, now, rewards), results };
 }
 
-/** Boit une potion : la durée s'ajoute à celle restante, dans la limite du plafond. */
-export function drinkPotion(input: PlayerState, potionId: PotionId, now: number): ActionOutcome {
+/**
+ * Boit une potion. Les potions à durée s'ajoutent au temps restant (plafonné) ;
+ * les objets instantanés agissent tout de suite. La potion ciblée exige une rareté.
+ */
+export function drinkPotion(input: PlayerState, potionId: PotionId, now: number, target?: unknown): ActionOutcome {
   const potion = POTIONS[potionId];
   if (!potion) throw new GameError("invalid", "Potion inconnue");
   if (input.potions.owned[potionId] <= 0) throw new GameError("no-potion", "Tu n'as plus cette potion");
 
-  const state = clone(input);
-  pruneExpiredPotions(state, now);
-  touch(state, now);
-  state.potions.owned[potionId] -= 1;
-  const start = isPotionActive(state, potionId, now) ? state.potions.active[potionId]! : now;
-  state.potions.active[potionId] = Math.min(start + potion.durationMs, now + POTION_MAX_STACK_MS);
-  state.stats.potionsUsed += 1;
+  const state = begin(input, now);
+  const effect = potion.effect;
 
-  const rewards: PotionReward = {};
-  const achievements = unlockAchievements(state, now, rewards);
-  return { state, achievements, rewards };
+  if (effect.kind === "blessNext") {
+    if (state.potions.pendingBlessings >= MAX_PENDING_BLESSINGS) {
+      throw new GameError("invalid", `Pas plus de ${MAX_PENDING_BLESSINGS} bénédictions en attente`);
+    }
+    state.potions.pendingBlessings += 1;
+  } else if (effect.kind === "cleanse") {
+    if (!state.curse) throw new GameError("invalid", "Aucune malédiction à lever");
+    state.curse = null;
+  } else {
+    let start = isPotionActive(state, potionId, now) ? state.potions.active[potionId]! : now;
+    if (effect.kind === "focus") {
+      if (!isRarityId(target) || !FOCUS_TARGETS.includes(target)) throw new GameError("invalid", "Choisis une rareté à cibler");
+      // Changer de cible repart de zéro ; la même cible prolonge la durée.
+      if (state.potions.focusTarget !== target) start = now;
+      state.potions.focusTarget = target;
+    }
+    const duration = Math.round(potion.durationMs * talentPotionDurationMul(state.talents));
+    state.potions.active[potionId] = Math.min(start + duration, now + POTION_MAX_STACK_MS);
+  }
+
+  state.potions.owned[potionId] -= 1;
+  state.stats.potionsUsed += 1;
+  bump(state, "potions");
+  return finish(state, input, now, {});
 }
 
-export function equipAura(input: PlayerState, auraId: string | null): PlayerState {
+/**
+ * Équipe une aura dans un emplacement : 0 = aura principale, 1+ = emplacements
+ * supplémentaires débloqués par le niveau. `null` vide l'emplacement.
+ */
+export function equipAura(input: PlayerState, auraId: string | null, slot = 0): PlayerState {
+  if (!Number.isInteger(slot) || slot < 0 || slot >= slotsFor(levelOf(input))) {
+    throw new GameError("invalid", "Emplacement non débloqué");
+  }
   if (auraId !== null && !input.inventory[auraId]) throw new GameError("not-owned", "Aura non possédée");
   const state = clone(input);
-  state.equipped = auraId;
+  const extra = slotsFor(levelOf(state)) - 1;
+  const slots = Array.from({ length: extra }, (_, i) => state.slots[i] ?? null);
+
+  if (slot === 0) {
+    state.equipped = auraId;
+    // Une aura n'occupe qu'un emplacement.
+    for (let i = 0; i < slots.length; i++) if (slots[i] === auraId) slots[i] = null;
+  } else {
+    if (auraId !== null && state.equipped === auraId) throw new GameError("invalid", "Cette aura est déjà ton aura principale");
+    for (let i = 0; i < slots.length; i++) if (slots[i] === auraId) slots[i] = null;
+    slots[slot - 1] = auraId;
+  }
+  state.slots = slots;
   return state;
 }
 
 /** Signal d'activité périodique : compte le temps de jeu et vérifie les succès liés. */
 export function heartbeat(input: PlayerState, now: number): ActionOutcome {
-  const state = clone(input);
-  pruneExpiredPotions(state, now);
-  touch(state, now);
-  const rewards: PotionReward = {};
-  const achievements = unlockAchievements(state, now, rewards);
-  return { state, achievements, rewards };
+  return finish(begin(input, now), input, now, {});
 }
+
+// ───────────── Fusion ─────────────
+
+export interface FusionOutcome extends ActionOutcome {
+  auraId: string;
+  isNew: boolean;
+  xp: number;
+}
+
+/** Vérifie qu'une fusion est possible (il faut garder au moins un exemplaire de chaque ingrédient). */
+export function fusionMissing(state: PlayerState, aura: Aura): { auraId: string; need: number; have: number }[] {
+  const sp = aura.special;
+  if (sp?.kind !== "fusion") return [];
+  return sp.ingredients
+    .map((i) => ({ auraId: i.auraId, need: i.count + 1, have: state.inventory[i.auraId]?.count ?? 0 }))
+    .filter((x) => x.have < x.need);
+}
+
+export function fuseAura(input: PlayerState, auraId: string, now: number): FusionOutcome {
+  const aura = getAura(auraId);
+  const sp = aura?.special;
+  if (!aura || sp?.kind !== "fusion") throw new GameError("invalid", "Cette aura ne s'obtient pas par fusion");
+  if (fusionMissing(input, aura).length > 0) {
+    throw new GameError("not-owned", "Ingrédients insuffisants (garde au moins un exemplaire de chaque)");
+  }
+
+  const state = begin(input, now);
+  for (const ing of sp.ingredients) {
+    const entry = state.inventory[ing.auraId];
+    entry.count -= ing.count;
+  }
+  const rewards: PotionReward = {};
+  const { isNew, xp } = obtain(state, aura, now, rewards);
+  state.stats.fusions += 1;
+  bump(state, "fusions");
+  return { ...finish(state, input, now, rewards), auraId, isNew, xp };
+}
+
+// ───────────── Prestige ─────────────
+
+export function doPrestige(input: PlayerState, now: number): ActionOutcome {
+  if (input.prestige.level >= PRESTIGE_MAX) throw new GameError("invalid", "Prestige maximal atteint");
+  if (!canPrestige(input)) {
+    throw new GameError("invalid", `Il faut ${PRESTIGE_ROLLS.toLocaleString("fr-FR")} rolls depuis ta dernière renaissance`);
+  }
+  const state = begin(input, now);
+
+  let best: string | null = null;
+  for (const id of Object.keys(state.inventory)) if (isBetter(id, best)) best = id;
+  const level = state.prestige.level + 1;
+  state.prestige = {
+    level,
+    runStartRolls: state.stats.rolls,
+    history: [
+      ...state.prestige.history,
+      { at: now, level, runRolls: runRolls(state), bestAuraId: best, collection: Object.keys(state.inventory).length },
+    ].slice(-PRESTIGE_HISTORY_LIMIT),
+  };
+  // La partie repart de zéro ; codex, niveau, talents, succès, potions et record de rareté sont conservés.
+  state.inventory = {};
+  state.equipped = null;
+  state.slots = [];
+  state.mimicOf = null;
+  state.stats.streak = 0;
+
+  const rewards: PotionReward = {};
+  grant(state, PRESTIGE_REWARD, rewards);
+  return finish(state, input, now, rewards);
+}
+
+// ───────────── Talents, titre, Mimique ─────────────
+
+export function learnTalent(input: PlayerState, talentId: TalentId): PlayerState {
+  const talent = getTalent(talentId);
+  const rank = input.talents[talentId] ?? 0;
+  if (rank >= talent.maxRank) throw new GameError("invalid", "Talent déjà au rang maximal");
+  if (talentPointsFor(input) - spentTalentPoints(input.talents) <= 0) throw new GameError("invalid", "Aucun point de talent disponible");
+  if (talent.requires && (input.talents[talent.requires.talent] ?? 0) < talent.requires.rank) {
+    throw new GameError("invalid", `Nécessite ${getTalent(talent.requires.talent).name} rang ${talent.requires.rank}`);
+  }
+  const state = clone(input);
+  state.talents[talentId] = rank + 1;
+  return state;
+}
+
+/** Redistribution gratuite de tous les points de talent. */
+export function resetTalents(input: PlayerState): PlayerState {
+  const state = clone(input);
+  state.talents = emptyTalents();
+  return state;
+}
+
+export function setTitle(input: PlayerState, titleId: string | null): PlayerState {
+  if (titleId !== null) {
+    const title = getTitle(titleId);
+    if (!title) throw new GameError("invalid", "Titre inconnu");
+    if (!title.unlocked(input)) throw new GameError("invalid", "Titre verrouillé");
+  }
+  const state = clone(input);
+  state.title = titleId;
+  return state;
+}
+
+export function setMimic(input: PlayerState, auraId: string | null): PlayerState {
+  if (!Object.keys(input.inventory).some((id) => getAura(id)?.special?.kind === "mimic")) {
+    throw new GameError("not-owned", "Tu ne possèdes pas Mimique");
+  }
+  if (auraId !== null) {
+    if (!input.inventory[auraId]) throw new GameError("not-owned", "Aura non possédée");
+    if (getAura(auraId)?.special?.kind === "mimic") throw new GameError("invalid", "Mimique ne peut pas se copier elle-même");
+  }
+  const state = clone(input);
+  state.mimicOf = auraId;
+  return state;
+}
+
+// ───────────── Quêtes et missions ─────────────
+
+export function claimQuest(input: PlayerState, scope: QuestScope, questId: string, now: number): ActionOutcome {
+  const state = begin(input, now);
+  const period = state.quests[scope];
+  const quest = questsFor(scope, period.key).find((q) => q.id === questId);
+  if (!quest) throw new GameError("invalid", "Cette quête n'est pas disponible");
+  if (period.claimed[questId]) throw new GameError("invalid", "Récompense déjà réclamée");
+  if (questProgress(quest, period) < quest.target) throw new GameError("invalid", "Quête pas encore terminée");
+
+  period.claimed[questId] = now;
+  state.stats.questsClaimed += 1;
+  const rewards: PotionReward = {};
+  grant(state, quest.reward, rewards);
+  return finish(state, input, now, rewards);
+}
+
+export function claimMission(input: PlayerState, missionId: string, now: number): ActionOutcome {
+  const mission = getMission(missionId);
+  if (!mission) throw new GameError("invalid", "Mission inconnue");
+  const state = begin(input, now);
+  const stage = state.quests.missions[missionId] ?? 0;
+  const next = mission.stages[stage];
+  if (!next) throw new GameError("invalid", "Mission déjà terminée");
+  if (mission.value(state) < next.target) throw new GameError("invalid", "Étape pas encore atteinte");
+
+  state.quests.missions[missionId] = stage + 1;
+  const rewards: PotionReward = {};
+  grant(state, next.reward, rewards);
+  return finish(state, input, now, rewards);
+}
+
+/** Missions dont une étape peut être réclamée (pour un badge dans l'interface). */
+export function claimableCount(state: PlayerState, now: number): number {
+  let n = 0;
+  for (const scope of ["daily", "weekly"] as const) {
+    const key = periodKey(scope, now);
+    const period = state.quests[scope].key === key ? state.quests[scope] : emptyPeriod(key);
+    for (const q of questsFor(scope, key)) if (!period.claimed[q.id] && questProgress(q, period) >= q.target) n++;
+  }
+  for (const m of MISSIONS) {
+    const next = m.stages[state.quests.missions[m.id] ?? 0];
+    if (next && m.value(state) >= next.target) n++;
+  }
+  return n;
+}
+
+// ───────────── Classement ─────────────
 
 export interface LeaderboardEntry {
   name: string;
@@ -220,6 +528,11 @@ export interface LeaderboardEntry {
   collection: number;
   achievements: number;
   equipped: string | null;
+  level: number;
+  prestige: number;
+  /** Auras à mécanique spéciale découvertes. */
+  special: number;
+  title: string | null;
   updatedAt: number;
 }
 
@@ -233,6 +546,11 @@ export function toLeaderboardEntry(state: PlayerState, now: number): Leaderboard
     collection: discoveredCount(state),
     achievements: Object.keys(state.achievements).length,
     equipped: state.equipped,
+    level: levelOf(state),
+    prestige: state.prestige.level,
+    special: Object.keys(state.codex).filter((id) => getAura(id)?.special).length,
+    title: state.title,
     updatedAt: now,
   };
 }
+

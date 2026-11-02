@@ -56,7 +56,12 @@
 .aura-icon.is-animated.tier-6 .aura-icon__orb::after,
 .aura-icon.is-animated.tier-7 .aura-icon__orb::after,
 .aura-icon.is-animated.tier-8 .aura-icon__orb::after,
-.aura-icon.is-animated.tier-9 .aura-icon__orb::after {
+.aura-icon.is-animated.tier-9 .aura-icon__orb::after,
+.aura-icon.is-animated.tier-10 .aura-icon__orb::after,
+.aura-icon.is-animated.tier-11 .aura-icon__orb::after,
+.aura-icon.is-animated.tier-12 .aura-icon__orb::after,
+.aura-icon.is-animated.tier-13 .aura-icon__orb::after,
+.aura-icon.is-animated.tier-14 .aura-icon__orb::after {
   opacity: 1;
   animation: aura-spin 4s linear infinite;
 }
@@ -68,7 +73,12 @@
 .aura-icon.tier-6 .aura-icon__glow,
 .aura-icon.tier-7 .aura-icon__glow,
 .aura-icon.tier-8 .aura-icon__glow,
-.aura-icon.tier-9 .aura-icon__glow {
+.aura-icon.tier-9 .aura-icon__glow,
+.aura-icon.tier-10 .aura-icon__glow,
+.aura-icon.tier-11 .aura-icon__glow,
+.aura-icon.tier-12 .aura-icon__glow,
+.aura-icon.tier-13 .aura-icon__glow,
+.aura-icon.tier-14 .aura-icon__glow {
   opacity: 1;
   inset: -30%;
 }
@@ -77,12 +87,22 @@
 .aura-icon.is-animated.tier-6 .aura-icon__glow,
 .aura-icon.is-animated.tier-7 .aura-icon__glow,
 .aura-icon.is-animated.tier-8 .aura-icon__glow,
-.aura-icon.is-animated.tier-9 .aura-icon__glow {
+.aura-icon.is-animated.tier-9 .aura-icon__glow,
+.aura-icon.is-animated.tier-10 .aura-icon__glow,
+.aura-icon.is-animated.tier-11 .aura-icon__glow,
+.aura-icon.is-animated.tier-12 .aura-icon__glow,
+.aura-icon.is-animated.tier-13 .aura-icon__glow,
+.aura-icon.is-animated.tier-14 .aura-icon__glow {
   animation: aura-breathe 2.4s ease-in-out infinite;
 }
 
 .aura-icon.tier-8 .aura-icon__orb,
-.aura-icon.tier-9 .aura-icon__orb {
+.aura-icon.tier-9 .aura-icon__orb,
+.aura-icon.tier-10 .aura-icon__orb,
+.aura-icon.tier-11 .aura-icon__orb,
+.aura-icon.tier-12 .aura-icon__orb,
+.aura-icon.tier-13 .aura-icon__orb,
+.aura-icon.tier-14 .aura-icon__orb {
   box-shadow:
     inset 0 -6px 14px rgba(0, 0, 0, 0.35),
     0 0 0 1.5px rgba(255, 255, 255, 0.6),
@@ -111,3 +131,42 @@
 @keyframes aura-spin { to { transform: rotate(360deg); } }
 @keyframes aura-breathe { 50% { transform: scale(1.12); opacity: 0.7; } }
 @keyframes aura-hue { to { filter: hue-rotate(360deg); } }
+
+/* Raretés « branche » et extrêmes */
+.aura-icon.rarity-corrupted.is-animated .aura-icon__orb {
+  animation: aura-corrupt 2.6s steps(1) infinite;
+}
+
+.aura-icon.rarity-dream .aura-icon__glow {
+  filter: blur(6px);
+}
+
+.aura-icon.rarity-void .aura-icon__orb,
+.aura-icon.rarity-beyond .aura-icon__orb {
+  background: radial-gradient(circle at 50% 50%, #000 0 38%, var(--c1) 70%, var(--c2) 100%);
+}
+
+.aura-icon.rarity-beyond.is-animated .aura-icon__orb {
+  animation: aura-corrupt 3.4s steps(1) infinite;
+}
+
+[data-no-flashes="true"] .aura-icon.is-animated .aura-icon__orb {
+  animation: none;
+}
+
+@keyframes aura-corrupt {
+  0%,
+  86%,
+  100% {
+    transform: none;
+    filter: none;
+  }
+  88% {
+    transform: translate(2px, -1px) skewX(8deg);
+    filter: hue-rotate(90deg);
+  }
+  92% {
+    transform: translate(-2px, 1px);
+    filter: hue-rotate(-60deg) saturate(2);
+  }
+}

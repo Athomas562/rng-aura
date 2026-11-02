@@ -21,6 +21,10 @@ const entry = (over: Partial<LeaderboardEntry> = {}): LeaderboardEntry => ({
   collection: 1,
   achievements: 1,
   equipped: null,
+  level: 1,
+  prestige: 0,
+  special: 0,
+  title: null,
   updatedAt: T0,
   ...over,
 });
@@ -34,7 +38,28 @@ describe("schéma D1 (migrations/)", () => {
     const tables = db.rows<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").map((t) => t.name);
     expect(tables).toEqual(["bans", "leaderboard", "players", "usernames"]);
     const indexes = db.rows<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'leaderboard_%'");
-    expect(indexes).toHaveLength(4);
+    expect(indexes).toHaveLength(7);
+    const columns = db.rows<{ name: string }>("PRAGMA table_info(leaderboard)").map((c) => c.name);
+    expect(columns).toEqual(expect.arrayContaining(["level", "prestige", "special", "title"]));
+  });
+
+  it("la migration 0002 ne fait qu'ajouter des colonnes : les lignes existantes sont conservées", () => {
+    const old = new SqliteD1();
+    // base telle qu'avant l'extension : uniquement 0001
+    old.sqlite.exec("DROP TABLE leaderboard");
+    old.sqlite.exec(readFileSync(new URL("../migrations/0001_init.sql", import.meta.url), "utf8"));
+    old.sqlite.exec("INSERT INTO leaderboard (uid, name, rolls, best_odds, collection, achievements, updated_at) VALUES ('u', 'Bob', 5, 7, 1, 1, 1)");
+    const migration = readFileSync(new URL("../migrations/0002_progression.sql", import.meta.url), "utf8");
+    expect(migration).not.toMatch(/(DROP|DELETE|UPDATE)/i);
+    old.sqlite.exec(migration);
+    expect(old.row("SELECT name, rolls, level, prestige, special, title FROM leaderboard WHERE uid = 'u'")).toEqual({
+      name: "Bob",
+      rolls: 5,
+      level: 1,
+      prestige: 0,
+      special: 0,
+      title: null,
+    });
   });
 
   it("peut être réappliqué sur une base remplie sans erreur ni perte de données", () => {
@@ -119,7 +144,7 @@ describe("store D1 : classement", () => {
     await s.writeLeaderboard("uid-secret", entry());
     const [row] = await s.leaderboard("rolls", 10, "autre");
     expect(JSON.stringify(row)).not.toContain("uid-secret");
-    expect(Object.keys(row).sort()).toEqual(["achievements", "bestAuraId", "bestOdds", "collection", "equipped", "me", "name", "rank", "rolls"]);
+    expect(Object.keys(row).sort()).toEqual(["achievements", "bestAuraId", "bestOdds", "collection", "equipped", "level", "me", "name", "prestige", "rank", "rolls", "special", "title"]);
   });
 
   it("ne remplace pas une entrée plus récente par une plus ancienne", async () => {
