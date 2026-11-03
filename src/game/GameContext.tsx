@@ -5,7 +5,6 @@ import {
   getRarity,
   levelInfo,
   lookOf,
-  msUntilNextRoll,
   requireAura,
   CURRENCY,
   type ApiRequest,
@@ -212,9 +211,7 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
 
       try {
         // Respecte la recharge connue localement pour éviter un aller-retour inutile.
-        const pending = msUntilNextRoll(stateRef.current, now());
-        if (pending > 0) await sleep(pending);
-
+        
         const key = ++revealKey.current;
         const chargeMs = s.reducedMotion ? 250 : isAuto ? 300 : 520;
         setReveal({ key, phase: "charge", result: null, aura: null, durationMs: chargeMs });
