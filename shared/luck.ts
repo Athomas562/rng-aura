@@ -13,11 +13,11 @@ import {
 } from "./talents";
 
 /** Temps de recharge de base entre deux rolls (ms). */
-export const BASE_ROLL_COOLDOWN_MS = 900;
+export const BASE_ROLL_COOLDOWN_MS = 0;
 /** Marge tolérée côté serveur pour la latence réseau. */
 export const COOLDOWN_TOLERANCE_MS = 120;
 /** Plancher absolu du temps de recharge, quels que soient les bonus cumulés. */
-export const MIN_ROLL_COOLDOWN_MS = 250;
+export const MIN_ROLL_COOLDOWN_MS = 0;
 /** Nombre maximal de rolls demandés en une requête (auto-roll). */
 export const MAX_ROLL_BATCH = 8;
 /**
