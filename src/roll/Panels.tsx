@@ -19,7 +19,7 @@ import { AuraIcon } from "../components/AuraIcon";
 import { Icon } from "../components/Icon";
 import { RarityBadge } from "../components/RarityBadge";
 import { useGame, useTick } from "../game/GameContext";
-import { formatCountdown, formatDuration, formatLuck, formatNumber, formatOddsN } from "../lib/format";
+import { formatCountdown, formatDuration, formatLuck, formatNumber, formatOddsN, formatPotionTime, formatPotionTimeLong } from "../lib/format";
 import { keyLabel } from "../settings/settings";
 import { useSettings } from "../settings/SettingsContext";
 
@@ -206,7 +206,7 @@ export function PotionPanel() {
           return (
             <li key={id} className={`potion ${active ? "is-active" : ""}`} style={{ "--pc": p.color } as CSSProperties}>
               <span className="potion__icon">
-                <Icon name={id === "blessing" ? "sparkle" : id === "purify" ? "drop" : id === "streakGuard" ? "shield" : isFocus ? "target" : "flask"} size={18} />
+                <Icon name={id === "blessing" ? "sparkle" : id === "purify" ? "drop" : id === "streakGuard" ? "shield" : isFocus ? "target" : id === "xpBoost" ? "progression" : "flask"} size={18} />
               </span>
               <div className="potion__body">
                 <div className="potion__name">
@@ -226,11 +226,12 @@ export function PotionPanel() {
                   </select>
                 )}
                 {active && (
-                  <div className="potion__timer tabular">
+                  <div className="potion__timer tabular" title={`Encore ${formatPotionTimeLong(remaining)}`}>
                     <span className="progress">
                       <span style={{ width: `${Math.min(100, (remaining / p.durationMs) * 100)}%` }} />
                     </span>
-                    {formatCountdown(remaining)}
+                    <span aria-hidden="true">{formatPotionTime(remaining)}</span>
+                    <span className="sr-only">encore {formatPotionTimeLong(remaining)}</span>
                   </div>
                 )}
               </div>

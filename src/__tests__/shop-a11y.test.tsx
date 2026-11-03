@@ -104,6 +104,15 @@ describe("barre du haut et navigation", () => {
     expect(html).toContain("Aucune potion active");
   });
 
+  it("la série explique son bonus dans une infobulle", () => {
+    const s = player(0);
+    s.stats.streak = 25;
+    s.stats.lastRollAt = T0;
+    const html = render(<TopBar />, s);
+    expect(html).toContain("+2 % de chance tous les 10 rolls");
+    expect(html).toContain("Bonus actuel : +4 %");
+  });
+
   it("sous-onglets : rôle tab, onglet courant marqué, fil d'Ariane", () => {
     const html = render(<SubNav page="inventory" onNavigate={() => {}} />, player(0));
     expect(html).toContain(`aria-label="Fil d'Ariane"`);
@@ -171,5 +180,32 @@ describe("réglages locaux et accessibilité", () => {
   it("les nouveaux réglages ne sont jamais envoyés à Firebase", () => {
     const synced = syncedPart({ ...defaultSettings(), calmMode: true, uiScale: 1.2 }) as Record<string, unknown>;
     for (const k of ["calmMode", "uiScale", "vfxQuality", "cursorTrail"]) expect(synced[k]).toBeUndefined();
+  });
+});
+
+describe("v1.1 : affichage", () => {
+  it("durées de potions longues : « 2 h 15 min », puis jours et heures (jamais « ∞ »)", async () => {
+    const { formatPotionTime, formatPotionTimeLong } = await import("../lib/format");
+    expect(formatPotionTime(4 * 60_000 + 59_000)).toBe("4:59");
+    expect(formatPotionTime(135 * 60_000)).toBe("2 h 15 min");
+    expect(formatPotionTime(25 * 3_600_000)).toBe("1 j 01 h");
+    expect(formatPotionTime(99 * 5 * 60_000 * 4)).toBe("1 j 09 h");
+    expect(formatPotionTimeLong(25 * 3_600_000 + 20 * 60_000)).toBe("1 j 1 h 20 min");
+  });
+
+  it("au-delà de 5 potions actives, la barre défile (pas de repli « +3 »)", () => {
+    const s = player(0);
+    for (const id of ["luck", "superLuck", "speed", "hourglass", "focus", "xpBoost"] as const) s.potions.active[id] = T0 + 3 * 3_600_000 + 30_000;
+    const html = render(<TopBar />, s);
+    expect(html).toContain("topbar__potions is-scroll");
+    expect(count(html, /class="topbar__potion"/g)).toBe(6);
+    expect(html).toContain("3 h 00 min");
+  });
+
+  it("onglet Secrets : compteur, cadenas et bouton d'indice gratuit", async () => {
+    const { AchievementsPage } = await import("../pages/AchievementsPage");
+    const html = render(<AchievementsPage />, player(0));
+    expect(html).toMatch(/0 \/ 8 succès secrets découverts/);
+    expect(html).toContain('role="tab"');
   });
 });

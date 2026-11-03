@@ -51,6 +51,11 @@ export function createD1Store(db: D1Database, options: { maxAttempts?: number; n
   const now = options.now ?? Date.now;
 
   return {
+    async readPlayer(uid) {
+      const row = await db.prepare("SELECT state FROM players WHERE uid = ?").bind(uid).first<{ state: string }>();
+      return row ? JSON.parse(row.state) : null;
+    },
+
     async getBan(uid): Promise<Ban | null> {
       const row = await db.prepare("SELECT until, reason FROM bans WHERE uid = ?").bind(uid).first<{ until: number; reason: string | null }>();
       return row ? { until: row.until, reason: row.reason ?? undefined } : null;

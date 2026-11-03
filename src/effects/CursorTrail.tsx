@@ -66,8 +66,8 @@ export function CursorTrail() {
       raf = parts.length ? requestAnimationFrame(frame) : 0;
     };
 
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerType === "touch") return;
+    const onMove = (e: PointerEvent | MouseEvent) => {
+      if ("pointerType" in e && e.pointerType === "touch") return;
       const n = Math.max(1, Math.round(2 * density));
       for (let i = 0; i < n && parts.length < MAX_PARTICLES; i++) {
         parts.push({
@@ -88,12 +88,14 @@ export function CursorTrail() {
 
     resize();
     window.addEventListener("resize", resize);
-    window.addEventListener("pointermove", onMove, { passive: true });
+    // Phase de capture : aucun composant ne peut empêcher la traînée de voir le curseur.
+    const type = "onpointermove" in window ? "pointermove" : "mousemove";
+    window.addEventListener(type, onMove as EventListener, { passive: true, capture: true });
     return () => {
       cancelAnimationFrame(raf);
       parts.length = 0;
       window.removeEventListener("resize", resize);
-      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener(type, onMove as EventListener, { capture: true });
     };
   }, [enabled, trail, density]);
 

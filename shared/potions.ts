@@ -1,6 +1,6 @@
 import type { RarityId } from "./rarities";
 
-export type PotionId = "luck" | "superLuck" | "speed" | "hourglass" | "focus" | "streakGuard" | "blessing" | "purify";
+export type PotionId = "luck" | "superLuck" | "speed" | "hourglass" | "focus" | "streakGuard" | "blessing" | "purify" | "xpBoost";
 
 export type PotionEffect =
   /** Ajoute `value` à la chance de base (1 + Σ bonus). */
@@ -16,7 +16,9 @@ export type PotionEffect =
   /** Objet instantané : le prochain roll est béni. */
   | { kind: "blessNext" }
   /** Objet instantané : lève la malédiction en cours. */
-  | { kind: "cleanse" };
+  | { kind: "cleanse" }
+  /** Multiplie l'XP gagnée (multiplicatif avec le talent Érudit). */
+  | { kind: "xpMul"; value: number };
 
 export interface Potion {
   id: PotionId;
@@ -28,8 +30,11 @@ export interface Potion {
   color: string;
 }
 
-/** Durée maximale cumulable pour une même potion. */
-export const POTION_MAX_STACK_MS = 30 * 60_000;
+/*
+ * Les durées se cumulent sans plafond : boire une potion déjà active ajoute sa durée.
+ * Cumuler ne rend pas un roll plus puissant (le ×2 reste ×2), cela permet seulement de faire des réserves ;
+ * le stock (99 au maximum en boutique) reste la seule limite.
+ */
 /** Bénédictions garanties en attente au maximum. */
 export const MAX_PENDING_BLESSINGS = 5;
 
@@ -106,6 +111,14 @@ export const POTIONS: Record<PotionId, Potion> = {
     durationMs: 0,
     effect: { kind: "blessNext" },
     color: "#fff2a8",
+  },
+  xpBoost: {
+    id: "xpBoost",
+    name: "Potion d'érudition",
+    description: "+100 % d'XP pendant 5 minutes (se multiplie avec le talent Érudit).",
+    durationMs: 5 * 60_000,
+    effect: { kind: "xpMul", value: 2 },
+    color: "#7af5ff",
   },
   purify: {
     id: "purify",

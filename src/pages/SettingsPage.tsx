@@ -115,7 +115,11 @@ export function SettingsPage() {
         />
         <Toggle
           label="Traînée du curseur"
-          hint="Affiche la traînée achetée en boutique (souris uniquement)."
+          hint={
+            settings.reducedMotion || settings.calmMode
+              ? "Coupée tant que « Réduire les animations » ou le mode calme est activé."
+              : "Affiche la traînée achetée en boutique (souris uniquement)."
+          }
           checked={settings.cursorTrail}
           onChange={(v) => update({ cursorTrail: v })}
         />

@@ -5,7 +5,9 @@ import {
   MAX_POTIONS_PER_PURCHASE,
   POTIONS,
   POTION_IDS,
+  POTION_PACKS,
   POTION_PRICES,
+  potionPrice,
   POTION_STOCK_LIMIT,
   UPGRADES,
   blessedEvery,
@@ -23,6 +25,7 @@ import {
 } from "../../shared";
 import { AnimatedNumber } from "../components/AnimatedNumber";
 import { useGame } from "../game/GameContext";
+import { useSettings } from "../settings/SettingsContext";
 import { formatNumber } from "../lib/format";
 import "./ShopPage.css";
 
@@ -107,6 +110,7 @@ function BuyButton({
 
 export function ShopPage() {
   const { state, now, buy, wear } = useGame();
+  const { settings } = useSettings();
   const [category, setCategory] = useState<ShopCategory | "all">("all");
   const [feedback, setFeedback] = useState<Feedback>({});
   const [qty, setQty] = useState<Partial<Record<PotionId, number>>>({});
@@ -120,6 +124,15 @@ export function ShopPage() {
   };
 
   const show = (c: ShopCategory) => category === "all" || category === c;
+  const trailOff = state.cosmetics.trail
+    ? settings.reducedMotion
+      ? "« Réduire les animations » est activé"
+      : settings.calmMode
+        ? "le mode calme est activé"
+        : !settings.cursorTrail
+          ? "le réglage « Traînée du curseur » est désactivé"
+          : null
+    : null;
   const upgrades = UPGRADES.filter((u) => show(u.category));
 
   return (
@@ -216,7 +229,8 @@ export function ShopPage() {
             {POTION_IDS.map((id) => {
               const p = POTIONS[id];
               const n = qty[id] ?? 1;
-              const price = POTION_PRICES[id] * n;
+              const price = potionPrice(id, n);
+              const pack = POTION_PACKS[id];
               const owned = state.potions.owned[id];
               const full = owned + n > POTION_STOCK_LIMIT;
               const poor = state.shards < price;
@@ -230,6 +244,16 @@ export function ShopPage() {
                     </span>
                   </div>
                   <p className="shop-card__desc">{p.description}</p>
+                  <p className="shop-card__effect">
+                    {formatNumber(POTION_PRICES[id])} ✦ l'unité
+                    {pack && (
+                      <>
+                        {" "}
+                        · lot de {pack.quantity} : <strong className="shop-card__next">{formatNumber(pack.price)} ✦</strong> (−
+                        {Math.round((1 - pack.price / (POTION_PRICES[id] * pack.quantity)) * 100)} %)
+                      </>
+                    )}
+                  </p>
                   <div className="shop-card__foot">
                     <label className="qty">
                       <span className="sr-only">Quantité</span>
@@ -263,6 +287,12 @@ export function ShopPage() {
             Cosmétiques
           </h2>
           <p className="muted shop-note">Achetés une fois pour toutes : ils ne sont pas remis à zéro par la renaissance.</p>
+          {trailOff && (
+            <p className="shop-warning" role="note">
+              Ta traînée est portée mais invisible : {trailOff}. Tu peux changer ça dans les Paramètres (Affichage et accessibilité). Elle ne
+              s'affiche qu'à la souris, pas sur écran tactile.
+            </p>
+          )}
           <ul className="shop-grid shop-grid--compact">
             {COSMETICS.map((c: Cosmetic) => {
               const owned = Boolean(state.cosmetics.owned[c.id]);

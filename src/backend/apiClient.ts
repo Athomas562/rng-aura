@@ -7,6 +7,22 @@ import { BackendError } from "./types";
 
 export const API_URL = "/api";
 
+const DEVICE_KEY = "aura-rng:device";
+
+/** Identifiant aléatoire de cet appareil (anti-mule du marché). Aucune donnée personnelle. */
+export function deviceId(): string {
+  try {
+    let id = localStorage.getItem(DEVICE_KEY);
+    if (!id || !/^[A-Za-z0-9-]{8,64}$/.test(id)) {
+      id = crypto.randomUUID();
+      localStorage.setItem(DEVICE_KEY, id);
+    }
+    return id;
+  } catch {
+    return "no-storage-device";
+  }
+}
+
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 interface ErrorBody {
@@ -67,7 +83,7 @@ export async function callApi(req: ApiRequest, getIdToken: () => Promise<string>
   try {
     res = await fetchImpl(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-Device-Id": deviceId() },
       body: JSON.stringify(req),
     });
   } catch {

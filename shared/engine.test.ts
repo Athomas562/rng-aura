@@ -6,7 +6,6 @@ import {
   GameError,
   MAX_ROLL_BATCH,
   POTIONS,
-  POTION_MAX_STACK_MS,
   computeDistribution,
   computeLuck,
   createPlayerState,
@@ -305,11 +304,12 @@ describe("potions", () => {
     expect(out.achievements).toContain("potion_1");
   });
 
-  it("prolonge une potion déjà active, dans la limite du plafond", () => {
+  it("prolonge une potion déjà active, sans plafond de durée (20 × 5 min = 100 min)", () => {
     let s = createPlayerState("p", T0);
     s.potions.owned.luck = 50;
     for (let i = 0; i < 20; i++) s = drinkPotion(s, "luck", T0).state;
-    expect(s.potions.active.luck).toBe(T0 + POTION_MAX_STACK_MS);
+    expect(s.potions.active.luck).toBe(T0 + 20 * POTIONS.luck.durationMs);
+    expect(s.potions.active.luck! - T0).toBeGreaterThan(30 * 60_000);
   });
 
   it("refuse sans stock", () => {

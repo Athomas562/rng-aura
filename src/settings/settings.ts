@@ -139,7 +139,8 @@ export function defaultSettings(): Settings {
       nav7: "Digit7",
     },
     vfxQuality: "normal",
-    calmMode: Boolean(prefersReduced),
+    // Le mode calme est un choix explicite : « réduire les animations » couvre déjà la préférence du système.
+    calmMode: false,
     cursorTrail: true,
     uiScale: 1,
   };

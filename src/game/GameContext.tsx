@@ -83,6 +83,9 @@ interface GameValue {
   ambient: string | null;
   /** Éclats gagnés au dernier roll révélé (confettis, « +N »). */
   shardBurst: { key: number; amount: number } | null;
+  /** Textes des indices révélés (envoyés par le serveur uniquement après révélation). */
+  hints: Record<string, string[]>;
+  revealHint: (achievementId: string) => Promise<boolean>;
 }
 
 const Ctx = createContext<GameValue | null>(null);
@@ -92,6 +95,12 @@ const AUTO_BATCH = 1;
 const HEARTBEAT_MS = 60_000;
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+function newRequestId(): string {
+  const uuid = (globalThis.crypto as { randomUUID?: () => string }).randomUUID?.();
+  if (uuid) return uuid;
+  return Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)), (b: number) => b.toString(16).padStart(2, "0")).join("");
+}
 
 function rewardText(r: PotionReward): string {
   return Object.entries(r)
@@ -117,9 +126,9 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
   const [announcement, setAnnouncement] = useState("");
   const [ambient, setAmbient] = useState<string | null>(null);
   const [shardBurst, setShardBurst] = useState<{ key: number; amount: number } | null>(null);
+  const [hints, setHints] = useState<Record<string, string[]>>(initial.hints ?? {});
 
   const offset = useRef(initial.serverNow - Date.now());
-  const lastApplied = useRef(initial.serverNow);
   const stateRef = useRef(state);
   const busy = useRef(false);
   const autoRef = useRef(false);
@@ -139,14 +148,18 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
 
   const dismissToast = useCallback((id: number) => setToasts((prev) => prev.filter((x) => x.id !== id)), []);
 
-  /** Applique une réponse serveur si elle n'est pas plus ancienne que l'état affiché. */
+  /**
+   * Applique une réponse serveur si elle n'est pas plus ancienne que l'état affiché.
+   * L'ordre est donné par la révision écrite par le serveur (et non par l'heure de la réponse) :
+   * un heartbeat qui revient après un roll ne peut plus faire « reculer » la série affichée.
+   */
   const apply = useCallback(
     (res: ApiResponse) => {
       offset.current = res.serverNow - Date.now();
-      if (res.serverNow >= lastApplied.current) {
-        lastApplied.current = res.serverNow;
+      if (res.state.rev >= stateRef.current.rev) {
         stateRef.current = res.state;
         setState(res.state);
+        setHints(res.hints ?? {});
       }
       for (const id of res.achievements ?? []) {
         const a = getAchievement(id);
@@ -206,13 +219,15 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
         const chargeMs = s.reducedMotion ? 250 : isAuto ? 300 : 520;
         setReveal({ key, phase: "charge", result: null, aura: null, durationMs: chargeMs });
 
+        // Un identifiant par intention de roll : si la requête est renvoyée, le serveur ne la rejoue pas.
+        const requestId = newRequestId();
         let res: ApiResponse;
         try {
-          [res] = await Promise.all([backend.call({ action: "roll", count }), sleep(chargeMs)]);
+          [res] = await Promise.all([backend.call({ action: "roll", count, requestId }), sleep(chargeMs)]);
         } catch (e) {
           if (e instanceof BackendError && e.code === "cooldown") {
             await sleep(Math.max(100, e.info.retryInMs ?? 500));
-            res = await backend.call({ action: "roll", count });
+            res = await backend.call({ action: "roll", count, requestId });
           } else throw e;
         }
 
@@ -370,6 +385,11 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
   );
   const wear = useCallback(async (kind: CosmeticKind, id: CosmeticId | null) => void (await send({ action: "wear", kind, id }, () => sound.click())), [send]);
 
+  const revealHint = useCallback(
+    async (achievementId: string) => (await send({ action: "hint", achievementId }, () => sound.click())) !== null,
+    [send],
+  );
+
   const level = useMemo(() => levelInfo(state.xp), [state.xp]);
   const look = useCallback(
     (aura: Aura) => lookOf(aura, { rolls: state.stats.rolls, inventory: state.inventory, mimicOf: state.mimicOf }),
@@ -424,6 +444,8 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
       announcement,
       ambient,
       shardBurst,
+      hints,
+      revealHint,
     }),
     [
       user,
@@ -454,6 +476,8 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
       announcement,
       ambient,
       shardBurst,
+      hints,
+      revealHint,
     ],
   );
 

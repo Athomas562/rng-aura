@@ -2,6 +2,7 @@
  * Point d'entrée HTTP de l'API : authentification, validation de la requête,
  * puis la même logique serveur que la Cloud Function (`handleApi`).
  */
+import type { MarketStore } from "../functions/src/market";
 import { LEADERBOARD_CATEGORIES, LEADERBOARD_MAX, secureRng, type LeaderboardCategory, type LeaderboardRow, type Rng } from "../shared";
 import { ApiError, handleApi, toApiError, type ApiErrorCode, type PlayerStore } from "../functions/src/handlers";
 import { AuthError, type VerifiedUser } from "./auth";
@@ -16,6 +17,10 @@ export interface ApiDeps {
   store: PlayerStore;
   rng?: Rng;
   now?: () => number;
+  /** Journal structuré (rolls : roll_id, horodatage serveur, série avant/après). */
+  log?: (entry: Record<string, unknown>) => void;
+  /** Tables du marché (D1). */
+  market?: MarketStore;
 }
 
 export type ErrorCode = ApiErrorCode | "unauthenticated" | "method-not-allowed" | "payload-too-large" | "unavailable" | "internal";
@@ -65,6 +70,26 @@ async function authenticate(token: string, verify: ApiDeps["verifyToken"]): Prom
 export interface LeaderboardDeps {
   verifyToken: ApiDeps["verifyToken"];
   leaderboard: (category: LeaderboardCategory, limit: number, viewerUid: string) => Promise<LeaderboardRow[]>;
+}
+
+const DEVICE_RE = /^[A-Za-z0-9-]{8,64}$/;
+
+async function sha256(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Empreintes anti-mule : IP (fournie par Cloudflare) et identifiant d'appareil (envoyé par le
+ * navigateur), HACHÉES avant d'être stockées — l'IP en clair n'est jamais conservée.
+ */
+export async function hashFootprint(request: Request): Promise<{ ipHash?: string; deviceHash?: string }> {
+  const ip = request.headers.get("CF-Connecting-IP") ?? "";
+  const device = request.headers.get("X-Device-Id") ?? "";
+  return {
+    ...(ip ? { ipHash: await sha256(`rng-aura:ip:${ip}`) } : {}),
+    ...(DEVICE_RE.test(device) ? { deviceHash: await sha256(`rng-aura:device:${device}`) } : {}),
+  };
 }
 
 /** `GET /api/leaderboard?category=rolls&limit=50` : lecture seule, réservée aux joueurs connectés. */
@@ -126,10 +151,11 @@ export async function handleApiRequest(request: Request, deps: ApiDeps): Promise
   }
 
   try {
+    const footprint = await hashFootprint(request);
     const result = await handleApi(
-      { uid: user.uid, email: user.email, displayName: user.name },
+      { uid: user.uid, email: user.email, displayName: user.name, ...footprint },
       data,
-      { store: deps.store, rng: deps.rng ?? secureRng, now: deps.now ?? Date.now },
+      { store: deps.store, rng: deps.rng ?? secureRng, now: deps.now ?? Date.now, log: deps.log, market: deps.market },
     );
     return new Response(JSON.stringify({ data: result }), { status: 200, headers: SECURITY_HEADERS });
   } catch (raw) {

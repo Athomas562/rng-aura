@@ -128,3 +128,20 @@
     margin-left: 0;
   }
 }
+
+.topbar__item.is-frozen {
+  color: #ff9d3d;
+  background: rgba(255, 157, 61, 0.1);
+}
+
+.topbar__potions.is-scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  max-width: min(100%, 520px);
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+
+.topbar__potions.is-scroll .topbar__potion {
+  flex: none;
+}

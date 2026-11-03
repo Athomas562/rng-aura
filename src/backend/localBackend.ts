@@ -5,6 +5,7 @@
  */
 import { secureRng, usernameToEmail, type LeaderboardEntry, type PlayerState } from "../../shared";
 import { ApiError, handleApi, toApiError, type PlayerStore } from "../../functions/src/handlers";
+import { createMemoryMarket, emptyMarketData, type MemoryMarketData } from "../../functions/src/memoryMarket";
 import { BackendError, type AuthUser, type GameBackend } from "./types";
 
 const KEY = "aura-rng:local";
@@ -15,6 +16,8 @@ interface LocalDb {
   players: Record<string, unknown>;
   leaderboard: Record<string, LeaderboardEntry>;
   settings: Record<string, unknown>;
+  /** Marché et échanges entre les comptes de ce navigateur. */
+  market?: MemoryMarketData;
 }
 
 function read(): LocalDb {
@@ -43,6 +46,9 @@ export function createLocalBackend(): GameBackend {
   const store: PlayerStore = {
     async getBan() {
       return null;
+    },
+    async readPlayer(uid) {
+      return db.players[uid] ?? null;
     },
     async updatePlayer(uid, mutate) {
       const next: PlayerState = mutate(db.players[uid] ?? null);
@@ -102,11 +108,14 @@ export function createLocalBackend(): GameBackend {
       const session = db.session;
       if (!session) throw new BackendError("auth", "Non connecté");
       db = read();
+      db.market ??= emptyMarketData();
+      db.market.names = { ...db.accounts };
+      const market = createMemoryMarket(db.market, { onChange: () => write(db) });
       try {
         return await handleApi(
           { uid: session.uid, email: usernameToEmail(session.name), displayName: session.name },
           req,
-          { store, rng: secureRng, now: Date.now },
+          { store, rng: secureRng, now: Date.now, market },
         );
       } catch (raw) {
         const e = toApiError(raw);

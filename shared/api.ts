@@ -1,5 +1,6 @@
 import type { CosmeticId, CosmeticKind, UpgradeId } from "./economy";
 import type { PotionReward, RollResult } from "./engine";
+import type { ListingView, PartnerInventoryView, TradeView } from "./market";
 import type { PotionId } from "./potions";
 import type { QuestScope } from "./quests";
 import type { RarityId } from "./rarities";
@@ -10,7 +11,7 @@ import type { TalentId } from "./talents";
 export type ApiRequest =
   | { action: "load" }
   | { action: "register"; name: string }
-  | { action: "roll"; count: number }
+  | { action: "roll"; count: number; requestId?: string }
   | { action: "potion"; potionId: PotionId; target?: RarityId }
   | { action: "equip"; auraId: string | null; slot?: number }
   | { action: "heartbeat" }
@@ -24,7 +25,18 @@ export type ApiRequest =
   | { action: "buy"; kind: "upgrade"; id: UpgradeId }
   | { action: "buy"; kind: "potion"; id: PotionId; quantity?: number }
   | { action: "buy"; kind: "cosmetic"; id: CosmeticId }
-  | { action: "wear"; kind: CosmeticKind; id: CosmeticId | null };
+  | { action: "wear"; kind: CosmeticKind; id: CosmeticId | null }
+  | { action: "hint"; achievementId: string }
+  | { action: "market"; auraId?: string }
+  | { action: "list"; auraId: string; price: number }
+  | { action: "unlist"; listingId: string }
+  | { action: "buyListing"; listingId: string }
+  | { action: "trades" }
+  | { action: "tradeCreate"; receiver: string; auras: string[] }
+  | { action: "tradeOffer"; tradeId: string; auras: string[] }
+  | { action: "tradeConfirm"; tradeId: string; version: number }
+  | { action: "tradeCancel"; tradeId: string }
+  | { action: "tradePartner"; tradeId: string };
 
 export interface ApiResponse {
   state: PlayerState;
@@ -37,6 +49,16 @@ export interface ApiResponse {
   levelUp?: number;
   /** Éclats gagnés pendant l'action (après plafond). */
   shards?: number;
+  /** Marché : annonces actives (filtrées) et annonces du joueur. */
+  market?: { listings: ListingView[]; mine: ListingView[] };
+  /** Échanges du joueur (en cours et récents). */
+  trades?: TradeView[];
+  /** Inventaire échangeable du partenaire d'un échange. */
+  partner?: PartnerInventoryView;
+  /** Textes des indices déjà révélés (succès secret → indices 1 à 3). */
+  hints?: Record<string, string[]>;
+  /** La requête de roll avait déjà été traitée (doublon ignoré). */
+  duplicate?: boolean;
   /** Aura obtenue par fusion. */
   fused?: { auraId: string; isNew: boolean; xp: number };
 }

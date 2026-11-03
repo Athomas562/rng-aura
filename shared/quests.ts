@@ -57,7 +57,7 @@ export const DAILY_QUESTS: readonly QuestDef[] = [
   { id: "d_potions_2", scope: "daily", name: "Dégustation", description: "Bois 2 potions.", counter: "potions", target: 2, reward: { luck: 2 } },
   { id: "d_blessed_10", scope: "daily", name: "Béni des dieux", description: "Lance 10 rolls bénis.", counter: "blessed", target: 10, reward: { blessing: 1 } },
   { id: "d_streak_100", scope: "daily", name: "Sans s'arrêter", description: "Atteins une série de 100 rolls.", counter: "streak", target: 100, reward: { streakGuard: 1 } },
-  { id: "d_xp_500", scope: "daily", name: "Studieux", description: "Gagne 500 XP.", counter: "xp", target: 500, reward: { speed: 1, luck: 1 } },
+  { id: "d_xp_500", scope: "daily", name: "Studieux", description: "Gagne 500 XP.", counter: "xp", target: 500, reward: { xpBoost: 1, luck: 1 } },
 ];
 
 export const WEEKLY_QUESTS: readonly QuestDef[] = [
@@ -68,7 +68,7 @@ export const WEEKLY_QUESTS: readonly QuestDef[] = [
   { id: "w_potions_10", scope: "weekly", name: "Grand alchimiste", description: "Bois 10 potions.", counter: "potions", target: 10, reward: { hourglass: 1, purify: 1 } },
   { id: "w_streak_500", scope: "weekly", name: "Infatigable", description: "Atteins une série de 500 rolls.", counter: "streak", target: 500, reward: { streakGuard: 2, speed: 2 } },
   { id: "w_fusion_1", scope: "weekly", name: "Creuset", description: "Réalise une fusion.", counter: "fusions", target: 1, reward: { focus: 1, superLuck: 1 } },
-  { id: "w_xp_5000", scope: "weekly", name: "Érudition", description: "Gagne 5 000 XP.", counter: "xp", target: 5_000, reward: { hourglass: 1, blessing: 1 } },
+  { id: "w_xp_5000", scope: "weekly", name: "Érudition", description: "Gagne 5 000 XP.", counter: "xp", target: 5_000, reward: { hourglass: 1, blessing: 1, xpBoost: 2 } },
 ];
 
 const QUEST_BY_ID = new Map([...DAILY_QUESTS, ...WEEKLY_QUESTS].map((q) => [q.id, q]));

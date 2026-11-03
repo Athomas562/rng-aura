@@ -136,7 +136,7 @@ describe("prestige", () => {
     expect(code(() => doPrestige(s, T0))).toBe("invalid");
   });
 
-  it("garde les auras, remet à zéro éclats, améliorations et série, et donne +5 % de chance", () => {
+  it("garde les auras et la série, remet à zéro éclats et améliorations, et donne +5 % de chance", () => {
     const s = veteran();
     s.xp = 5_000;
     s.shards = 12_345;
@@ -150,7 +150,7 @@ describe("prestige", () => {
     expect(out.state.inventory.lueur.count).toBe(50);
     expect(out.state.equipped).toBe("phenix");
     expect(Object.values(out.state.upgrades).every((l) => l === 0)).toBe(true);
-    expect(out.state.stats.streak).toBe(0);
+    expect(out.state.stats.streak).toBe(300); // la renaissance ne casse jamais la série
     // seul le bonus de renaissance (et des succès éventuels) reste dans le solde
     expect(out.state.shards).toBe(out.shards);
     expect(out.state.ledger.some((e) => e.amount === -12_345)).toBe(true);

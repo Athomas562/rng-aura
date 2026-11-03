@@ -83,8 +83,8 @@ export const ACHIEVEMENTS: readonly Achievement[] = [
   { id: "collect_all", name: "Catalogue complet", description: "Découvre toutes les auras du jeu.", secret: true, progress: collection(AURAS.length) },
 
   // Progression
-  { id: "level_10", name: "Initié", description: "Atteins le niveau 10.", reward: { superLuck: 1 }, progress: level(10) },
-  { id: "level_25", name: "Adepte", description: "Atteins le niveau 25.", reward: { hourglass: 1, focus: 1 }, progress: level(25) },
+  { id: "level_10", name: "Initié", description: "Atteins le niveau 10.", reward: { superLuck: 1, xpBoost: 1 }, progress: level(10) },
+  { id: "level_25", name: "Adepte", description: "Atteins le niveau 25.", reward: { hourglass: 1, focus: 1, xpBoost: 2 }, progress: level(25) },
   { id: "level_50", name: "Maître des auras", description: "Atteins le niveau 50.", reward: { hourglass: 3 }, progress: level(50) },
   { id: "level_100", name: "Sommet", description: "Atteins le niveau 100.", secret: true, reward: { hourglass: 10 }, progress: level(100) },
   { id: "prestige_1", name: "Renaissance", description: "Effectue ton premier prestige.", reward: { hourglass: 2 }, progress: prestige(1) },

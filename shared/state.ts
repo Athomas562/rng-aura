@@ -12,6 +12,7 @@ import {
   type UpgradeLevels,
 } from "./economy";
 import { POTION_IDS, type PotionId } from "./potions";
+import { isSecretAchievement, HINT_LEVELS } from "./hints";
 import { emptyPeriod, type QuestCounter, type QuestPeriod } from "./quests";
 import { isRarityId, type RarityId } from "./rarities";
 import { TALENTS, emptyTalents, type TalentRanks } from "./talents";
@@ -22,6 +23,19 @@ export interface InventoryEntry {
   lastAt: number;
   /** Numéro du roll de la première obtention dans la partie en cours (auras vivantes). */
   firstRoll: number;
+  /** Exemplaires obtenus par échange (marché, trade) : badge, hors codex et hors record de rareté. */
+  traded?: number;
+}
+
+/** Auras en dépôt (vente en cours, échange confirmé) : hors de l'inventaire jusqu'au dénouement. */
+export interface EscrowEntry {
+  kind: "listing" | "trade";
+  auras: { auraId: string; traded: boolean }[];
+  at: number;
+  /** Prix de l'annonce (0 pour un échange). */
+  price: number;
+  /** Version de l'échange confirmée (0 pour une annonce). */
+  version: number;
 }
 
 /** Codex : toutes les auras découvertes un jour, conservé au prestige. */
@@ -54,6 +68,10 @@ export interface PlayerStats {
   questsClaimed: number;
   shardsEarned: number;
   shardsSpent: number;
+  /** Ventes, achats et échanges aboutis. */
+  marketDeals: number;
+  /** Fin de la dernière potion de série : la série est gelée jusque-là, puis la fenêtre repart de cet instant. */
+  streakGuardEnd: number;
 }
 
 export interface PrestigeRecord {
@@ -68,6 +86,10 @@ export interface PrestigeRecord {
 
 export interface PlayerState {
   version: 2;
+  /** Révision : +1 à chaque écriture serveur. Le client n'affiche jamais un état de révision inférieure. */
+  rev: number;
+  /** Identifiants des dernières requêtes de roll traitées (idempotence : un doublon n'est pas rejoué). */
+  requestIds: string[];
   name: string;
   createdAt: number;
   /** Aura principale (avatar, classement). */
@@ -108,9 +130,20 @@ export interface PlayerState {
   };
   /** Derniers mouvements d'Éclats (plus récent en premier). */
   ledger: LedgerEntry[];
+  /** Indices révélés : succès secret → niveau (1 à 3). Les textes restent côté serveur. */
+  hints: Record<string, number>;
+  /** Dépôts en cours : id d'annonce, ou « trade:<id> ». */
+  escrow: Record<string, EscrowEntry>;
+  /** Achats au marché débités mais pas encore dénoués (id d'annonce → prix, aura). */
+  purchases: Record<string, { price: number; auraId: string; at: number }>;
+  /** Virements déjà reçus (produits de vente, auras d'échange) : jamais crédités deux fois. */
+  processedTransfers: string[];
 }
 
 export const RECENT_LIMIT = 12;
+/** Format accepté pour l'identifiant de requête envoyé par le client (UUID ou équivalent). */
+export const REQUEST_ID_RE = /^[A-Za-z0-9-]{8,64}$/;
+export const REQUEST_ID_LIMIT = 32;
 export const PRESTIGE_HISTORY_LIMIT = 20;
 export const STARTER_POTIONS: Partial<Record<PotionId, number>> = { luck: 2, speed: 1, blessing: 1 };
 
@@ -123,6 +156,8 @@ export function createPlayerState(name: string, now: number): PlayerState {
   for (const [id, n] of Object.entries(STARTER_POTIONS)) owned[id as PotionId] = n ?? 0;
   return {
     version: 2,
+    rev: 0,
+    requestIds: [],
     name,
     createdAt: now,
     equipped: null,
@@ -149,6 +184,8 @@ export function createPlayerState(name: string, now: number): PlayerState {
       questsClaimed: 0,
       shardsEarned: 0,
       shardsSpent: 0,
+      marketDeals: 0,
+      streakGuardEnd: 0,
     },
     potions: { owned, active: {}, focusTarget: null, pendingBlessings: 0 },
     curse: null,
@@ -159,6 +196,10 @@ export function createPlayerState(name: string, now: number): PlayerState {
     upgrades: emptyUpgrades(),
     cosmetics: { owned: {}, trail: null, frame: null },
     ledger: [],
+    hints: {},
+    escrow: {},
+    purchases: {},
+    processedTransfers: [],
   };
 }
 
@@ -167,6 +208,29 @@ const int = (v: unknown, d = 0): number => Math.max(0, Math.floor(num(v, d)));
 const obj = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" ? (v as Record<string, unknown>) : {};
 const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : Object.values(obj(v)));
+
+function normalizeEscrow(raw: unknown): Record<string, EscrowEntry> {
+  const out: Record<string, EscrowEntry> = {};
+  for (const [key, v] of Object.entries(obj(raw))) {
+    const e = obj(v);
+    if (key.length > 80 || (e.kind !== "listing" && e.kind !== "trade")) continue;
+    const auras = list(e.auras)
+      .map((x) => obj(x))
+      .filter((x) => typeof x.auraId === "string" && getAura(x.auraId as string))
+      .map((x) => ({ auraId: x.auraId as string, traded: x.traded === true }));
+    if (auras.length) out[key] = { kind: e.kind, auras, at: num(e.at), price: int(e.price), version: int(e.version) };
+  }
+  return out;
+}
+
+function normalizePurchases(raw: unknown): PlayerState["purchases"] {
+  const out: PlayerState["purchases"] = {};
+  for (const [key, v] of Object.entries(obj(raw))) {
+    const p = obj(v);
+    if (key.length <= 80 && typeof p.auraId === "string" && getAura(p.auraId)) out[key] = { price: int(p.price), auraId: p.auraId, at: num(p.at) };
+  }
+  return out;
+}
 
 function normalizePeriod(raw: unknown): QuestPeriod {
   const r = obj(raw);
@@ -192,7 +256,10 @@ export function normalizePlayerState(raw: unknown, fallbackName: string, now: nu
     if (!getAura(id)) continue;
     const entry = obj(e);
     const count = int(entry.count);
-    if (count > 0) inventory[id] = { count, firstAt: num(entry.firstAt), lastAt: num(entry.lastAt), firstRoll: int(entry.firstRoll) };
+    if (count > 0) {
+      const traded = Math.min(count, int(entry.traded));
+      inventory[id] = { count, firstAt: num(entry.firstAt), lastAt: num(entry.lastAt), firstRoll: int(entry.firstRoll), ...(traded ? { traded } : {}) };
+    }
   }
 
   // Codex : les anciennes sauvegardes n'en ont pas, il se déduit alors de l'inventaire.
@@ -202,10 +269,13 @@ export function normalizePlayerState(raw: unknown, fallbackName: string, now: nu
     const entry = obj(e);
     codex[id] = { firstAt: num(entry.firstAt), total: int(entry.total) };
   }
+  // Les exemplaires obtenus par échange ne comptent pas au codex.
   for (const [id, e] of Object.entries(inventory)) {
+    const own = e.count - (e.traded ?? 0);
+    if (own <= 0) continue;
     const c = codex[id];
-    if (!c) codex[id] = { firstAt: e.firstAt, total: e.count };
-    else c.total = Math.max(c.total, e.count);
+    if (!c) codex[id] = { firstAt: e.firstAt, total: own };
+    else c.total = Math.max(c.total, own);
   }
 
   const s = obj(r.stats);
@@ -225,6 +295,8 @@ export function normalizePlayerState(raw: unknown, fallbackName: string, now: nu
     questsClaimed: int(s.questsClaimed),
     shardsEarned: int(s.shardsEarned),
     shardsSpent: int(s.shardsSpent),
+    marketDeals: int(s.marketDeals),
+    streakGuardEnd: num(s.streakGuardEnd),
   };
 
   const p = obj(r.potions);
@@ -309,6 +381,10 @@ export function normalizePlayerState(raw: unknown, fallbackName: string, now: nu
 
   return {
     version: 2,
+    rev: int(r.rev),
+    requestIds: list(r.requestIds)
+      .filter((x): x is string => typeof x === "string" && REQUEST_ID_RE.test(x))
+      .slice(0, REQUEST_ID_LIMIT),
     name: typeof r.name === "string" && r.name ? r.name : fallbackName,
     createdAt: num(r.createdAt, now),
     equipped,
@@ -330,6 +406,17 @@ export function normalizePlayerState(raw: unknown, fallbackName: string, now: nu
     upgrades,
     cosmetics: { owned: cosOwned, trail: wear(cos.trail, "trail"), frame: wear(cos.frame, "frame") },
     ledger,
+    escrow: normalizeEscrow(r.escrow),
+    purchases: normalizePurchases(r.purchases),
+    processedTransfers: list(r.processedTransfers)
+      .filter((x): x is string => typeof x === "string" && x.length <= 120)
+      .slice(0, 200),
+    hints: Object.fromEntries(
+      Object.entries(obj(r.hints))
+        .filter(([id]) => isSecretAchievement(id))
+        .map(([id, v]) => [id, Math.min(HINT_LEVELS, int(v))] as const)
+        .filter(([, v]) => v > 0),
+    ),
   };
 }
 

@@ -10,6 +10,7 @@
 import { verifyFirebaseIdToken } from "./auth";
 import type { D1Database } from "./d1";
 import { createD1Store } from "./d1Store";
+import { createD1Market } from "./d1Market";
 import { API_PATH, LEADERBOARD_PATH, errorResponse, handleApiRequest, handleLeaderboardRequest } from "./http";
 
 export interface Env {
@@ -29,6 +30,6 @@ export default {
     const verifyToken = (token: string) => verifyFirebaseIdToken(token, env.FIREBASE_PROJECT_ID);
 
     if (pathname === LEADERBOARD_PATH) return handleLeaderboardRequest(request, { verifyToken, leaderboard: store.leaderboard });
-    return handleApiRequest(request, { verifyToken, store });
+    return handleApiRequest(request, { verifyToken, store, market: createD1Market(env.DB), log: (entry) => console.log(JSON.stringify(entry)) });
   },
 };

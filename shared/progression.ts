@@ -75,7 +75,7 @@ export const PRESTIGE_MAX = 10;
 /** Bonus de chance additif permanent par prestige. */
 export const PRESTIGE_LUCK = 0.05;
 /** Potions offertes à chaque renaissance. */
-export const PRESTIGE_REWARD: Partial<Record<PotionId, number>> = { superLuck: 2, hourglass: 1, blessing: 2 };
+export const PRESTIGE_REWARD: Partial<Record<PotionId, number>> = { superLuck: 2, hourglass: 1, blessing: 2, xpBoost: 2 };
 
 export const runRolls = (s: PlayerState): number => s.stats.rolls - s.prestige.runStartRolls;
 

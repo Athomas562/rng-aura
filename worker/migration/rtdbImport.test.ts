@@ -69,7 +69,7 @@ describe("import d'un export Realtime Database vers D1", () => {
     db.sqlite.exec(sql);
     expect(counts.bans).toBe(1);
     expect(db.row("SELECT reason FROM bans WHERE uid = 'uid-2'")).toEqual({ reason: "'); DROP TABLE players; --" });
-    expect(db.rows("SELECT name FROM sqlite_master WHERE type = 'table'")).toHaveLength(4);
+    expect(db.rows("SELECT name FROM sqlite_master WHERE type = 'table'")).toHaveLength(8);
   });
 
   it("n'importe rien des chemins de l'ancien jeu", () => {

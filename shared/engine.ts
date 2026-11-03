@@ -1,4 +1,5 @@
 import { ACHIEVEMENTS, isAchievementMet } from "./achievements";
+import { HINT_LABELS, isSecretAchievement, nextHintCost } from "./hints";
 import {
   ACHIEVEMENT_SHARDS,
   DISCOVERY_SHARDS,
@@ -14,6 +15,7 @@ import {
   getCosmetic,
   emptyUpgrades,
   getUpgrade,
+  potionPrice,
   rollShards,
   upgradePotionDurationMul,
   type CosmeticId,
@@ -30,7 +32,7 @@ import {
   nextStreak,
   type LuckBreakdown,
 } from "./luck";
-import { FOCUS_TARGETS, MAX_PENDING_BLESSINGS, POTIONS, POTION_MAX_STACK_MS, type PotionId } from "./potions";
+import { FOCUS_TARGETS, MAX_PENDING_BLESSINGS, POTIONS, type PotionId } from "./potions";
 import { computeDistribution, pickFromDistribution, type DistributionEntry } from "./probability";
 import {
   DISCOVERY_XP_MUL,
@@ -114,6 +116,7 @@ export const ROLL_MILESTONE_REWARDS: { every: number; potion: PotionId }[] = [
   { every: 1_000, potion: "hourglass" },
   { every: 1_500, potion: "focus" },
   { every: 2_000, potion: "blessing" },
+  { every: 750, potion: "xpBoost" },
 ];
 
 /** Potion offerte à la première découverte d'une aura de ce rang ou plus. */
@@ -267,13 +270,20 @@ function obtain(state: PlayerState, aura: Aura, now: number, rewards: PotionRewa
     earn(eco, "Premières découvertes", DISCOVERY_SHARDS * (getRarity(aura.rarity).tier + 1));
   }
 
-  const xp = Math.round(xpForRarity(aura.rarity) * (isNew ? DISCOVERY_XP_MUL : 1) * talentXpMul(state.talents));
+  const xp = Math.round(xpForRarity(aura.rarity) * (isNew ? DISCOVERY_XP_MUL : 1) * xpMultiplier(state, now));
   state.xp += xp;
   bump(state, "xp", xp);
 
   if (isBetter(aura.id, state.stats.bestAuraId)) state.stats.bestAuraId = aura.id;
   if (!state.equipped) state.equipped = aura.id;
   return { isNew, xp };
+}
+
+/** Multiplicateur d'XP : talent Érudit × potion d'érudition (multiplicatif, ex. 1,10 × 2 = 2,2). */
+export function xpMultiplier(state: PlayerState, now: number): number {
+  const effect = POTIONS.xpBoost.effect;
+  const potion = isPotionActive(state, "xpBoost", now) && effect.kind === "xpMul" ? effect.value : 1;
+  return talentXpMul(state.talents) * potion;
 }
 
 /** Distribution utilisée par le serveur pour un roll (saisonnières selon `now`, potion ciblée). */
@@ -380,7 +390,8 @@ export function drinkPotion(input: PlayerState, potionId: PotionId, now: number,
       state.potions.focusTarget = target;
     }
     const duration = Math.round(potion.durationMs * talentPotionDurationMul(state.talents) * upgradePotionDurationMul(state.upgrades));
-    state.potions.active[potionId] = Math.min(start + duration, now + POTION_MAX_STACK_MS);
+    state.potions.active[potionId] = start + duration;
+    if (effect.kind === "streakGuard") state.stats.streakGuardEnd = state.potions.active[potionId]!;
   }
 
   state.potions.owned[potionId] -= 1;
@@ -479,14 +490,14 @@ export function doPrestige(input: PlayerState, now: number): ActionOutcome {
       { at: now, level, runRolls: runRolls(state), bestAuraId: best, collection: Object.keys(state.inventory).length },
     ].slice(-PRESTIGE_HISTORY_LIMIT),
   };
-  // Les auras sont conservées. Repartent de zéro : Éclats, améliorations de la boutique et série.
+  // Les auras sont conservées. Repartent de zéro : Éclats et améliorations de la boutique.
   // Codex, niveau, talents, cosmétiques, succès, potions et record de rareté sont conservés.
   if (state.shards > 0) {
     state.ledger.unshift({ at: now, amount: -state.shards, reason: `Renaissance ${level} : remise à zéro`, balance: 0 });
   }
   state.shards = 0;
   state.upgrades = emptyUpgrades();
-  state.stats.streak = 0;
+  // La série n'est pas touchée : elle ne dépend que du rythme des rolls.
   // L'Écrin est remis à zéro : on retire les emplacements qui n'existent plus.
   state.slots = state.slots.slice(0, Math.max(0, slotCount(state) - 1));
 
@@ -609,13 +620,13 @@ export function buyPotion(input: PlayerState, potionId: PotionId, quantity: numb
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_POTIONS_PER_PURCHASE) {
     throw new GameError("invalid", `Quantité entre 1 et ${MAX_POTIONS_PER_PURCHASE}`);
   }
-  const price = POTION_PRICES[potionId];
-  if (!price) throw new GameError("invalid", "Potion non vendue");
+  if (!POTION_PRICES[potionId]) throw new GameError("invalid", "Potion non vendue");
+  const price = potionPrice(potionId, quantity);
   if (input.potions.owned[potionId] + quantity > POTION_STOCK_LIMIT) {
     throw new GameError("invalid", `Stock maximal : ${POTION_STOCK_LIMIT}`);
   }
   const state = begin(input, now);
-  spend(state, price * quantity, `Achat : ${quantity}× ${POTIONS[potionId].name}`, now);
+  spend(state, price, `Achat : ${quantity}× ${POTIONS[potionId].name}`, now);
   state.potions.owned[potionId] += quantity;
   return finish(state, input, now, {});
 }
@@ -640,6 +651,21 @@ export function wearCosmetic(input: PlayerState, kind: CosmeticKind, cosmeticId:
   const state = clone(input);
   state.cosmetics[kind] = cosmeticId;
   return state;
+}
+
+// ───────────── Indices des succès secrets ─────────────
+
+/** Révèle le niveau d'indice suivant d'un succès secret (1 gratuit, 2 à 50, 3 à 200 éclats). */
+export function revealHint(input: PlayerState, achievementId: string, now: number): ActionOutcome {
+  if (!isSecretAchievement(achievementId)) throw new GameError("invalid", "Ce succès n'a pas d'indice");
+  if (input.achievements[achievementId]) throw new GameError("invalid", "Succès déjà débloqué : indice inutile");
+  const level = input.hints[achievementId] ?? 0;
+  const cost = nextHintCost(level);
+  if (cost === null) throw new GameError("invalid", "Tous les indices sont déjà révélés");
+  const state = begin(input, now);
+  if (cost > 0) spend(state, cost, `Indice ${HINT_LABELS[level].toLowerCase()}`, now);
+  state.hints[achievementId] = level + 1;
+  return finish(state, input, now, {});
 }
 
 // ───────────── Classement ─────────────

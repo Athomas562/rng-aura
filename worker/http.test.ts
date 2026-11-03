@@ -225,7 +225,7 @@ describe("API du Worker : GET /api/leaderboard", () => {
     "refuse le paramètre invalide %s sans toucher aux tables",
     async (query) => {
       expect((await getLeaderboard(query)).status).toBe(400);
-      expect(db.rows("SELECT name FROM sqlite_master WHERE type = 'table'")).toHaveLength(4);
+      expect(db.rows("SELECT name FROM sqlite_master WHERE type = 'table'")).toHaveLength(8);
     },
   );
 

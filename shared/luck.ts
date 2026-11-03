@@ -30,8 +30,11 @@ export const BLESSED_EVERY = 10;
 export const BLESSED_EVERY_MIN = 5;
 export const BLESSED_MULTIPLIER = 2;
 
-/** Deux rolls séparés de moins de cette durée prolongent la série. */
-export const STREAK_WINDOW_MS = 20_000;
+/**
+ * Deux rolls séparés de moins de cette durée prolongent la série. 25 s : un onglet en
+ * arrière-plan ralenti par le navigateur ou un léger retard réseau ne cassent pas la série.
+ */
+export const STREAK_WINDOW_MS = 25_000;
 /** +2 % de chance tous les 10 rolls de série, plafonné à +30 % (plus avec le talent Endurance). */
 export const STREAK_STEP = 10;
 export const STREAK_BONUS_PER_STEP = 0.02;
@@ -69,12 +72,26 @@ export function streakWindowMs(state: PlayerState): number {
   return STREAK_WINDOW_MS + talentStreakWindowMs(state.talents);
 }
 
-/** Série qu'aurait le prochain roll s'il était lancé à `now`. */
+/**
+ * Série qu'aurait le prochain roll s'il était lancé à `now` (horloge serveur uniquement).
+ * Potion de série : la série est gelée jusqu'à la fin de la potion, puis la fenêtre normale
+ * repart de cet instant (la série ne retombe jamais au moment même de l'expiration).
+ */
 export function nextStreak(state: PlayerState, now: number): number {
-  const { lastRollAt, streak } = state.stats;
+  const { lastRollAt, streak, streakGuardEnd } = state.stats;
   if (lastRollAt <= 0) return 1;
-  const kept = now - lastRollAt <= streakWindowMs(state) || isPotionActive(state, "streakGuard", now);
-  return kept ? streak + 1 : 1;
+  const guardEnd = Math.max(streakGuardEnd, state.potions.active.streakGuard ?? 0);
+  if (guardEnd > lastRollAt && now <= guardEnd) return streak + 1;
+  const reference = guardEnd > lastRollAt ? guardEnd : lastRollAt;
+  return now - reference <= streakWindowMs(state) ? streak + 1 : 1;
+}
+
+/** Instant (ms serveur) à partir duquel la série retombera si aucun roll n'est lancé. */
+export function streakExpiresAt(state: PlayerState): number {
+  const { lastRollAt, streakGuardEnd } = state.stats;
+  if (lastRollAt <= 0) return 0;
+  const guardEnd = Math.max(streakGuardEnd, state.potions.active.streakGuard ?? 0);
+  return Math.max(lastRollAt, guardEnd) + streakWindowMs(state);
 }
 
 /** Période du roll béni (10, moins avec le talent Bénédiction et l'Auréole, jamais sous 5). */

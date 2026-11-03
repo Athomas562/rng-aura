@@ -12,8 +12,11 @@ import { getRarity, type RarityId } from "./rarities";
 
 export const CURRENCY = { name: "Éclats", singular: "éclat", plural: "éclats", short: "✦" } as const;
 
-/** Solde maximal : au-delà, les gains sont perdus (évite les débordements et l'accumulation infinie). */
-export const SHARD_CAP = 50_000_000;
+/**
+ * Solde maximal : au-delà, les gains sont perdus (évite les débordements et l'accumulation infinie).
+ * 2 milliards : assez pour acheter au marché une aura Beyond (prix plancher 800 M).
+ */
+export const SHARD_CAP = 2_000_000_000;
 
 // ───────────── Gains ─────────────
 
@@ -149,7 +152,20 @@ export const POTION_PRICES: Record<PotionId, number> = {
   streakGuard: 180,
   blessing: 150,
   purify: 120,
+  xpBoost: 150,
 };
+
+/** Lots à prix réduit (quantité exacte → prix total). */
+export const POTION_PACKS: Partial<Record<PotionId, { quantity: number; price: number }>> = {
+  xpBoost: { quantity: 10, price: 1_350 },
+};
+
+/** Prix total d'un achat de potions (lot à prix réduit si la quantité correspond). */
+export function potionPrice(id: PotionId, quantity: number): number {
+  const pack = POTION_PACKS[id];
+  if (pack && quantity === pack.quantity) return pack.price;
+  return POTION_PRICES[id] * quantity;
+}
 /** Au-delà de ce stock, la boutique refuse de vendre la potion (évite d'immobiliser le solde). */
 export const POTION_STOCK_LIMIT = 99;
 export const MAX_POTIONS_PER_PURCHASE = 10;

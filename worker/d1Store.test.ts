@@ -35,9 +35,9 @@ beforeEach(() => {
 });
 
 describe("schéma D1 (migrations/)", () => {
-  it("crée les quatre tables et les index du classement", () => {
+  it("crée les tables (jeu, marché, échanges, anti-mule) et les index du classement", () => {
     const tables = db.rows<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").map((t) => t.name);
-    expect(tables).toEqual(["bans", "leaderboard", "players", "usernames"]);
+    expect(tables).toEqual(["account_footprints", "bans", "leaderboard", "market_listings", "players", "trades", "transfers", "usernames"]);
     const indexes = db.rows<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'leaderboard_%'");
     expect(indexes).toHaveLength(7);
     const columns = db.rows<{ name: string }>("PRAGMA table_info(leaderboard)").map((c) => c.name);
@@ -121,7 +121,7 @@ describe("store D1 : opérations de base", () => {
     await s.getBan(evil);
     await s.claimUsername(evil, evil, T0);
     expect(db.row("SELECT uid FROM players WHERE uid = ?", evil)).toBeDefined();
-    expect(db.rows("SELECT name FROM sqlite_master WHERE type = 'table'")).toHaveLength(4);
+    expect(db.rows("SELECT name FROM sqlite_master WHERE type = 'table'")).toHaveLength(8);
   });
 });
 
