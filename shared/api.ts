@@ -1,3 +1,4 @@
+import type { AdminGrant, AdminPlayerView } from "./admin";
 import type { CosmeticId, CosmeticKind, UpgradeId } from "./economy";
 import type { PotionReward, RollResult } from "./engine";
 import type { ListingView, PartnerInventoryView, TradeView } from "./market";
@@ -36,7 +37,9 @@ export type ApiRequest =
   | { action: "tradeOffer"; tradeId: string; auras: string[] }
   | { action: "tradeConfirm"; tradeId: string; version: number }
   | { action: "tradeCancel"; tradeId: string }
-  | { action: "tradePartner"; tradeId: string };
+  | { action: "tradePartner"; tradeId: string }
+  | { action: "adminLookup"; target: string }
+  | { action: "adminGive"; target: string; grant: AdminGrant };
 
 export interface ApiResponse {
   state: PlayerState;
@@ -59,6 +62,8 @@ export interface ApiResponse {
   hints?: Record<string, string[]>;
   /** La requête de roll avait déjà été traitée (doublon ignoré). */
   duplicate?: boolean;
+  /** Panneau d'administration : joueur consulté ou modifié. */
+  admin?: AdminPlayerView;
   /** Aura obtenue par fusion. */
   fused?: { auraId: string; isNew: boolean; xp: number };
 }

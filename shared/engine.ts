@@ -243,7 +243,7 @@ function finish(state: PlayerState, before: PlayerState, now: number, rewards: P
   return { state, achievements, rewards, shards, ...(lvAfter > lvBefore ? { levelUp: lvAfter } : {}) };
 }
 
-function isBetter(candidateId: string, currentId: string | null): boolean {
+export function isBetter(candidateId: string, currentId: string | null): boolean {
   if (!currentId) return true;
   const current = getAura(currentId);
   return !current || requireAura(candidateId).odds > current.odds;

@@ -16,7 +16,10 @@ export interface RevealTiming {
 export const MAX_BURST_MS = 2_200;
 export const MAX_OMEN_MS = 1_200;
 
-export function revealTiming(tier: number, opts: { reducedMotion: boolean; skipCommonReveal: boolean; auto: boolean }): RevealTiming {
+export function revealTiming(
+  tier: number,
+  opts: { reducedMotion: boolean; skipCommonReveal: boolean; auto: boolean; budgetMs?: number },
+): RevealTiming {
   const t = Math.max(0, tier);
   let omenMs = t >= 3 ? Math.min(MAX_OMEN_MS, 450 + (t - 3) * 70) : 0;
   let burstMs = Math.min(MAX_BURST_MS, 520 + t * 120);
@@ -26,5 +29,13 @@ export function revealTiming(tier: number, opts: { reducedMotion: boolean; skipC
     omenMs = omenMs ? 250 : 0;
     burstMs = Math.min(burstMs, 900);
   }
+  // Rolls courants enchaînés : l'animation tient dans le temps de recharge, pour que le jeu normal
+  // aille aussi vite que le serveur le permet (plusieurs onglets ou un script ne font rien gagner).
+  if (opts.budgetMs !== undefined && t <= 2 && (opts.auto || opts.skipCommonReveal)) burstMs = Math.min(burstMs, Math.max(MIN_BURST_MS, opts.budgetMs));
   return { omenMs, burstMs };
 }
+
+/** Durée minimale d'affichage d'une aura courante. */
+export const MIN_BURST_MS = 150;
+/** Part du temps de recharge consacrée à la charge (le reste à l'affichage du résultat). */
+export const CHARGE_SHARE = 0.4;

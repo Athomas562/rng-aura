@@ -32,6 +32,7 @@ const STATUS: Record<ErrorCode, number> = {
   "method-not-allowed": 405,
   "failed-precondition": 409,
   "already-exists": 409,
+  "not-found": 404,
   "payload-too-large": 413,
   "resource-exhausted": 429,
   internal: 500,

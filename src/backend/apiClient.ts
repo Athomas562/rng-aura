@@ -45,6 +45,7 @@ export function toBackendError(status: number, body: unknown): BackendError {
     case "invalid-argument":
     case "failed-precondition":
     case "already-exists":
+    case "not-found":
       return new BackendError("invalid", message);
     case "unauthenticated":
       return new BackendError("auth", "Session expirée, reconnecte-toi.");

@@ -10,6 +10,7 @@ import { QuestsPage } from "../pages/QuestsPage";
 import { RollPage } from "../pages/RollPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { ShopPage } from "../pages/ShopPage";
+import { AdminPage } from "../pages/AdminPage";
 import { StatsPage } from "../pages/StatsPage";
 import { RevealOverlay } from "../roll/RevealOverlay";
 import { EXTRA_PAGES, NAV_ORDER, PAGES, groupOf, type KeyAction, type PageId } from "../settings/settings";
@@ -29,6 +30,7 @@ const COMPONENTS: Record<PageId, () => JSX.Element> = {
   progression: ProgressionPage,
   quests: QuestsPage,
   shop: ShopPage,
+  admin: AdminPage,
 };
 
 function pageFromHash(): PageId {
