@@ -16,6 +16,8 @@ import {
 export const BASE_ROLL_COOLDOWN_MS = 900;
 /** Marge tolérée côté serveur pour la latence réseau. */
 export const COOLDOWN_TOLERANCE_MS = 120;
+/** Plancher absolu du temps de recharge, quels que soient les bonus cumulés. */
+export const MIN_ROLL_COOLDOWN_MS = 250;
 /** Nombre maximal de rolls demandés en une requête (auto-roll). */
 export const MAX_ROLL_BATCH = 8;
 /**
@@ -163,7 +165,7 @@ export function getRollCooldownMs(state: PlayerState, now: number): number {
     const { effect } = POTIONS[id];
     if (effect.kind === "cooldownMul" && isPotionActive(state, id, now)) cd *= effect.value;
   }
-  return Math.round(cd);
+  return Math.max(MIN_ROLL_COOLDOWN_MS, Math.round(cd));
 }
 
 /**

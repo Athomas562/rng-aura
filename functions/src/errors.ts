@@ -4,7 +4,8 @@ export type ApiErrorCode =
   | "permission-denied"
   | "resource-exhausted"
   | "failed-precondition"
-  | "already-exists";
+  | "already-exists"
+  | "not-found";
 
 export class ApiError extends Error {
   constructor(

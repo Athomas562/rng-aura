@@ -18,7 +18,10 @@ export const EXTRA_PAGES = [
   { id: "shop", label: "Boutique", key: "Digit0" },
 ] as const;
 
-export type PageId = (typeof PAGES)[number]["id"] | (typeof EXTRA_PAGES)[number]["id"];
+/** Page d'administration : visible uniquement pour les comptes admin (le serveur vérifie). */
+export const ADMIN_PAGE = { id: "admin", label: "Admin" } as const;
+
+export type PageId = (typeof PAGES)[number]["id"] | (typeof EXTRA_PAGES)[number]["id"] | typeof ADMIN_PAGE.id;
 
 /** Ordre des pages (raccourcis, hash). */
 export const NAV_ORDER: PageId[] = [
@@ -32,17 +35,18 @@ export const NAV_ORDER: PageId[] = [
   "stats",
   "leaderboard",
   "settings",
+  "admin",
 ];
 
 export type NavGroupId = "play" | "shop" | "progress" | "leaderboard" | "settings";
 
 /** Navigation regroupée : 5 entrées, chacune avec ses sous-pages. */
-export const NAV_GROUPS: { id: NavGroupId; label: string; icon: PageId; pages: PageId[] }[] = [
+export const NAV_GROUPS: { id: NavGroupId; label: string; icon: Exclude<PageId, "admin">; pages: PageId[] }[] = [
   { id: "play", label: "Jouer", icon: "roll", pages: ["roll", "inventory", "collection"] },
   { id: "shop", label: "Boutique", icon: "shop", pages: ["shop"] },
   { id: "progress", label: "Progression", icon: "progression", pages: ["progression", "quests", "achievements", "stats"] },
   { id: "leaderboard", label: "Classement", icon: "leaderboard", pages: ["leaderboard"] },
-  { id: "settings", label: "Paramètres", icon: "settings", pages: ["settings"] },
+  { id: "settings", label: "Paramètres", icon: "settings", pages: ["settings", "admin"] },
 ];
 
 export function groupOf(page: PageId) {
@@ -50,7 +54,7 @@ export function groupOf(page: PageId) {
 }
 
 export const PAGE_LABELS: Record<PageId, string> = Object.fromEntries(
-  [...PAGES, ...EXTRA_PAGES].map((p) => [p.id, p.label]),
+  [...PAGES, ...EXTRA_PAGES, ADMIN_PAGE].map((p) => [p.id, p.label]),
 ) as Record<PageId, string>;
 
 /** Raccourci d'une page : configurable pour les 7 pages d'origine, fixe pour les nouvelles. */

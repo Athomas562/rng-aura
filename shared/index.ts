@@ -17,3 +17,4 @@ export * from "./hints";
 export * from "./engine";
 export * from "./random";
 export * from "./api";
+export * from "./admin";

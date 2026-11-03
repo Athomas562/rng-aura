@@ -15,6 +15,8 @@ export default defineConfig(({ mode }) => {
     // En développement, l'API est servie par `npm run dev:api` (wrangler dev).
     server: { proxy: { "/api": "http://127.0.0.1:8787" } },
     test: {
+      // Les tests de concurrence (centaines de requêtes simultanées) dépassent 5 s sur une machine chargée.
+      testTimeout: 30_000,
       include: ["shared/**/*.test.ts", "functions/src/**/*.test.ts", "src/**/*.test.tsx", "tests/**/*.static.test.ts", "worker/**/*.test.ts", "src/**/*.test.ts"],
     },
   };

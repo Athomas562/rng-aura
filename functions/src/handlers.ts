@@ -32,6 +32,10 @@ import {
   setTitle,
   toLeaderboardEntry,
   type ActionOutcome,
+  adminView,
+  applyGrant,
+  isAdmin,
+  validateGrant,
   EMAIL_DOMAIN,
   REQUEST_ID_LIMIT,
   REQUEST_ID_RE,
@@ -180,8 +184,49 @@ export async function handleApi(
   /** État final après une action de marché (lecture, sans écriture supplémentaire). */
   const current = async () => (await readState(uid)) ?? (await run((s) => s));
 
+  /** Retrouve un joueur par pseudo (ou par UID) pour le panneau d'administration. */
+  const adminTarget = async (target: unknown): Promise<string> => {
+    if (!isAdmin(uid)) throw new ApiError("permission-denied", "Réservé à l'administrateur");
+    if (typeof target !== "string" || !target.trim()) throw new ApiError("invalid-argument", "Joueur manquant");
+    const t = target.trim();
+    if (USERNAME_RE.test(t)) {
+      const found = await market?.uidByName(t.toLowerCase());
+      if (found) return found;
+    }
+    if (/^[A-Za-z0-9]{10,64}$/.test(t) && (await store.readPlayer?.(t))) return t;
+    throw new ApiError("not-found", "Joueur introuvable : " + t);
+  };
+
   let state: PlayerState;
   switch (action) {
+    case "adminLookup": {
+      const target = await adminTarget(input.target);
+      const raw = await store.readPlayer?.(target);
+      if (!raw) throw new ApiError("not-found", "Ce joueur n'a pas encore de partie");
+      extra.admin = adminView(target, normalizePlayerState(raw, "Joueur", deps.now()));
+      state = await current();
+      leaderboard = false;
+      break;
+    }
+
+    case "adminGive": {
+      const target = await adminTarget(input.target);
+      const checked = validateGrant(input.grant);
+      if ("error" in checked) throw new ApiError("invalid-argument", checked.error);
+      const updated = await store.updatePlayer(target, (raw) => {
+        if (!raw) throw new ApiError("not-found", "Ce joueur n'a pas encore de partie");
+        const now = deps.now();
+        const s = normalizePlayerState(raw, "Joueur", now);
+        return { ...applyGrant(s, checked.grant, now), rev: s.rev + 1 };
+      });
+      deps.log?.({ event: "admin_give", admin: uid, target, grant: checked.grant, server_ts: deps.now() });
+      await store.writeLeaderboard(target, toLeaderboardEntry(updated, deps.now()));
+      extra.admin = adminView(target, updated);
+      state = await current();
+      leaderboard = false;
+      break;
+    }
+
     case "load":
       state = await run((s) => s);
       break;

@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { claimableCount, getCosmetic, getTitle } from "../../shared";
+import { claimableCount, getCosmetic, getTitle, isAdmin } from "../../shared";
 import { Icon } from "../components/Icon";
 import { useGame } from "../game/GameContext";
 import { NAV_GROUPS, PAGE_LABELS, groupOf, keyLabel, pageShortcut, type PageId } from "../settings/settings";
@@ -76,21 +76,24 @@ export function Nav({ page, onNavigate, lastOf }: { page: PageId; onNavigate: (p
 /** Sous-onglets du groupe courant + titre d'écran (fil d'Ariane). */
 export function SubNav({ page, onNavigate }: { page: PageId; onNavigate: (p: PageId) => void }) {
   const { settings } = useSettings();
+  const { user } = useGame();
   const group = groupOf(page);
+  // La page admin n'apparaît que pour les comptes admin.
+  const pages = group.pages.filter((p) => p !== "admin" || isAdmin(user.uid));
   return (
     <div className="subnav">
       <nav className="breadcrumb" aria-label="Fil d'Ariane">
         <span>{group.label}</span>
-        {group.pages.length > 1 && (
+        {pages.length > 1 && (
           <>
             <span aria-hidden="true">›</span>
             <span aria-current="page">{PAGE_LABELS[page]}</span>
           </>
         )}
       </nav>
-      {group.pages.length > 1 && (
+      {pages.length > 1 && (
         <div className="subnav__tabs" role="tablist" aria-label={`Sections : ${group.label}`}>
-          {group.pages.map((p) => {
+          {pages.map((p) => {
             const key = pageShortcut(p, settings.keybinds);
             return (
               <button

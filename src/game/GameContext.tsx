@@ -5,6 +5,11 @@ import {
   getRarity,
   levelInfo,
   lookOf,
+<<<<<<< HEAD
+=======
+  msUntilNextRoll,
+  getRollCooldownMs,
+>>>>>>> fb37ba53565325f60439f5ab0911324bbd933ac9
   requireAura,
   CURRENCY,
   type ApiRequest,
@@ -26,7 +31,7 @@ import { sound } from "../audio/sound";
 import { BackendError, backend, type AuthUser } from "../backend";
 import { useSettings } from "../settings/SettingsContext";
 import { emitAmbient } from "../effects/Backdrop";
-import { revealTiming } from "./revealTiming";
+import { CHARGE_SHARE, revealTiming } from "./revealTiming";
 
 export type RevealPhase = "charge" | "omen" | "burst";
 
@@ -85,6 +90,8 @@ interface GameValue {
   /** Textes des indices révélés (envoyés par le serveur uniquement après révélation). */
   hints: Record<string, string[]>;
   revealHint: (achievementId: string) => Promise<boolean>;
+  /** Envoie une intention brute (panneau admin) ; null si erreur (déjà signalée). */
+  send: (req: ApiRequest) => Promise<ApiResponse | null>;
 }
 
 const Ctx = createContext<GameValue | null>(null);
@@ -213,7 +220,9 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
         // Respecte la recharge connue localement pour éviter un aller-retour inutile.
         
         const key = ++revealKey.current;
-        const chargeMs = s.reducedMotion ? 250 : isAuto ? 300 : 520;
+        // La charge ne dépasse pas une part du temps de recharge : le rythme normal suit le serveur.
+        const cd = getRollCooldownMs(stateRef.current, now());
+        const chargeMs = Math.min(s.reducedMotion ? 250 : isAuto ? 300 : 520, Math.max(100, Math.round(cd * CHARGE_SHARE)));
         setReveal({ key, phase: "charge", result: null, aura: null, durationMs: chargeMs });
 
         // Un identifiant par intention de roll : si la requête est renvoyée, le serveur ne la rejoue pas.
@@ -232,7 +241,12 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
           const aura = lookOf(requireAura(result.auraId), { rolls: res.state.stats.rolls, inventory: res.state.inventory, mimicOf: res.state.mimicOf });
           const rarity = getRarity(aura.rarity);
           const k = ++revealKey.current;
-          const { omenMs, burstMs } = revealTiming(rarity.tier, { reducedMotion: s.reducedMotion, skipCommonReveal: s.skipCommonReveal, auto: isAuto });
+          const { omenMs, burstMs } = revealTiming(rarity.tier, {
+            reducedMotion: s.reducedMotion,
+            skipCommonReveal: s.skipCommonReveal,
+            auto: isAuto,
+            budgetMs: cd - chargeMs,
+          });
 
           if (omenMs > 0) {
             sound.riser(omenMs);
@@ -272,11 +286,33 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
     if (!autoRef.current) void runRoll(1);
   }, [runRoll]);
 
+  // Un seul onglet en auto-roll à la fois : en lancer un ailleurs coupe celui-ci.
+  const autoChannel = useRef<BroadcastChannel | null>(null);
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const ch = new BroadcastChannel("aura-rng:auto");
+    ch.onmessage = (e) => {
+      if (e.data === "auto-on" && autoRef.current) {
+        autoRef.current = false;
+        setAuto(false);
+        pushToast({ kind: "info", title: "Auto-roll coupé", body: "Il a été lancé dans un autre onglet." });
+      }
+    };
+    autoChannel.current = ch;
+    return () => {
+      ch.close();
+      autoChannel.current = null;
+    };
+  }, [pushToast]);
+
   const toggleAuto = useCallback(() => {
     autoRef.current = !autoRef.current;
     setAuto(autoRef.current);
     sound.click();
-    if (autoRef.current) void runRoll(AUTO_BATCH);
+    if (autoRef.current) {
+      autoChannel.current?.postMessage("auto-on");
+      void runRoll(AUTO_BATCH);
+    }
   }, [runRoll]);
 
   const skipReveal = useCallback(() => skipRef.current?.(), []);
@@ -443,6 +479,7 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
       shardBurst,
       hints,
       revealHint,
+      send,
     }),
     [
       user,
@@ -475,6 +512,7 @@ export function GameProvider({ user, initial, onBanned, children }: ProviderProp
       shardBurst,
       hints,
       revealHint,
+      send,
     ],
   );
 
